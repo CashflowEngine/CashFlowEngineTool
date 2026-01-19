@@ -6,7 +6,7 @@ matplotlib
 seaborn
 scipy
 yfinance
-google-generativeai>=0.7.2
+google-genai
 tabulate
 supabase
 openpyxl

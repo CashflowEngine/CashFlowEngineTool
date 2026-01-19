@@ -10,22 +10,32 @@ def page_meic_analysis(bt_df, live_df=None):
     
     if target.empty: return
     
-    st.markdown("### Configuration")
-    strats = st.multiselect("Select Strategies", target['strategy'].unique())
+    # === CONFIGURATION (Card) ===
+    with st.container(border=True):
+        ui.section_header("Configuration")
+        strats = st.multiselect("Select Strategies", target['strategy'].unique())
+    
     if not strats: return
     
     df = target[target['strategy'].isin(strats)].copy()
     if 'timestamp_open' not in df.columns:
-        st.error("No Entry Time data.")
+        st.error("No Entry Time data found in dataset.")
         return
         
     df['EntryTime'] = df['timestamp_open'].dt.strftime('%H:%M')
     
-    st.markdown("### Entry Time Analysis")
     stats = df.groupby('EntryTime')['pnl'].agg(['count', 'sum', 'mean'])
     stats.columns = ['Trades', 'Total P/L', 'Avg P/L']
     
-    st.dataframe(stats.style.applymap(ui.color_monthly_performance, subset=['Total P/L']), use_container_width=True)
-    
-    fig = px.bar(stats, y='Total P/L', color='Total P/L', color_continuous_scale='RdYlGn')
-    st.plotly_chart(fig, use_container_width=True)
+    # === ANALYSIS RESULTS (Card) ===
+    with st.container(border=True):
+        ui.section_header("Performance by Entry Time")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.dataframe(stats.style.applymap(ui.color_monthly_performance, subset=['Total P/L']).format({'Total P/L': '${:,.0f}', 'Avg P/L': '${:,.0f}'}), use_container_width=True)
+        
+        with col2:
+            fig = px.bar(stats, y='Total P/L', color='Total P/L', color_continuous_scale='RdYlGn', title="Total P/L per Time Slot")
+            fig.update_layout(template="plotly_white")
+            st.plotly_chart(fig, use_container_width=True)

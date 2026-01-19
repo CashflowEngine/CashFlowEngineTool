@@ -10,6 +10,10 @@ COLOR_BLUE = "#302BFF"
 COLOR_GREY = "#4B5563"
 COLOR_PURPLE = "#7B2BFF"
 
+def section_header(title):
+    """Render a styled blue header for cards."""
+    st.markdown(f"<div class='card-title'>{title}</div>", unsafe_allow_html=True)
+
 def show_loading_overlay(message="Processing", submessage="The engine is running..."):
     """Display a custom loading overlay with animated gears."""
     loading_html = f"""

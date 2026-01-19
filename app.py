@@ -21,9 +21,16 @@ st.set_page_config(page_title="Cashflow Engine", page_icon="⚡", layout="wide")
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Poppins:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    .stApp { font-family: 'Poppins', sans-serif; color: #4B5563; }
-    h1, h2, h3 { font-family: 'Exo 2', sans-serif !important; text-transform: uppercase; letter-spacing: 1px; color: #111827 !important; }
+    /* Main Background - Light Gray */
+    .stApp { 
+        font-family: 'Inter', sans-serif; 
+        color: #1F2937; 
+        background-color: #F9FAFB; /* Very light gray */
+    }
+    
+    h1, h2, h3 { font-family: 'Exo 2', sans-serif !important; text-transform: uppercase; letter-spacing: 0.5px; color: #111827 !important; }
     
     /* HIDE NATIVE STREAMLIT NAVIGATION */
     [data-testid="stSidebarNav"] {
@@ -61,17 +68,56 @@ st.markdown("""
         transform: none;
     }
     
-    .hero-card { padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 120px; border: 1px solid rgba(0,0,0,0.05); position: relative; }
-    .hero-teal { background-color: #00D2BE; color: white; border: none; }
-    .hero-coral { background-color: #FF2E4D; color: white; border: none; }
-    .hero-neutral { background-color: white; border: 1px solid #E5E7EB; color: #374151; }
-    .hero-neutral .hero-label { color: #6B7280; font-weight: 600; }
-    .hero-neutral .hero-value { color: #1F2937; }
-    .hero-neutral .hero-sub { color: #9CA3AF; }
-    .hero-label { font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; text-transform: uppercase; opacity: 0.9; margin-bottom: 5px; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 4px; }
-    .hero-value { font-family: 'Exo 2', sans-serif; font-size: 26px; font-weight: 800; margin: 0; }
+    /* --- CARD DESIGN SYSTEM --- */
     
-    div.stButton > button { background-color: #302BFF !important; color: white !important; font-family: 'Poppins', sans-serif; font-weight: 600; text-transform: uppercase; border: none; border-radius: 6px; padding: 0.7rem 1.2rem; box-shadow: 0 4px 6px rgba(48, 43, 255, 0.2); transition: all 0.2s ease; width: 100%; font-size: 16px; }
+    /* Style st.container(border=True) as a Card */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: white;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        border: 1px solid #E5E7EB; /* Gray 200 */
+        margin-bottom: 24px;
+    }
+    
+    /* Card Title Class */
+    .card-title {
+        font-family: 'Inter', sans-serif;
+        font-size: 22px;
+        font-weight: 600;
+        color: #302BFF; /* Brand Blue */
+        margin-bottom: 24px;
+        letter-spacing: -0.025em;
+    }
+
+    /* --- HIGHLIGHT BOXES (New Design from Screenshot) --- */
+    .highlight-container {
+        margin-bottom: 20px;
+    }
+    .highlight-label {
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+    .highlight-box { 
+        padding: 16px 20px; 
+        border-radius: 8px; 
+        text-align: left; 
+        font-weight: 600; 
+        font-size: 24px; 
+        display: inline-block;
+        min-width: 120px;
+        text-align: center;
+    }
+    .highlight-green { background-color: #34D399; color: white; } /* Green */
+    .highlight-red { background-color: #F87171; color: white; } /* Red */
+    .highlight-teal { background-color: #2DD4BF; color: white; } /* Teal */
+    .highlight-gray { background-color: #E5E7EB; color: #1F2937; } /* Gray */
+
+    /* Buttons */
+    div.stButton > button { background-color: #302BFF !important; color: white !important; font-family: 'Poppins', sans-serif; font-weight: 600; text-transform: uppercase; border: none; border-radius: 8px; padding: 0.6rem 1.2rem; box-shadow: 0 4px 6px rgba(48, 43, 255, 0.2); transition: all 0.2s ease; width: 100%; font-size: 15px; }
     div.stButton > button:hover { background-color: #2521c9 !important; box-shadow: 0 6px 12px rgba(48, 43, 255, 0.3); }
     
     /* Loading Overlay */

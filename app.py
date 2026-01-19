@@ -25,14 +25,40 @@ st.markdown("""
     .stApp { font-family: 'Poppins', sans-serif; color: #4B5563; }
     h1, h2, h3 { font-family: 'Exo 2', sans-serif !important; text-transform: uppercase; letter-spacing: 1px; color: #111827 !important; }
     
-    div.row-widget.stRadio > div[role="radiogroup"] > label {
-        background-color: transparent; padding: 10px 16px; border-radius: 6px; margin-bottom: 4px;
-        border: 1px solid transparent; transition: all 0.2s ease-in-out; cursor: pointer; display: flex; align-items: center; width: 100%; color: #4B5563;
+    /* HIDE NATIVE STREAMLIT NAVIGATION */
+    [data-testid="stSidebarNav"] {
+        display: none;
     }
-    div.row-widget.stRadio > div[role="radiogroup"] > label:hover { background-color: #F3F4F6; color: #111827; }
+
+    /* CUSTOM NAVIGATION STYLING (Mimic Native Look) */
+    div.row-widget.stRadio > div[role="radiogroup"] > label {
+        background-color: transparent; 
+        padding: 8px 12px; 
+        border-radius: 4px; 
+        margin-bottom: 2px;
+        border: none;
+        transition: background-color 0.2s; 
+        cursor: pointer; 
+        display: flex; 
+        align-items: center; 
+        width: 100%; 
+        color: #31333F;
+        font-family: "Source Sans Pro", sans-serif;
+        font-size: 16px;
+    }
+    
+    div.row-widget.stRadio > div[role="radiogroup"] > label:hover { 
+        background-color: #F0F2F6; 
+        color: #31333F;
+    }
+    
     div.row-widget.stRadio > div[role="radiogroup"] > label[data-checked="true"] {
-        background-color: #374151 !important; color: white !important; border: 1px solid #374151 !important; font-weight: 500;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); transform: translateX(2px);
+        background-color: #E8EAF0 !important; 
+        color: #31333F !important; 
+        font-weight: 600;
+        border: none;
+        box-shadow: none;
+        transform: none;
     }
     
     .hero-card { padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 120px; border: 1px solid rgba(0,0,0,0.05); position: relative; }

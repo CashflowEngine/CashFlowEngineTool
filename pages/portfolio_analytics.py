@@ -37,15 +37,82 @@ def page_portfolio_analytics(full_df, live_df=None):
     
     m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
     
+    # Calculate margin stats for display
+    margin_series = calc.generate_daily_margin_series_optimized(filt).reindex(full_idx, fill_value=0)
+    peak_margin = margin_series.max()
+    avg_margin = margin_series[margin_series > 0].mean() if not margin_series.empty and (margin_series > 0).any() else 0
+    max_margin_pct = (peak_margin / account_size) * 100 if account_size > 0 else 0
+    avg_margin_pct = (avg_margin / account_size) * 100 if account_size > 0 else 0
+    
+    spx_pnl_equivalent = account_size * m['SPX_TotalRet'] if m['SPX_TotalRet'] != 0 else 0
+    
     # === KPI GRID ===
     st.markdown("### 📊 Key Performance Indicators")
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    with c1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", color_class="hero-teal")
-    with c2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", color_class="hero-teal")
-    with c3: ui.render_hero_metric("Max DD", f"{m['MaxDD']:.1%}", color_class="hero-coral")
-    with c4: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}")
-    with c5: ui.render_hero_metric("MAR", f"{m['MAR']:.2f}")
-    with c6: ui.render_hero_metric("Trades", f"{len(filt)}")
+    
+    # ROW 1: Primary metrics with colors AND SPX comparisons
+    r1c1, r1c2, r1c3, r1c4, r1c5, r1c6 = st.columns(6)
+    with r1c1:
+        spx_txt = f"SPX: ${spx_pnl_equivalent:,.0f}" if spx_pnl_equivalent != 0 else ""
+        ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", spx_txt, "hero-teal")
+    with r1c2:
+        spx_txt = f"SPX: {m['SPX_CAGR']:.1%}" if m['SPX_CAGR'] != 0 else ""
+        ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", spx_txt, "hero-teal")
+    with r1c3:
+        spx_txt = f"SPX: {m['SPX_MaxDD']:.1%}" if m['SPX_MaxDD'] != 0 else ""
+        ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", spx_txt, "hero-coral")
+    with r1c4:
+        spx_dd_usd = account_size * abs(m['SPX_MaxDD']) if m['SPX_MaxDD'] != 0 else 0
+        spx_txt = f"SPX: ${spx_dd_usd:,.0f}" if spx_dd_usd != 0 else ""
+        ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", spx_txt, "hero-coral")
+    with r1c5:
+        spx_mar = m['SPX_CAGR'] / abs(m['SPX_MaxDD']) if m['SPX_MaxDD'] != 0 else 0
+        spx_txt = f"SPX: {spx_mar:.2f}" if spx_mar != 0 else ""
+        ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", spx_txt, "hero-teal")
+    with r1c6:
+        ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-teal")
+
+    st.write("")
+
+    # ROW 2: Secondary metrics (neutral)
+    r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(6)
+    with r2c1: ui.render_hero_metric("Total Trades", f"{m['Trades']}", "", "hero-neutral")
+    with r2c2: ui.render_hero_metric("Win Rate", f"{m['WinRate']:.1%}", "", "hero-neutral")
+    with r2c3: ui.render_hero_metric("Profit Factor", f"{m['PF']:.2f}", "", "hero-neutral")
+    with r2c4: 
+        spx_txt = f"SPX: {m['SPX_Sharpe']:.2f}" if m['SPX_Sharpe'] != 0 else ""
+        ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", spx_txt, "hero-neutral")
+    with r2c5: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "", "hero-neutral")
+    with r2c6: 
+        spx_txt = f"SPX: {m['SPX_Vol']:.1%}" if m['SPX_Vol'] != 0 else ""
+        ui.render_hero_metric("Volatility", f"{m['Vol']:.1%}", spx_txt, "hero-neutral")
+
+    st.write("")
+
+    # ROW 3: More metrics
+    r3c1, r3c2, r3c3, r3c4, r3c5, r3c6 = st.columns(6)
+    with r3c1: ui.render_hero_metric("Alpha (vs SPX)", f"{m['Alpha']:.1%}", "", "hero-neutral")
+    with r3c2: ui.render_hero_metric("Beta (vs SPX)", f"{m['Beta']:.2f}", "", "hero-neutral")
+    with r3c3: ui.render_hero_metric("Avg Ret/Marg", f"{m['AvgRetMargin']:.1%}", "", "hero-neutral")
+    with r3c4: ui.render_hero_metric("Kelly", f"{m['Kelly']:.1%}", "", "hero-neutral")
+    with r3c5: ui.render_hero_metric("Peak Margin", f"${peak_margin:,.0f}", f"{max_margin_pct:.0f}%", "hero-neutral")
+    with r3c6: ui.render_hero_metric("Avg Margin", f"${avg_margin:,.0f}", f"{avg_margin_pct:.0f}%", "hero-neutral")
+
+    st.write("")
+
+    # ROW 4: Streak metrics
+    r4c1, r4c2, r4c3, r4c4, r4c5 = st.columns(5)
+    with r4c1: ui.render_hero_metric("Win Streak", f"{m['WinStreak']}", "", "hero-neutral")
+    with r4c2: ui.render_hero_metric("Loss Streak", f"{m['LossStreak']}", "", "hero-neutral")
+    with r4c3: 
+        avg_win = filt[filt['pnl'] > 0]['pnl'].mean() if len(filt[filt['pnl'] > 0]) > 0 else 0
+        ui.render_hero_metric("Avg Win", f"${avg_win:,.0f}", "", "hero-neutral")
+    with r4c4: 
+        avg_loss = filt[filt['pnl'] <= 0]['pnl'].mean() if len(filt[filt['pnl'] <= 0]) > 0 else 0
+        ui.render_hero_metric("Avg Loss", f"${avg_loss:,.0f}", "", "hero-neutral")
+    with r4c5:
+        best = filt['pnl'].max() if not filt.empty else 0
+        worst = filt['pnl'].min() if not filt.empty else 0
+        ui.render_hero_metric("Best/Worst", f"${best:,.0f} / ${worst:,.0f}", "", "hero-neutral")
     
     st.divider()
     
@@ -60,10 +127,6 @@ def page_portfolio_analytics(full_df, live_df=None):
         st.plotly_chart(fig_eq, use_container_width=True)
         
     with tab_marg:
-        # Calculate daily margin
-        margin_series = calc.generate_daily_margin_series_optimized(filt).reindex(full_idx, fill_value=0)
-        peak_margin = margin_series.max()
-        
         fig_marg = px.area(x=margin_series.index, y=margin_series.values, title=f"Margin Usage (Peak: ${peak_margin:,.0f})")
         fig_marg.update_traces(line_color=ui.COLOR_PURPLE)
         st.plotly_chart(fig_marg, use_container_width=True)

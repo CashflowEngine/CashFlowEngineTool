@@ -256,18 +256,87 @@ def page_portfolio_builder(full_df):
     
     m = calc.calculate_advanced_metrics(port_ret, None, spx_ret, account_size)
     
+    # Additional Metrics Calculation
+    
     # Portfolio-level margin metrics
     portfolio_peak_margin = port_margin.max() if len(port_margin) > 0 else 0
+    mean_margin = port_margin[port_margin > 0].mean() if len(port_margin) > 0 and (port_margin > 0).any() else 0
     
+    # Alpha/Beta Calculation
+    alpha_val, beta_val = 0, 0
+    if spx_ret is not None and len(spx_ret) > 20 and len(port_ret) > 20:
+        # Align
+        aligned = pd.concat([port_ret, spx_ret], axis=1).dropna()
+        # Remove infs
+        aligned = aligned[~aligned.isin([np.nan, np.inf, -np.inf]).any(axis=1)]
+        if len(aligned) > 20:
+            from scipy import stats
+            y, x = aligned.iloc[:, 0], aligned.iloc[:, 1]
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+            beta_val = slope
+            alpha_val = intercept * 252
+
+    # Correlation
+    avg_correlation = 0
+    if len(active_strategy_returns) > 1:
+        corr_df = pd.DataFrame({s['name']: s['returns'] for s in active_strategy_returns})
+        corr_matrix = corr_df.corr()
+        # Get upper triangle
+        corr_values = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)).stack()
+        avg_correlation = corr_values.mean() if not corr_values.empty else 0
+
+    # Max Daily Loss
+    actual_max_daily_loss = port_pnl.min() if not port_pnl.empty else 0
+    # Avg 10 worst
+    worst_10 = port_pnl.nsmallest(10).mean() if len(port_pnl) >= 10 else actual_max_daily_loss
+    
+    # DD vs Account
+    dd_vs_account = abs(m['MaxDD_USD']) / account_size if account_size > 0 else 0
+    
+    # MAR on Margin
+    mar_on_margin = m['CAGR'] / (abs(m['MaxDD_USD']) / mean_margin) if mean_margin > 0 and m['MaxDD_USD'] != 0 else 0
+    
+    # Profit Factor (approx for portfolio level)
+    pos_days = port_pnl[port_pnl > 0].sum()
+    neg_days = abs(port_pnl[port_pnl < 0].sum())
+    profit_factor = pos_days / neg_days if neg_days != 0 else 0
+
+    # RENDER KPI GRID
+    # Row 1
     k1, k2, k3, k4, k5, k6 = st.columns(6)
     with k1: ui.render_hero_metric("Total P/L", f"${total_pnl:,.0f}", color_class="hero-teal" if total_pnl > 0 else "hero-coral")
     with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", color_class="hero-teal" if m['CAGR'] > 0 else "hero-coral")
-    with k3: ui.render_hero_metric("Max DD", f"{m['MaxDD']:.1%}", f"${abs(m['MaxDD_USD']):,.0f}", "hero-coral")
-    with k4: ui.render_hero_metric("Peak Margin", f"${portfolio_peak_margin:,.0f}", f"{(portfolio_peak_margin/account_size)*100:.0f}% Util", "hero-neutral")
-    with k5: ui.render_hero_metric("MAR", f"{m['MAR']:.2f}", color_class="hero-teal")
-    with k6: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", color_class="hero-neutral")
+    with k3: ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", "", "hero-coral")
+    with k4: ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", "", "hero-coral")
+    with k5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", color_class="hero-teal" if m['MAR'] > 1 else "hero-coral")
+    with k6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", color_class="hero-teal")
+
+    st.write("")
+
+    # Row 2
+    r2k1, r2k2, r2k3, r2k4, r2k5, r2k6 = st.columns(6)
+    with r2k1: ui.render_hero_metric("Peak Margin", f"${portfolio_peak_margin:,.0f}", f"{(portfolio_peak_margin/account_size)*100:.0f}% Util", "hero-neutral")
+    with r2k2: ui.render_hero_metric("Mean Margin", f"${mean_margin:,.0f}", f"{(mean_margin/account_size)*100:.0f}% Util", "hero-neutral")
+    with r2k3: 
+        active_cnt = len([k for k,v in st.session_state.portfolio_allocation.items() if v > 0])
+        ui.render_hero_metric("Active Strats", f"{active_cnt}", "", "hero-neutral")
+    with r2k4: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", "", "hero-neutral")
+    with r2k5: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "", "hero-neutral")
+    with r2k6: ui.render_hero_metric("DD vs Account", f"{dd_vs_account:.1%}", f"${abs(m['MaxDD_USD']):,.0f}", "hero-neutral")
+
+    st.write("")
+
+    # Row 3
+    r3k1, r3k2, r3k3, r3k4, r3k5, r3k6 = st.columns(6)
+    with r3k1: ui.render_hero_metric("Alpha", f"{alpha_val:.1%}", "", "hero-neutral")
+    with r3k2: ui.render_hero_metric("Beta", f"{beta_val:.2f}", "", "hero-neutral")
+    with r3k3: ui.render_hero_metric("MAR on Margin", f"{mar_on_margin:.2f}", "", "hero-neutral")
+    with r3k4: ui.render_hero_metric("Max Daily Loss", f"${actual_max_daily_loss:,.0f}", f"Avg10: ${worst_10:,.0f}", "hero-neutral")
+    with r3k5: ui.render_hero_metric("Avg Correlation", f"{avg_correlation:.2f}", "", "hero-neutral")
+    with r3k6: ui.render_hero_metric("Profit Factor", f"{profit_factor:.2f}", "", "hero-neutral")
 
     # Monte Carlo Button
+    st.write("")
     if st.button("🎲 Stress Test with Monte Carlo →", use_container_width=True, type="primary"):
         st.session_state.mc_portfolio_daily_pnl = port_pnl
         st.session_state.mc_portfolio_account_size = account_size

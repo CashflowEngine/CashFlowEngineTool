@@ -1,0 +1,12 @@
+streamlit
+pandas
+numpy
+plotly
+matplotlib
+seaborn
+scipy
+yfinance
+google-generativeai>=0.7.2
+tabulate
+supabase
+openpyxl

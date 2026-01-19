@@ -2,12 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
 
 def page_portfolio_builder(full_df):
     """
-    Enhanced Portfolio Builder
+    Enhanced Portfolio Builder with full functionality:
+    - Interactive Contract Allocation
+    - 5 Visualization Tabs (Equity, Allocation, Margin, Correlation, Greeks)
+    - Advanced Optimization (Kelly, MART)
     """
     st.markdown(
         """<h1 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800; 
@@ -80,7 +84,6 @@ def page_portfolio_builder(full_df):
     
     # Pre-calculate stats
     strategy_base_stats = {}
-    strategy_daily_pnl = {}
     
     for strat in strategies:
         strat_data = filtered_df[filtered_df['strategy'] == strat].copy()
@@ -110,7 +113,6 @@ def page_portfolio_builder(full_df):
 
         daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
         daily_pnl_aligned = daily_pnl.reindex(full_date_range, fill_value=0)
-        strategy_daily_pnl[strat] = daily_pnl_aligned
         
         # Max DD
         cumsum = daily_pnl_aligned.cumsum()
@@ -152,6 +154,8 @@ def page_portfolio_builder(full_df):
             'Strategy': strat,
             'Hist': stats['contracts_per_day'],
             'P&L': stats['total_pnl'],
+            'Margin/Lot': stats['margin_per_contract'],
+            'Margin After': stats['margin_per_contract'] * stats['contracts_per_day'] * mult,
             'Multiplier': mult,
             'Kelly%': stats['kelly'] * 100
         })
@@ -164,10 +168,15 @@ def page_portfolio_builder(full_df):
             alloc_df,
             column_config={
                 "Category": st.column_config.SelectboxColumn("Type", options=["Workhorse", "Airbag", "Opportunist"]),
-                "Multiplier": st.column_config.NumberColumn("MULT", min_value=0.0, max_value=10.0, step=0.1)
+                "Multiplier": st.column_config.NumberColumn("MULT", min_value=0.0, max_value=10.0, step=0.1),
+                "P&L": st.column_config.NumberColumn(format="$%.0f"),
+                "Margin/Lot": st.column_config.NumberColumn(format="$%.0f"),
+                "Margin After": st.column_config.NumberColumn(format="$%.0f"),
+                "Kelly%": st.column_config.NumberColumn(format="%.1f%%")
             },
             use_container_width=True,
-            key="allocation_editor_v16"
+            key="allocation_editor_v17",
+            hide_index=True
         )
         
         # Update state
@@ -193,22 +202,48 @@ def page_portfolio_builder(full_df):
             st.session_state.portfolio_allocation = optimized
             st.session_state.calculate_kpis = True
             st.rerun()
+            
+        if st.button("🎯 MART Opt", use_container_width=True):
+            optimized = calc.mart_optimize_allocation(
+                strategy_base_stats, target_margin, account_size,
+                st.session_state.category_overrides, full_date_range, filtered_df
+            )
+            st.session_state.portfolio_allocation = optimized
+            st.session_state.calculate_kpis = True
+            st.rerun()
 
     if not st.session_state.get('calculate_kpis', False):
         st.info("👆 Adjust allocations and click CALCULATE.")
         return
 
-    # Calculate Portfolio Metrics
+    # === CALCULATE PORTFOLIO METRICS ===
     port_pnl = pd.Series(0.0, index=full_date_range)
     port_margin = pd.Series(0.0, index=full_date_range)
     
     total_pnl = 0
+    active_strategy_returns = []
+    category_margin = {'Workhorse': 0, 'Airbag': 0, 'Opportunist': 0}
+    category_pnl = {'Workhorse': 0, 'Airbag': 0, 'Opportunist': 0}
+    
     for strat, mult in st.session_state.portfolio_allocation.items():
         if strat in strategy_base_stats and mult > 0:
             stats = strategy_base_stats[strat]
-            port_pnl = port_pnl.add(stats['daily_pnl_series'] * mult, fill_value=0)
+            scaled_pnl = stats['daily_pnl_series'] * mult
+            port_pnl = port_pnl.add(scaled_pnl, fill_value=0)
             port_margin = port_margin.add(stats['margin_series'] * mult, fill_value=0)
-            total_pnl += stats['total_pnl'] * mult
+            
+            s_pnl = stats['total_pnl'] * mult
+            total_pnl += s_pnl
+            
+            if scaled_pnl.std() > 0:
+                active_strategy_returns.append({'name': strat, 'returns': scaled_pnl})
+                
+            cat = st.session_state.category_overrides.get(strat, stats['category'])
+            if cat in category_margin:
+                # Margin calculation approximation for pie chart
+                s_margin = stats['margin_per_contract'] * stats['contracts_per_day'] * mult
+                category_margin[cat] += s_margin
+                category_pnl[cat] += s_pnl
             
     port_equity = account_size + port_pnl.cumsum()
     port_ret = port_equity.pct_change().fillna(0)
@@ -216,17 +251,19 @@ def page_portfolio_builder(full_df):
     # KPI Grid
     st.markdown("### 📈 Portfolio KPIs")
     
-    # Calculate advanced metrics for the simulated portfolio
     spx = calc.fetch_spx_benchmark(pd.to_datetime(selected_dates[0]), pd.to_datetime(selected_dates[1]))
     spx_ret = spx.pct_change().fillna(0) if spx is not None else None
     
-    m = calc.calculate_advanced_metrics(port_ret, None, spx_ret, account_size) # No trades DF for aggregate
+    m = calc.calculate_advanced_metrics(port_ret, None, spx_ret, account_size)
+    
+    # Portfolio-level margin metrics
+    portfolio_peak_margin = port_margin.max() if len(port_margin) > 0 else 0
     
     k1, k2, k3, k4, k5, k6 = st.columns(6)
-    with k1: ui.render_hero_metric("Total P/L", f"${total_pnl:,.0f}", color_class="hero-teal")
-    with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", color_class="hero-teal")
-    with k3: ui.render_hero_metric("Max DD", f"{m['MaxDD']:.1%}", color_class="hero-coral")
-    with k4: ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", color_class="hero-coral")
+    with k1: ui.render_hero_metric("Total P/L", f"${total_pnl:,.0f}", color_class="hero-teal" if total_pnl > 0 else "hero-coral")
+    with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", color_class="hero-teal" if m['CAGR'] > 0 else "hero-coral")
+    with k3: ui.render_hero_metric("Max DD", f"{m['MaxDD']:.1%}", f"${abs(m['MaxDD_USD']):,.0f}", "hero-coral")
+    with k4: ui.render_hero_metric("Peak Margin", f"${portfolio_peak_margin:,.0f}", f"{(portfolio_peak_margin/account_size)*100:.0f}% Util", "hero-neutral")
     with k5: ui.render_hero_metric("MAR", f"{m['MAR']:.2f}", color_class="hero-teal")
     with k6: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", color_class="hero-neutral")
 
@@ -235,19 +272,82 @@ def page_portfolio_builder(full_df):
         st.session_state.mc_portfolio_daily_pnl = port_pnl
         st.session_state.mc_portfolio_account_size = account_size
         st.session_state.mc_from_builder = True
+        st.session_state.mc_new_from_builder = True
         st.session_state.navigate_to_page = "🎲 Monte Carlo Punisher"
         st.rerun()
 
-    # Visualizations
-    tab1, tab2 = st.tabs(["Equity", "Allocation"])
-    with tab1:
-        fig = px.line(x=port_equity.index, y=port_equity.values, title="Projected Equity")
-        st.plotly_chart(fig, use_container_width=True)
-    with tab2:
-        alloc_pie = pd.DataFrame([
-            {'Strategy': s, 'Allocation': m} 
-            for s, m in st.session_state.portfolio_allocation.items() if m > 0
-        ])
-        if not alloc_pie.empty:
-            fig_pie = px.pie(alloc_pie, values='Allocation', names='Strategy')
-            st.plotly_chart(fig_pie, use_container_width=True)
+    # === VISUALIZATION TABS ===
+    viz_tab1, viz_tab2, viz_tab3, viz_tab4, viz_tab5 = st.tabs([
+        "📈 Equity & DD", "📊 Allocation", "💰 Margin", "🔗 Correlation", "🧬 Greek Exposure"
+    ])
+    
+    with viz_tab1:
+        fig_eq = px.line(x=port_equity.index, y=port_equity.values, title="Projected Equity Curve")
+        fig_eq.add_hline(y=account_size, line_dash="dash", line_color="gray")
+        st.plotly_chart(fig_eq, use_container_width=True)
+        
+        # Drawdown chart
+        dd_series = port_equity - port_equity.cummax()
+        fig_dd = px.area(x=dd_series.index, y=dd_series.values, title="Drawdown ($)")
+        fig_dd.update_traces(line_color=ui.COLOR_CORAL)
+        st.plotly_chart(fig_dd, use_container_width=True)
+        
+    with viz_tab2:
+        c_pie1, c_pie2 = st.columns(2)
+        with c_pie1:
+            fig_cat = go.Figure(data=[go.Pie(
+                labels=['Workhorse', 'Airbag', 'Opportunist'],
+                values=[category_margin['Workhorse'], category_margin['Airbag'], category_margin['Opportunist']],
+                hole=0.4
+            )])
+            fig_cat.update_layout(title="Margin Allocation by Category")
+            st.plotly_chart(fig_cat, use_container_width=True)
+        with c_pie2:
+            alloc_data = [{'Strategy': s, 'Margin': strategy_base_stats[s]['margin_per_contract'] * strategy_base_stats[s]['contracts_per_day'] * m} 
+                          for s, m in st.session_state.portfolio_allocation.items() if m > 0]
+            if alloc_data:
+                df_pie = pd.DataFrame(alloc_data)
+                fig_strat = px.pie(df_pie, values='Margin', names='Strategy', title="Margin by Strategy")
+                st.plotly_chart(fig_strat, use_container_width=True)
+                
+    with viz_tab3:
+        st.markdown("##### Daily Margin Usage")
+        fig_margin = px.area(x=port_margin.index, y=port_margin.values, title="Margin Utilization")
+        fig_margin.add_hline(y=target_margin, line_dash="dash", line_color="orange", annotation_text="Target")
+        fig_margin.add_hline(y=account_size, line_dash="dash", line_color="red", annotation_text="Max Account")
+        st.plotly_chart(fig_margin, use_container_width=True)
+        
+    with viz_tab4:
+        st.markdown("##### Strategy Correlation Matrix")
+        if len(active_strategy_returns) > 1:
+            corr_df = pd.DataFrame({s['name']: s['returns'] for s in active_strategy_returns})
+            corr_matrix = corr_df.corr()
+            fig_corr = px.imshow(corr_matrix, text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1)
+            st.plotly_chart(fig_corr, use_container_width=True)
+        else:
+            st.info("Need at least 2 active strategies to show correlation.")
+            
+    with viz_tab5:
+        st.markdown("##### Greek Exposure")
+        greek_stats = {'Delta': {'Long': 0, 'Short': 0, 'Neutral': 0},
+                       'Vega': {'Long': 0, 'Short': 0, 'Neutral': 0},
+                       'Theta': {'Long': 0, 'Short': 0, 'Neutral': 0}}
+        
+        for strat, mult in st.session_state.portfolio_allocation.items():
+            if strat in strategy_base_stats and mult > 0:
+                dna = strategy_base_stats[strat]['dna']
+                weight = 1  # Simplified weight count
+                greek_stats['Delta'][dna['Delta']] += weight
+                greek_stats['Vega'][dna['Vega']] += weight
+                greek_stats['Theta'][dna['Theta']] += weight
+        
+        g1, g2, g3 = st.columns(3)
+        with g1:
+            fig_d = px.pie(values=list(greek_stats['Delta'].values()), names=list(greek_stats['Delta'].keys()), title="Delta Exposure", hole=0.5)
+            st.plotly_chart(fig_d, use_container_width=True)
+        with g2:
+            fig_v = px.pie(values=list(greek_stats['Vega'].values()), names=list(greek_stats['Vega'].keys()), title="Vega Exposure", hole=0.5)
+            st.plotly_chart(fig_v, use_container_width=True)
+        with g3:
+            fig_t = px.pie(values=list(greek_stats['Theta'].values()), names=list(greek_stats['Theta'].keys()), title="Theta Exposure", hole=0.5)
+            st.plotly_chart(fig_t, use_container_width=True)

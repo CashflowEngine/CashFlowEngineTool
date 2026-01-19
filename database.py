@@ -106,6 +106,10 @@ def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags
         }).execute()
         
         logger.info(f"Analysis '{name}' saved successfully")
+        
+        # CLEAR CACHE to ensure new save appears in list immediately
+        get_analysis_list_enhanced.clear()
+        
         return True
     except Exception as e:
         logger.error(f"Enhanced save error: {e}")
@@ -116,15 +120,27 @@ def get_analysis_list():
     """Retrieve list of saved analyses (legacy wrapper)."""
     return get_analysis_list_enhanced()
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_analysis_list_enhanced():
-    """Get analysis list with metadata."""
+    """
+    Get analysis list with metadata.
+    OPTIMIZED: Fetches only the metadata field from the JSON column to reduce payload size.
+    """
     if not DB_AVAILABLE:
         return []
     
     try:
-        response = supabase.table('analyses').select(
-            "id, name, created_at, data_json"
-        ).order('created_at', desc=True).execute()
+        # Try to fetch only metadata using JSON arrow operator if supported
+        # If this fails (e.g. older Postgres or column type issues), we catch and fallback
+        try:
+            response = supabase.table('analyses').select(
+                "id, name, created_at, data_json->metadata"
+            ).order('created_at', desc=True).execute()
+        except Exception:
+            # Fallback to full fetch if partial select fails
+            response = supabase.table('analyses').select(
+                "id, name, created_at, data_json"
+            ).order('created_at', desc=True).execute()
         
         analyses = []
         for item in response.data:
@@ -134,22 +150,28 @@ def get_analysis_list_enhanced():
                 'created_at': item['created_at']
             }
             
-            data_json = item.get('data_json', {})
-            if isinstance(data_json, dict):
-                metadata = data_json.get('metadata', {})
-                analysis['description'] = metadata.get('description', '')
-                analysis['tags'] = metadata.get('tags', [])
-                analysis['trade_count'] = metadata.get('trade_count', 0)
-                analysis['total_pnl'] = metadata.get('total_pnl', 0)
-                analysis['strategies'] = metadata.get('strategies', [])
-                analysis['date_start'] = metadata.get('date_start', '')
-                analysis['date_end'] = metadata.get('date_end', '')
-                analysis['has_live'] = metadata.get('has_live', False)
+            # Handle different response structures based on the query used
+            if 'metadata' in item:
+                # Optimized query result
+                metadata = item['metadata'] or {}
+            elif 'data_json' in item:
+                # Full query result
+                data_json = item['data_json'] or {}
+                if isinstance(data_json, dict):
+                    metadata = data_json.get('metadata', {})
+                else:
+                    metadata = {}
             else:
-                if isinstance(data_json, list):
-                    analysis['trade_count'] = len(data_json)
-                analysis['description'] = ''
-                analysis['tags'] = []
+                metadata = {}
+                
+            analysis['description'] = metadata.get('description', '')
+            analysis['tags'] = metadata.get('tags', [])
+            analysis['trade_count'] = metadata.get('trade_count', 0)
+            analysis['total_pnl'] = metadata.get('total_pnl', 0)
+            analysis['strategies'] = metadata.get('strategies', [])
+            analysis['date_start'] = metadata.get('date_start', '')
+            analysis['date_end'] = metadata.get('date_end', '')
+            analysis['has_live'] = metadata.get('has_live', False)
             
             analyses.append(analysis)
         
@@ -165,6 +187,10 @@ def delete_analysis_from_db(analysis_id):
     try:
         supabase.table('analyses').delete().eq('id', analysis_id).execute()
         logger.info(f"Analysis {analysis_id} deleted")
+        
+        # CLEAR CACHE
+        get_analysis_list_enhanced.clear()
+        
         return True
     except Exception as e:
         logger.error(f"Delete error: {e}")
@@ -177,13 +203,21 @@ def rename_analysis_in_db(analysis_id, new_name):
     try:
         supabase.table('analyses').update({"name": new_name}).eq('id', analysis_id).execute()
         logger.info(f"Analysis {analysis_id} renamed to {new_name}")
+        
+        # CLEAR CACHE
+        get_analysis_list_enhanced.clear()
+        
         return True
     except Exception as e:
         logger.error(f"Rename error: {e}")
         return False
 
+@st.cache_data(show_spinner=False)
 def load_analysis_from_db(analysis_id):
-    """Load analysis from database."""
+    """
+    Load analysis from database.
+    CACHED: Expensive JSON parsing and dataframe creation is cached indefinitely for specific ID.
+    """
     if not DB_AVAILABLE:
         return None, None
     try:

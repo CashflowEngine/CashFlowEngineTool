@@ -2,25 +2,22 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
 
 def page_portfolio_analytics(full_df, live_df=None):
-    # Header with more descriptive text
+    # Header
     st.markdown("<h1>Backtest Portfolio Asset Allocation</h1>", unsafe_allow_html=True)
     
     st.markdown("""
-    <div style='color: #4B5563; font-size: 16px; line-height: 1.6; margin-bottom: 30px;'>
+    <div style='color: #4B5563; font-size: 15px; line-height: 1.6; margin-bottom: 20px;'>
         <strong>Portfolio Backtesting Overview</strong><br>
-        This portfolio backtesting tool allows you to analyze and reconstruct the performance of your options strategies. 
-        You can analyze backtest returns, risk characteristics, and drawdowns. The results cover both aggregate returns and 
-        strategy-specific performance based on the uploaded data. You can compare different portfolios against the selected benchmark 
-        (S&P 500) and identify periods of outperformance or stress.
+        Analyze and reconstruct the performance of your options strategies. 
+        Review detailed risk metrics, drawdowns, and compare against the S&P 500 benchmark.
     </div>
     """, unsafe_allow_html=True)
 
-    # Top Configuration Section (Wrapped in Card)
+    # === CONFIGURATION ===
     with st.container(border=True):
         ui.section_header("Configuration")
         
@@ -40,10 +37,9 @@ def page_portfolio_analytics(full_df, live_df=None):
         
         if len(dates) != 2: return
         
-        # Filter Data
         filt = target_df[(target_df['timestamp'].dt.date >= dates[0]) & (target_df['timestamp'].dt.date <= dates[1])].copy()
     
-    # Calculate Core Metrics
+    # === CALCULATIONS ===
     full_idx = pd.date_range(dates[0], dates[1])
     daily_pnl = filt.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
     equity = account_size + daily_pnl.cumsum()
@@ -52,143 +48,68 @@ def page_portfolio_analytics(full_df, live_df=None):
     spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
     spx_ret = spx.pct_change().fillna(0) if spx is not None else None
     
+    # Calculate ALL advanced metrics
     m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
     
-    date_str_start = dates[0].strftime("%b %Y")
-    date_str_end = dates[1].strftime("%b %Y")
-
-    # === SECTION: SAMPLE PORTFOLIO (Allocation) ===
+    # Margin Stats
+    margin_series = calc.generate_daily_margin_series_optimized(filt).reindex(full_idx, fill_value=0)
+    peak_margin = margin_series.max()
+    avg_margin = margin_series[margin_series > 0].mean() if not margin_series.empty and (margin_series > 0).any() else 0
+    max_margin_pct = (peak_margin / account_size) * 100 if account_size > 0 else 0
+    
+    # === HIGHLIGHTS (Restored Comprehensive Grid) ===
     with st.container(border=True):
-        st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;'>"
-                    f"<span class='card-title' style='margin-bottom:0;'>Portfolio Analysis Results ({date_str_start} - {date_str_end})</span>"
-                    f"<div style='font-size: 12px; color: #302BFF;'>⬇ Excel &nbsp; ⬇ PDF</div>"
-                    f"</div>", unsafe_allow_html=True)
+        ui.section_header("Highlights & Key Performance Indicators")
         
-        st.markdown(f"<div style='font-size: 14px; color: #6B7280; margin-bottom: 20px;'><strong>Note:</strong> The time period was constrained by the available data for the selected strategies.</div>", unsafe_allow_html=True)
+        # ROW 1: Primary Return/Risk
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        with c1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal")
+        with c2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", f"SPX: {m['SPX_CAGR']:.1%}", "hero-teal")
+        with c3: ui.render_hero_metric("Max DD", f"{m['MaxDD']:.1%}", f"${abs(m['MaxDD_USD']):,.0f}", "hero-coral")
+        with c4: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "CAGR/MaxDD", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
+        with c5: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", f"SPX: {m['SPX_Sharpe']:.2f}", "hero-neutral")
+        with c6: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "Downside Risk", "hero-neutral")
         
-        ui.section_header("Strategy Allocation")
+        st.write("")
         
-        col_table, col_chart = st.columns([1.5, 1])
-        
-        # Strategy Breakdown Data
-        strat_stats = []
-        for strat, group in filt.groupby('strategy'):
-            s_pnl = group['pnl'].sum()
-            s_count = len(group)
-            strat_stats.append({'Strategy': strat, 'P/L': s_pnl, 'Trades': s_count})
-        
-        df_stats = pd.DataFrame(strat_stats)
-        if not df_stats.empty:
-            total_trades = df_stats['Trades'].sum()
-            df_stats['Allocation'] = df_stats['Trades'] / total_trades # Approximation based on trade activity
-            df_stats = df_stats.sort_values('Allocation', ascending=False)
-            
-            with col_table:
-                # Custom Table Styling via HTML/CSS approximation in Streamlit
-                st.dataframe(
-                    df_stats[['Strategy', 'Allocation']],
-                    column_config={
-                        "Strategy": "Name",
-                        "Allocation": st.column_config.ProgressColumn("Allocation", format="%.2f%%", min_value=0, max_value=1)
-                    },
-                    use_container_width=True,
-                    hide_index=True,
-                    height=250
-                )
-                
-                c_btn1, c_btn2 = st.columns(2)
-                with c_btn1: st.button("✏️ Edit Portfolio", use_container_width=True)
-                with c_btn2: st.button("💾 Save Portfolio", use_container_width=True)
+        # ROW 2: Trade Statistics
+        r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(6)
+        with r2c1: ui.render_hero_metric("Total Trades", f"{m['Trades']}", "", "hero-neutral")
+        with r2c2: ui.render_hero_metric("Win Rate", f"{m['WinRate']:.1%}", "", "hero-neutral")
+        with r2c3: ui.render_hero_metric("Profit Factor", f"{m['PF']:.2f}", "", "hero-neutral")
+        with r2c4: ui.render_hero_metric("Kelly", f"{m['Kelly']:.1%}", "Optimal Stake", "hero-neutral")
+        with r2c5: ui.render_hero_metric("Avg Win", f"${filt[filt['pnl']>0]['pnl'].mean():,.0f}", "", "hero-neutral")
+        with r2c6: ui.render_hero_metric("Avg Loss", f"${filt[filt['pnl']<=0]['pnl'].mean():,.0f}", "", "hero-neutral")
 
-            with col_chart:
-                fig_donut = px.pie(df_stats, values='Allocation', names='Strategy', hole=0.6, 
-                                   color_discrete_sequence=px.colors.qualitative.Prism)
-                fig_donut.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250, showlegend=False)
-                fig_donut.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig_donut, use_container_width=True)
+        st.write("")
 
-    # === SECTION: HIGHLIGHTS (The Colored Boxes) ===
-    with st.container(border=True):
-        ui.section_header("Highlights")
+        # ROW 3: Advanced & Risk
+        r3c1, r3c2, r3c3, r3c4, r3c5, r3c6 = st.columns(6)
+        with r3c1: ui.render_hero_metric("Alpha", f"{m['Alpha']:.1%}", "vs SPX", "hero-neutral")
+        with r3c2: ui.render_hero_metric("Beta", f"{m['Beta']:.2f}", "vs SPX", "hero-neutral")
+        with r3c3: ui.render_hero_metric("Volatility", f"{m['Vol']:.1%}", f"SPX: {m['SPX_Vol']:.1%}", "hero-neutral")
+        with r3c4: ui.render_hero_metric("MART", f"{m['MART']:.2f}", "Risk Adjusted", "hero-neutral")
+        with r3c5: ui.render_hero_metric("Peak Margin", f"${peak_margin:,.0f}", f"{max_margin_pct:.0f}% Util", "hero-neutral")
+        with r3c6: ui.render_hero_metric("Ret / Margin", f"{m['AvgRetMargin']:.1%}", "Efficiency", "hero-neutral")
+
+        st.write("")
         
-        # Two main columns: Return and Risk
-        col_return, col_risk = st.columns(2)
-        
-        with col_return:
-            st.markdown("### Return")
-            st.markdown("<div style='margin-bottom: 10px; font-size: 14px; color: #6B7280;'>Annualized Return</div>", unsafe_allow_html=True)
-            
-            sub_c1, sub_c2 = st.columns(2)
-            
-            # Portfolio Return Box
-            cagr_color = "highlight-green" if m['CAGR'] > 0 else "highlight-red"
-            with sub_c1:
-                st.markdown(f"""
-                <div class='highlight-container'>
-                    <div class='highlight-label'>Portfolio Return</div>
-                    <div class='highlight-box {cagr_color}'>{m['CAGR']:.1%}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Benchmark Relative Box
-            rel_color = "highlight-red"
-            rel_val = m['CAGR'] - m['SPX_CAGR']
-            if rel_val > 0: rel_color = "highlight-green"
-            
-            with sub_c2:
-                st.markdown(f"""
-                <div class='highlight-container'>
-                    <div class='highlight-label'>Benchmark Relative</div>
-                    <div class='highlight-box {rel_color}'>{rel_val:+.1%}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            st.caption("Benchmark: SPDR S&P 500 ETF")
+        # ROW 4: Streaks
+        r4c1, r4c2, r4c3, r4c4 = st.columns(4)
+        with r4c1: ui.render_hero_metric("Win Streak", f"{m['WinStreak']}", "Consecutive", "hero-neutral")
+        with r4c2: ui.render_hero_metric("Loss Streak", f"{m['LossStreak']}", "Consecutive", "hero-neutral")
+        with r4c3: ui.render_hero_metric("Best Trade", f"${filt['pnl'].max():,.0f}", "", "hero-neutral")
+        with r4c4: ui.render_hero_metric("Worst Trade", f"${filt['pnl'].min():,.0f}", "", "hero-neutral")
 
-        with col_risk:
-            st.markdown("### Risk")
-            st.markdown("<div style='margin-bottom: 10px; font-size: 14px; color: #6B7280;'>Volatility and Drawdown</div>", unsafe_allow_html=True)
-            
-            sub_c3, sub_c4 = st.columns(2)
-            
-            with sub_c3:
-                st.markdown(f"""
-                <div class='highlight-container'>
-                    <div class='highlight-label'>Standard Deviation</div>
-                    <div class='highlight-box highlight-teal'>{m['Vol']:.1%}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with sub_c4:
-                st.markdown(f"""
-                <div class='highlight-container'>
-                    <div class='highlight-label'>Max Drawdown</div>
-                    <div class='highlight-box highlight-gray'>{abs(m['MaxDD']):.1%}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    # === SECTION: PORTFOLIO GROWTH CHART ===
+    # === CHARTS ===
     with st.container(border=True):
         ui.section_header("Portfolio Growth")
         
-        balance_change = equity.iloc[-1] - equity.iloc[0]
-        total_ret_pct = (equity.iloc[-1] / equity.iloc[0]) - 1
-        
-        st.markdown(f"""
-        <div style='margin-bottom: 20px; font-size: 14px; line-height: 1.5;'>
-            ${account_size:,.0f} invested in {date_str_start} would be worth <strong>${equity.iloc[-1]:,.0f}</strong> as of {date_str_end}, 
-            which represents a cumulative return of <strong>{total_ret_pct:.2%}</strong>.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Prepare Comparison Data for Chart
         chart_data = pd.DataFrame(index=equity.index)
         chart_data['Sample Portfolio'] = equity
         
         if spx_ret is not None and len(spx_ret) > 0:
-            # Rebase SPX to match account size
             spx_equity = (1 + spx_ret).cumprod() * account_size
-            # Align indices
             spx_equity = spx_equity.reindex(equity.index, method='ffill').fillna(account_size)
             chart_data['SPDR S&P 500 ETF'] = spx_equity
         
@@ -205,45 +126,43 @@ def page_portfolio_analytics(full_df, live_df=None):
         )
         st.plotly_chart(fig_growth, use_container_width=True)
         
-        c_check1, c_check2 = st.columns(2)
-        with c_check1: st.checkbox("Logarithmic scale")
-        with c_check2: st.checkbox("Inflation adjusted")
+        c1, c2 = st.columns(2)
+        with c1: st.checkbox("Logarithmic scale")
+        with c2: st.checkbox("Inflation adjusted")
 
-    # === SECTION: INSIGHTS ===
+    # === STRATEGY BREAKDOWN ===
     with st.container(border=True):
-        ui.section_header("💡 Insights")
+        ui.section_header("Strategy Allocation & Performance")
         
-        st.markdown("Gain valuable insights into key market drivers that likely impacted performance during the period.")
+        c_table, c_chart = st.columns([3, 2])
         
-        c_insight_text, c_insight_stats = st.columns([2, 1])
+        strat_stats = []
+        for strat, group in filt.groupby('strategy'):
+            s_pnl = group['pnl'].sum()
+            s_trades = len(group)
+            s_wr = (group['pnl'] > 0).mean()
+            strat_stats.append({'Strategy': strat, 'P/L': s_pnl, 'Trades': s_trades, 'Win Rate': s_wr})
         
-        with c_insight_text:
-            st.markdown("### Performance Summary")
-            pos_months = filt.set_index('timestamp').resample('M')['pnl'].sum()
-            n_pos = (pos_months > 0).sum()
-            pct_pos = n_pos / len(pos_months) if len(pos_months) > 0 else 0
+        if strat_stats:
+            df_stats = pd.DataFrame(strat_stats).sort_values('P/L', ascending=False)
             
-            st.markdown(f"""
-            Over the period, the portfolio generated an annualized return of **{m['CAGR']:.2%}**, with **{m['Trades']}** total trades executed.
-            Looking at monthly performance, **{n_pos}** out of **{len(pos_months)}** months ({pct_pos:.1%}) were positive.
-            The best month generated **${pos_months.max():,.0f}**, while the worst month saw a drawdown of **${pos_months.min():,.0f}**.
+            with c_table:
+                st.dataframe(
+                    df_stats,
+                    column_config={
+                        "P/L": st.column_config.NumberColumn(format="$%d"),
+                        "Win Rate": st.column_config.NumberColumn(format="%.1f%%")
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
             
-            The strategy efficiency (Sharpe Ratio) is **{m['Sharpe']:.2f}**, compared to the S&P 500 Sharpe of **{m['SPX_Sharpe']:.2f}**.
-            """)
-        
-        with c_insight_stats:
-            st.markdown("""
-            <div style='background-color: #F3F4F6; padding: 20px; border-radius: 8px;'>
-                <div style='font-weight: bold; margin-bottom: 10px;'>Statistical Research Lab</div>
-                <div style='font-size: 12px; color: #6B7280;'>
-                    Alpha: <strong>{:.2%}</strong><br>
-                    Beta: <strong>{:.2f}</strong><br>
-                    Correlation: <strong>{:.2f}</strong>
-                </div>
-            </div>
-            """.format(m['Alpha'], m['Beta'], 0.85), unsafe_allow_html=True) # Placeholder correlation
-            
-    # Monthly Returns Table (Kept at bottom as it's useful detailed data)
+            with c_chart:
+                fig_pie = px.pie(df_stats, values='Trades', names='Strategy', title="Allocation by Trade Count",
+                                 color_discrete_sequence=px.colors.qualitative.Prism)
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+    # === MONTHLY RETURNS ===
     with st.container(border=True):
         ui.section_header("Monthly Returns Table")
         filt['Year'] = filt['timestamp'].dt.year

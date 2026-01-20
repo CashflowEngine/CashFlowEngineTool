@@ -17,23 +17,36 @@ def render_logo():
     Renders the official Logo using the provided PNG image.
     """
     try:
+        # Use columns to control width if needed, or just standard st.image
         st.image("CashflowEnginelogo.png", use_container_width=True)
     except:
-        # Fallback if image missing
+        # Fallback
         st.markdown(f"""
-        <div style="text-align: center; padding: 20px 0;">
-            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 24px; color: {COLOR_GREY};">
+        <div style="text-align: center; padding: 10px 0;">
+            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 20px; color: {COLOR_GREY};">
                 CASHFLOW ENGINE
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+def render_footer():
+    """
+    Renders the disclaimer footer.
+    """
+    st.markdown("""
+    <div class="footer">
+        <strong>DISCLAIMER:</strong> This application is for educational and entertainment purposes only. 
+        It does not constitute financial advice. Option trading involves significant risk and is not suitable for all investors. 
+        Past performance is not indicative of future results.
+    </div>
+    """, unsafe_allow_html=True)
+
 def section_header(title):
-    """Render a styled blue header for cards using Exo 2."""
+    """Render a styled blue header using Exo 2."""
     st.markdown(f"<div class='card-title' style='color: {COLOR_BLUE} !important; margin-bottom: 20px;'>{title}</div>", unsafe_allow_html=True)
 
 def show_loading_overlay(message="Processing", submessage="The engine is running..."):
-    """Display a custom loading overlay with animated gears."""
+    """Display a custom loading overlay."""
     loading_html = f"""
     <div class="loading-overlay" id="loadingOverlay">
         <div class="engine-container">
@@ -53,7 +66,7 @@ def show_loading_overlay(message="Processing", submessage="The engine is running
     return st.markdown(loading_html, unsafe_allow_html=True)
 
 def hide_loading_overlay():
-    """Hide the loading overlay using JavaScript."""
+    """Hide the loading overlay."""
     hide_js = """
     <script>
         var overlay = document.getElementById('loadingOverlay');
@@ -65,7 +78,7 @@ def hide_loading_overlay():
     st.markdown(hide_js, unsafe_allow_html=True)
 
 def render_hero_metric(label, value, subtext="", color_class="hero-neutral", tooltip=""):
-    """Render a hero metric card with optional tooltip."""
+    """Render a hero metric card."""
     tooltip_html = ""
     if tooltip:
         tooltip_escaped = tooltip.replace("'", "&#39;").replace('"', '&quot;')
@@ -80,19 +93,8 @@ def render_hero_metric(label, value, subtext="", color_class="hero-neutral", too
         unsafe_allow_html=True
     )
 
-def render_standard_metric(label, value, subtext="", value_color=COLOR_GREY):
-    """Render a standard metric card."""
-    st.markdown(
-        f"<div class='metric-card'>"
-        f"<div class='metric-label'>{label}</div>"
-        f"<div class='metric-value' style='color: {value_color}'>{value}</div>"
-        f"<div class='metric-sub'>{subtext}</div>"
-        f"</div>",
-        unsafe_allow_html=True
-    )
-
 def color_monthly_performance(val):
-    """Color code monthly performance values - Turbo Teal vs Radical Coral."""
+    """Color code monthly performance values."""
     try:
         if isinstance(val, str):
             clean_val = val.replace('$', '').replace(',', '').replace('%', '').strip()
@@ -112,83 +114,51 @@ def color_monthly_performance(val):
 # --- SAVE/LOAD UI ---
 
 def render_save_load_sidebar(bt_df, live_df):
-    """Enhanced save/load system (designed to be inside an expander)."""
+    """Enhanced save/load system."""
     
     if not db.DB_AVAILABLE:
-        st.warning("☁️ Database not connected")
+        st.warning("Database not connected")
         return
     
-    save_tab, load_tab, manage_tab = st.tabs(["Save", "Load", "Manage"])
+    save_tab, load_tab, manage_tab = st.tabs(["Save", "Load", "Edit"])
     
     with save_tab:
-        _render_save_section(bt_df, live_df)
-    
+        if bt_df is None or bt_df.empty:
+            st.caption("No data to save.")
+        else:
+            strategies = bt_df['strategy'].unique().tolist() if 'strategy' in bt_df.columns else []
+            default_name = f"Analysis {len(strategies)} Strat"
+            
+            save_name = st.text_input("Name", value=default_name, key="save_name_input")
+            save_desc = st.text_area("Desc", height=60, key="save_desc_input")
+            
+            if st.button("SAVE", use_container_width=True):
+                if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_desc):
+                    st.success("Saved!")
+
     with load_tab:
-        _render_load_section()
-    
+        saved = db.get_analysis_list_enhanced()
+        if not saved:
+            st.caption("No saves found.")
+        else:
+            search = st.text_input("Search", key="load_search")
+            filtered = [a for a in saved if search.lower() in a['name'].lower()] if search else saved
+            
+            for a in filtered[:5]:
+                with st.container(border=True):
+                    st.markdown(f"**{a['name']}**")
+                    st.caption(f"{a['created_at'][:10]}")
+                    if st.button("LOAD", key=f"load_{a['id']}", use_container_width=True):
+                        _load_with_feedback(a['id'], a['name'])
+
     with manage_tab:
-        _render_manage_section()
-
-def _render_save_section(bt_df, live_df):
-    if bt_df is None or bt_df.empty:
-        st.info("📊 No data to save.")
-        return
-    
-    strategies = bt_df['strategy'].unique().tolist() if 'strategy' in bt_df.columns else []
-    date_range = ""
-    if 'timestamp' in bt_df.columns:
-        min_d = bt_df['timestamp'].min()
-        max_d = bt_df['timestamp'].max()
-        if pd.notna(min_d) and pd.notna(max_d):
-            date_range = f"{min_d.strftime('%Y%m%d')}-{max_d.strftime('%Y%m%d')}"
-    
-    default_name = f"Analysis_{date_range}"
-    if len(strategies) > 0:
-        default_name = f"{strategies[0][:15]}_{date_range}"
-    
-    st.markdown("##### 📝 Save Current")
-    save_name = st.text_input("Name", value=default_name, max_chars=100, key="save_name")
-    save_description = st.text_area("Notes", placeholder="Description...", max_chars=300, height=60, key="save_desc")
-    
-    if st.button("SAVE TO CLOUD", use_container_width=True):
-        with st.spinner("Saving..."):
-            if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_description):
-                st.success("✅ Saved!")
-
-def _render_load_section():
-    st.markdown("##### 📂 Load Analysis")
-    saved = db.get_analysis_list_enhanced()
-    if not saved:
-        st.info("No saved analyses.")
-        return
-    
-    search = st.text_input("🔍 Search", key="load_search")
-    
-    filtered = saved
-    if search:
-        filtered = [a for a in filtered if search.lower() in a['name'].lower()]
-    
-    for a in filtered[:5]:
-        with st.container(border=True):
-            st.markdown(f"**{a['name']}**")
-            st.caption(f"📅 {a['created_at'][:10]} | 📊 {a.get('trade_count',0)} Trades")
-            if st.button("LOAD", key=f"load_{a['id']}", use_container_width=True):
-                _load_with_feedback(a['id'], a['name'])
-
-def _render_manage_section():
-    st.markdown("##### ⚙️ Manage")
-    saved = db.get_analysis_list_enhanced()
-    if not saved: return
-    
-    options = {f"{a['name']}": a for a in saved}
-    sel = st.selectbox("Select", list(options.keys()), key="manage_sel")
-    if sel:
-        analysis = options[sel]
-        if st.button("DELETE", use_container_width=True, key="del_btn"):
-            if db.delete_analysis_from_db(analysis['id']):
-                st.success("Deleted!")
-                time.sleep(0.5)
-                st.rerun()
+        saved = db.get_analysis_list_enhanced()
+        if saved:
+            opts = {f"{a['name']}": a for a in saved}
+            sel = st.selectbox("Select", list(opts.keys()), key="manage_sel")
+            if sel and st.button("DELETE", use_container_width=True, key="del_btn"):
+                if db.delete_analysis_from_db(opts[sel]['id']):
+                    st.rerun()
 
 def _load_with_feedback(analysis_id, name):
     loading = st.empty()
@@ -198,9 +168,6 @@ def _load_with_feedback(analysis_id, name):
         st.session_state['full_df'] = bt_df
         if live_df is not None:
             st.session_state['live_df'] = live_df
-        loading.success(f"✅ Loaded!")
+        loading.success(f"Loaded!")
         time.sleep(0.5)
-        st.session_state.navigate_to_page = "Portfolio Analytics"
-        st.rerun()
-    else:
-        loading.error("Failed to load.")
+        st.session_state.navigate

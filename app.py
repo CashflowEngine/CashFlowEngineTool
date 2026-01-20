@@ -116,13 +116,17 @@ st.markdown("""
 
     /* --- UI ELEMENTS --- */
     
-    div.stButton > button { 
+    /* PRIMARY BUTTONS - Blue Background with WHITE Text (CRITICAL!) */
+    div.stButton > button,
+    div.stButton > button[kind="primary"],
+    div.stButton > button:not([kind="tertiary"]):not([kind="secondary"]),
+    .stButton button[type="primary"] { 
         background-color: #302BFF !important; 
         color: #FFFFFF !important; 
         font-family: 'Poppins', sans-serif !important;
         font-weight: 600 !important; 
         text-transform: uppercase;
-        border: none;
+        border: none !important;
         border-radius: 6px;
         padding: 0.5rem 1.0rem; 
         box-shadow: 0 4px 6px rgba(48, 43, 255, 0.2); 
@@ -131,46 +135,79 @@ st.markdown("""
         font-size: 13px; 
     }
     
-    div.stButton > button:hover { 
+    /* Force white text on ALL children of primary buttons */
+    div.stButton > button span,
+    div.stButton > button p,
+    div.stButton > button div,
+    div.stButton > button[kind="primary"] span,
+    div.stButton > button[kind="primary"] p,
+    div.stButton > button:not([kind="tertiary"]):not([kind="secondary"]) span,
+    div.stButton > button:not([kind="tertiary"]):not([kind="secondary"]) p {
+        color: #FFFFFF !important;
+    }
+    
+    div.stButton > button:hover,
+    div.stButton > button[kind="primary"]:hover,
+    div.stButton > button:not([kind="tertiary"]):not([kind="secondary"]):hover { 
         background-color: #2521c9 !important; 
         box-shadow: 0 6px 12px rgba(48, 43, 255, 0.3); 
         color: #FFFFFF !important;
     }
     
-    /* Text Links for Landing Page */
-    button[kind="secondary"] {
+    /* TERTIARY BUTTONS - Text Links (blue, underlined on hover) */
+    div.stButton > button[kind="tertiary"],
+    button[kind="tertiary"] {
         background-color: transparent !important;
         border: none !important;
         color: #302BFF !important;
         box-shadow: none !important;
         text-decoration: none !important;
-        padding: 0 !important;
-        margin-top: 10px !important;
-        font-weight: 600 !important;
+        padding: 8px 0 !important;
+        font-weight: 500 !important;
         text-transform: none !important;
-        display: inline-block !important;
-        width: auto !important;
+        font-size: 14px !important;
+        font-family: 'Poppins', sans-serif !important;
+    }
+    
+    div.stButton > button[kind="tertiary"] span,
+    div.stButton > button[kind="tertiary"] p,
+    button[kind="tertiary"] span {
+        color: #302BFF !important;
+    }
+    
+    div.stButton > button[kind="tertiary"]:hover,
+    button[kind="tertiary"]:hover {
+        color: #2521c9 !important;
+        text-decoration: underline !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+    
+    /* SECONDARY BUTTONS - Outlined style */
+    button[kind="secondary"] {
+        background-color: transparent !important;
+        border: 1px solid #302BFF !important;
+        color: #302BFF !important;
+        box-shadow: none !important;
+        padding: 0.5rem 1.0rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        border-radius: 6px !important;
     }
     
     button[kind="secondary"]:hover {
-        color: #1e1b9e !important;
-        text-decoration: underline !important;
-        background-color: transparent !important;
+        background-color: #302BFF !important;
+        color: #FFFFFF !important;
     }
 
     .ghost-link {
         color: #9CA3AF;
         font-size: 12px;
-        font-weight: 600;
-        cursor: not-allowed;
+        font-weight: 500;
         font-family: 'Poppins', sans-serif;
-        text-transform: uppercase;
-        border: 1px dashed #E5E7EB;
-        padding: 8px;
-        border-radius: 4px;
-        display: block;
+        font-style: italic;
         text-align: center;
-        margin-top: auto;
+        margin-top: 10px;
     }
 
     /* --- LAYOUTS --- */

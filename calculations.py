@@ -219,11 +219,6 @@ def calculate_streaks_optimized(pnl_values):
     return max_streak(wins), max_streak(losses)
 
 def calculate_advanced_metrics(daily_returns_series, trades_df=None, benchmark_series=None, account_size=100000):
-    """
-    Calculate comprehensive portfolio metrics.
-    MAR = CAGR / MaxDD(Peak).
-    MART = CAGR / (MaxDD($) / InitialCap).
-    """
     metrics = {
         "CAGR": 0, "Vol": 0, "Sharpe": 0, "Sortino": 0,
         "MaxDD": 0, "MaxDD_USD": 0, "MAR": 0, "MART": 0,
@@ -236,7 +231,6 @@ def calculate_advanced_metrics(daily_returns_series, trades_df=None, benchmark_s
     if n_days < 2: return metrics
 
     total_ret = (1 + daily_returns_series).prod() - 1
-    # CAGR Formula: (1 + total_return)^(365/calendar_days) - 1
     cagr = (1 + total_ret) ** (365 / n_days) - 1 if total_ret > -1 else 0
     volatility = daily_returns_series.std() * np.sqrt(252)
 
@@ -248,22 +242,17 @@ def calculate_advanced_metrics(daily_returns_series, trades_df=None, benchmark_s
     downside_std = neg_ret.std() * np.sqrt(252) if len(neg_ret) > 0 else 0
     sortino = excess_ret / downside_std if downside_std > 0 else 0
 
-    # Drawdown metrics
     equity_curve = account_size * (1 + daily_returns_series).cumprod()
     peak_eq = equity_curve.cummax()
     
-    # 1. MaxDD from Peak (Standard Percentage DD)
     dd_pct = (equity_curve - peak_eq) / peak_eq
-    max_dd_pct = dd_pct.min() # This is negative, e.g., -0.05
+    max_dd_pct = dd_pct.min()
     
-    # 2. MaxDD in Dollars (Peak - Valley)
     dd_usd = equity_curve - peak_eq
-    max_dd_val = dd_usd.min() # Dollar amount, negative
+    max_dd_val = dd_usd.min()
     
-    # MAR Ratio = CAGR / MaxDD (%) [Standard]
     mar = cagr / abs(max_dd_pct) if max_dd_pct != 0 else 0
-
-    # MART Ratio = CAGR / (MaxDD ($) / Initial_Capital) [Risk vs Start]
+    
     dd_pct_initial = abs(max_dd_val) / account_size if account_size > 0 else 0
     mart = cagr / dd_pct_initial if dd_pct_initial != 0 else 0
 
@@ -399,3 +388,49 @@ def categorize_strategy(strategy_name, strat_df=None):
         if pattern in n: return 'Opportunist'
     if 'METF' in n or 'SPREAD' in n: return 'Workhorse'
     return 'Workhorse'
+
+# --- NEW HELPERS MOVED FROM UTILS ---
+def parse_meic_filename(filename):
+    """Parses params from filename: MEIC_W{width}_SL{sl}_P{premium}.csv"""
+    width_match = re.search(r'W(\d+)', filename, re.IGNORECASE)
+    sl_match = re.search(r'SL(\d+)', filename, re.IGNORECASE)
+    prem_match = re.search(r'P(\d+\.?\d*)', filename, re.IGNORECASE)
+    return {
+        'Width': int(width_match.group(1)) if width_match else None,
+        'SL': int(sl_match.group(1)) if sl_match else None,
+        'Premium': float(prem_match.group(1)) if prem_match else None,
+        'Filename': filename
+    }
+
+def generate_oo_signals(start_date, end_date, start_time="09:35", end_time="15:55", interval_min=5):
+    """Generates OO signal CSV."""
+    dates = pd.date_range(start=start_date, end=end_date, freq='B') 
+    signal_rows = []
+    t_start = pd.to_datetime(start_time).time()
+    t_end = pd.to_datetime(end_time).time()
+    
+    for d in dates:
+        if d.month == 12 and d.day == 25: continue
+        if d.month == 1 and d.day == 1: continue
+        if d.month == 7 and d.day == 4: continue
+        current_ts = pd.Timestamp.combine(d.date(), t_start)
+        end_ts = pd.Timestamp.combine(d.date(), t_end)
+        while current_ts <= end_ts:
+            signal_rows.append(current_ts)
+            current_ts += pd.Timedelta(minutes=interval_min)
+            
+    df_signals = pd.DataFrame(signal_rows, columns=['OPEN_DATETIME'])
+    df_signals['OPEN_DATETIME'] = df_signals['OPEN_DATETIME'].dt.strftime('%Y-%m-%d %H:%M')
+    return df_signals
+
+def analyze_meic_group(df, account_size):
+    if df.empty: return {'MAR': 0, 'CAGR': 0, 'MaxDD': 0}
+    df = df.sort_values('timestamp')
+    daily_pnl = df.set_index('timestamp').resample('D')['pnl'].sum()
+    equity = account_size + daily_pnl.cumsum()
+    peak = equity.cummax()
+    max_dd = ((equity - peak) / peak).min()
+    days = (df['timestamp'].max() - df['timestamp'].min()).days or 1
+    cagr = (1 + daily_pnl.sum() / account_size) ** (365 / days) - 1
+    mar = cagr / abs(max_dd) if max_dd != 0 else 0
+    return {'MAR': mar, 'CAGR': cagr, 'MaxDD': max_dd}

@@ -37,12 +37,21 @@ st.markdown("""
     }
     
     /* Headlines - Exo 2 - Space Grey - Uppercase */
-    h1, h2, h3, h4, h5, h6, .card-title, .stHeading {
+    h1, h2, h3, h4, h5, h6, .card-title, .stHeading, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {
         font-family: 'Exo 2', sans-serif !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         color: #4B5563 !important; /* Space Grey */
         font-weight: 800 !important; /* Extra Bold */
+    }
+    
+    /* --- SIDEBAR TOGGLE FIX --- */
+    /* Hides the 'keyboard_double_arrow' text artifacts */
+    button[kind="header"] {
+        color: transparent !important;
+    }
+    button[kind="header"] svg {
+        fill: #4B5563 !important;
     }
     
     /* --- NAVIGATION BAR REDESIGN (Pill Style) --- */
@@ -58,7 +67,7 @@ st.markdown("""
 
     /* Radio Button Container */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-        gap: 6px;
+        gap: 8px;
         padding: 0 10px;
     }
 
@@ -68,7 +77,7 @@ st.markdown("""
         border: 1px solid transparent;
         border-radius: 8px;
         padding: 10px 12px;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         color: #6B7280;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 500;
@@ -89,11 +98,11 @@ st.markdown("""
 
     /* Active State (Selected Pill) */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] {
-        background-color: #FFFFFF; 
-        color: #302BFF; /* Blue */
-        font-weight: 600;
-        border: 1px solid #302BFF;
-        box-shadow: 0 4px 6px rgba(48, 43, 255, 0.05);
+        background-color: #FFFFFF !important; 
+        color: #302BFF !important; /* Blue */
+        font-weight: 700 !important;
+        border: 1px solid #302BFF !important;
+        box-shadow: 0 4px 6px rgba(48, 43, 255, 0.05) !important;
     }
     
     /* Hide the radio circle */
@@ -139,8 +148,22 @@ st.markdown("""
     div.stButton > button p {
         color: #FFFFFF !important;
     }
+    
+    /* Link Button Style (for Landing Page) */
+    .stButton button.link-style {
+        background-color: transparent !important;
+        color: #302BFF !important;
+        box-shadow: none !important;
+        text-align: left;
+        padding: 0;
+        font-size: 14px;
+    }
+    .stButton button.link-style:hover {
+        color: #1e1b9e !important;
+        text-decoration: underline;
+    }
 
-    /* Secondary/Ghost Button styling for 'Coming Soon' etc */
+    /* Secondary/Ghost Button styling */
     .ghost-link {
         color: #9CA3AF;
         text-decoration: none;
@@ -196,23 +219,39 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Feature Tiles */
+    /* Functional Colors */
+    .hero-teal { background-color: #00D2BE !important; border: none; }
+    .hero-coral { background-color: #FF2E4D !important; border: none; }
+    
+    .hero-teal .hero-label, .hero-coral .hero-label, 
+    .hero-teal .hero-value, .hero-coral .hero-value, 
+    .hero-teal .hero-sub, .hero-coral .hero-sub { 
+        color: #FFFFFF !important; 
+    }
+
+    /* Feature Tiles (Landing Page) */
     .feature-tile {
-        height: 100%;
-        min-height: 220px; 
+        height: 240px; /* Fixed Height */
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
         text-align: center;
+        padding: 10px;
     }
     .feature-title {
         font-family: 'Exo 2', sans-serif !important;
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 700;
         color: #4B5563;
         margin-bottom: 12px;
         text-transform: uppercase;
+    }
+    .feature-desc {
+        font-size: 13px;
+        color: #6B7280;
+        flex-grow: 1;
+        margin-bottom: 16px;
     }
 
     /* Overlay Data Warning */
@@ -255,7 +294,6 @@ st.markdown("""
         z-index: 999;
         font-family: 'Poppins', sans-serif;
     }
-    /* Adjust main content to not hide behind footer */
     .block-container {
         padding-bottom: 50px;
     }
@@ -265,11 +303,10 @@ st.markdown("""
 
 # --- 3. ROUTING & NAVIGATION ---
 
-# Initialize Session State
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
 
-# Define Menu Items (Clean text, no emojis)
+# Define Menu Items
 page_map = {
     "Start & Data": "Start & Data",
     "Portfolio Analytics": "Portfolio Analytics",
@@ -284,7 +321,6 @@ menu_items = list(page_map.keys())
 
 # Determine current page
 if st.session_state.navigate_to_page in page_map.values():
-    # Find key from value
     current_key = list(page_map.keys())[list(page_map.values()).index(st.session_state.navigate_to_page)]
 else:
     current_key = "Start & Data"
@@ -293,7 +329,6 @@ else:
 current_page_val = st.session_state.navigate_to_page
 
 # --- SIDEBAR LOGIC ---
-# If on Landing Page, we HIDE the sidebar via CSS injection
 if current_page_val == "Start & Data":
     st.markdown("""
     <style>
@@ -302,15 +337,13 @@ if current_page_val == "Start & Data":
     </style>
     """, unsafe_allow_html=True)
 else:
-    # Render Sidebar only if NOT landing page
     with st.sidebar:
-        ui.render_logo() # Brand Logo on top of Nav
-        st.write("") # Spacer
+        ui.render_logo()
+        st.write("")
         
-        # Custom Radio Menu
+        # Navigation
         selected_key = st.radio("Navigation", menu_items, index=menu_items.index(current_key), label_visibility="collapsed")
         
-        # Handle Navigation
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:
             st.session_state.navigate_to_page = target_val
@@ -321,7 +354,7 @@ else:
             st.session_state.clear()
             st.rerun()
             
-        # Analysis Manager - Expander
+        # Analysis Manager
         with st.expander("ANALYSIS MANAGER", expanded=False):
             ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
 
@@ -334,12 +367,10 @@ if current_page_val == "Start & Data":
     landing.show_landing_page()
 
 elif df.empty and current_page_val != "Start & Data":
-    # Fallback if refresh happens on subpage without data
     st.session_state.navigate_to_page = "Start & Data"
     st.rerun()
 
 else:
-    # Module Routing
     if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)
     elif current_page_val == "Portfolio Builder": portfolio_builder.page_portfolio_builder(df)
     elif current_page_val == "Monte Carlo": monte_carlo.page_monte_carlo(df)
@@ -348,5 +379,4 @@ else:
     elif current_page_val == "MEIC Optimizer": meic_optimizer.page_meic_optimizer()
     elif current_page_val == "AI Analyst": ai_analyst.page_ai_analyst(df)
 
-# Footer
 ui.render_footer()

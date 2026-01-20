@@ -7,12 +7,12 @@ import ui_components as ui
 def show_landing_page():
     """
     Landing Page: Data Management & Feature Hub.
-    Sidebar hidden via CSS in app.py.
     """
     
-    # 1. RENDER LOGO
+    # 1. RENDER LOGO (Centered)
     ui.render_logo()
     
+    # Title in Exo 2
     st.markdown(
         """<div style="text-align: center; margin-bottom: 40px; font-size: 24px; color: #4B5563; font-family: 'Exo 2', sans-serif; font-weight: 800;">
         ADVANCED PORTFOLIO ANALYTICS & RISK SIMULATION FOR OPTION TRADERS
@@ -21,7 +21,6 @@ def show_landing_page():
     )
 
     # --- DATA CHECK OVERLAY ---
-    # Replaces the old warning box with a full-screen overlay if user clicks modules without data
     if st.session_state.get('show_data_warning', False):
         st.markdown("""
         <div class="data-overlay">
@@ -38,7 +37,6 @@ def show_landing_page():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        # We also provide a streamlit button to clear state if JS fails
         if st.button("ACKNOWLEDGE", key="ack_btn_overlay"):
             st.session_state.show_data_warning = False
             st.rerun()
@@ -138,6 +136,7 @@ def show_landing_page():
     def render_tile(col, title, desc, target_page):
         with col:
             with st.container(border=True):
+                # Render content with standard height CSS class
                 st.markdown(f"""
                 <div class="feature-tile">
                     <div class="feature-title">{title}</div>
@@ -145,11 +144,11 @@ def show_landing_page():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Button inside the container
+                # Render Link Button if active, else Text
                 if target_page:
-                    if st.button("LAUNCH", key=f"btn_{title}", use_container_width=True):
+                    # Styling st.button to look like a link using specific class defined in app.py
+                    if st.button(f"Launch {title} >>>", key=f"btn_{title}", use_container_width=True):
                         has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
-                        
                         if has_data:
                             st.session_state.navigate_to_page = target_page
                             st.rerun()
@@ -157,30 +156,19 @@ def show_landing_page():
                             st.session_state.show_data_warning = True
                             st.rerun()
                 else:
-                    # Coming Soon Placeholder
-                    st.markdown("<div class='ghost-link'>COMING SOON</div>", unsafe_allow_html=True)
+                    st.markdown("<div class='ghost-link' style='margin-top: auto;'>COMING SOON</div>", unsafe_allow_html=True)
 
     # Grid Layout
     r1c1, r1c2, r1c3, r1c4 = st.columns(4)
     render_tile(r1c1, "Portfolio Analytics", "Comprehensive deep dive into your portfolio performance. Analyze backtest and live trade data, key performance indicators, monthly return matrices, and equity growth curves.", "Portfolio Analytics")
     render_tile(r1c2, "Portfolio Builder", "Construct and balance a multi-strategy portfolio. Allocate capital efficiently, simulate margin requirements, and optimize strategy weights using Kelly Criterion or MART ratios.", "Portfolio Builder")
-    render_tile(r1c3, "Monte Carlo Punisher", "Stress test your portfolio against thousands of market scenarios. Simulate Black Swan events, analyze drawdown probabilities, and ensure your strategy survives extreme volatility.", "Monte Carlo")
-    render_tile(r1c4, "Live vs Backtest", "Compare your actual live trading execution against your theoretical backtest results. Identify slippage, deviation, and performance gaps to refine your execution.", "Live vs. Backtest")
+    render_tile(r1c3, "Monte Carlo", "Stress test your portfolio against thousands of market scenarios. Simulate Black Swan events, analyze drawdown probabilities, and ensure your strategy survives extreme volatility.", "Monte Carlo")
+    render_tile(r1c4, "Reality Check", "Compare your actual live trading execution against your theoretical backtest results. Identify slippage, deviation, and performance gaps to refine your execution.", "Live vs. Backtest")
 
     st.write("")
 
     r2c1, r2c2, r2c3, r2c4 = st.columns(4)
     render_tile(r2c1, "MEIC Deep Dive", "Specialized analysis for Multiple Entry Iron Condors. Visualize performance based on entry times, market conditions, and specific trade parameters to optimize your MEIC strategy.", "MEIC Deep Dive")
     render_tile(r2c2, "MEIC Optimizer", "Generate entry signals for Option Omega based on your optimization criteria. Analyze batch results and find the most robust parameter sets for your strategy.", "MEIC Optimizer")
-    render_tile(r2c3, "AI Analyst", "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.", None) # Disabled
-    
-    with r2c4:
-        # Documentation Tile
-        with st.container(border=True):
-            st.markdown("""
-            <div class="feature-tile" style="border-style: dashed; background-color: #FAFAFA;">
-                <div class="feature-title">DOCUMENTATION</div>
-                <div class="feature-desc">Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown("<div class='ghost-link'>COMING SOON</div>", unsafe_allow_html=True)
+    render_tile(r2c3, "AI Analyst", "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.", "AI Analyst")
+    render_tile(r2c4, "Documentation", "Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.", None)

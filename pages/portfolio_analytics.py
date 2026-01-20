@@ -9,12 +9,9 @@ import time
 
 def page_portfolio_analytics(full_df, live_df=None):
     # --- 1. OVERLAY & LOADING ---
-    # We display the overlay using a placeholder, run calcs, then remove it
     placeholder = st.empty()
     with placeholder:
         ui.show_loading_overlay("Calculating Analytics", "Crunching numbers for Portfolio Analysis...")
-    
-    # Allow UI to render the overlay before blocking computation
     time.sleep(0.05)
 
     try:
@@ -28,10 +25,11 @@ def page_portfolio_analytics(full_df, live_df=None):
         </div>
         """, unsafe_allow_html=True)
 
-        # === CONFIGURATION ===
+        # === CONFIGURATION (FILTER AT TOP) ===
         with st.container(border=True):
             ui.section_header("Configuration")
             
+            # Data Source Selection
             data_source = "Backtest Data"
             if live_df is not None and not live_df.empty:
                 data_source = st.radio("Source:", ["Backtest Data", "Live Data"], horizontal=True)
@@ -39,6 +37,7 @@ def page_portfolio_analytics(full_df, live_df=None):
             target_df = live_df if data_source == "Live Data" and live_df is not None else full_df
             if target_df.empty: 
                 placeholder.empty()
+                st.warning("No data available.")
                 return
 
             col_cap, col_date = st.columns(2)
@@ -52,11 +51,27 @@ def page_portfolio_analytics(full_df, live_df=None):
                 placeholder.empty()
                 return
             
-            # Global Filter
+            # Strategy Filter - MOVED TO TOP
+            all_strategies = sorted(target_df['strategy'].unique())
+            selected_strats = st.multiselect("Filter Strategies", all_strategies, default=all_strategies)
+            
+            # Apply Filter
             mask = (target_df['timestamp'].dt.date >= dates[0]) & (target_df['timestamp'].dt.date <= dates[1])
+            if selected_strats:
+                mask = mask & (target_df['strategy'].isin(selected_strats))
+            else:
+                st.warning("Please select at least one strategy.")
+                placeholder.empty()
+                return
+                
             filt = target_df[mask].copy()
 
         # === CALCULATIONS ===
+        if filt.empty:
+            st.warning("No data matches filters.")
+            placeholder.empty()
+            return
+            
         daily_pnl = filt.set_index('timestamp').resample('D')['pnl'].sum()
         full_idx = pd.date_range(dates[0], dates[1])
         daily_pnl = daily_pnl.reindex(full_idx, fill_value=0)
@@ -69,11 +84,11 @@ def page_portfolio_analytics(full_df, live_df=None):
         
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
         
-        # === KPI HIGHLIGHTS (All Returned) ===
-        # Row 1: High Level
+        # === KPI HIGHLIGHTS ===
         with st.container(border=True):
             ui.section_header("Highlights")
             k1, k2, k3, k4, k5, k6 = st.columns(6)
+            # Teal/Coral Logic
             with k1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal" if filt['pnl'].sum() > 0 else "hero-coral")
             with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", "", "hero-teal" if m['CAGR'] > 0 else "hero-coral")
             with k3: ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", "", "hero-coral")
@@ -81,9 +96,9 @@ def page_portfolio_analytics(full_df, live_df=None):
             with k5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
             with k6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-teal" if m['MART'] > 5 else "hero-neutral")
         
-        # Row 2: Stats
+        # === STATISTICS (ALL) ===
         with st.container(border=True):
-            ui.section_header("Statistics")
+            ui.section_header("Detailed Statistics")
             r2k1, r2k2, r2k3, r2k4, r2k5, r2k6 = st.columns(6)
             with r2k1: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", "", "hero-neutral")
             with r2k2: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "", "hero-neutral")
@@ -94,64 +109,81 @@ def page_portfolio_analytics(full_df, live_df=None):
 
         # === CHARTS SECTION (Full Width Stacked) ===
         st.write("")
-        all_strategies = sorted(filt['strategy'].unique())
         
-        # Strategy Filter for Charts
-        selected_strats = st.multiselect("Filter Charts by Strategy", all_strategies, default=all_strategies)
-        
-        if not selected_strats:
-            st.warning("Please select at least one strategy.")
-        else:
-            # --- EQUITY ---
-            with st.container(border=True):
-                ui.section_header("Equity Curve")
-                
-                eq_data = pd.DataFrame(index=full_idx)
-                for s in selected_strats:
-                    s_df = filt[filt['strategy'] == s]
+        # --- EQUITY ---
+        with st.container(border=True):
+            ui.section_header("Equity Curve")
+            
+            eq_data = pd.DataFrame(index=full_idx)
+            # Breakdown by Strategy (safe unique naming)
+            for i, s in enumerate(selected_strats):
+                s_df = filt[filt['strategy'] == s]
+                if not s_df.empty:
                     s_pnl = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
                     eq_data[s] = s_pnl.cumsum()
-                
-                eq_data['Total Portfolio'] = eq_data.sum(axis=1)
-                
-                fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
-                                 color_discrete_sequence=px.colors.qualitative.Prism)
-                fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
-                st.plotly_chart(fig_eq, use_container_width=True)
+            
+            eq_data['Total Portfolio'] = eq_data.sum(axis=1)
+            
+            fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
+                             color_discrete_sequence=px.colors.qualitative.Prism)
+            
+            # ADD SPX BENCHMARK
+            if spx is not None:
+                spx_norm = spx / spx.iloc[0] * eq_data['Total Portfolio'].iloc[-1] if not eq_data.empty else spx
+                # Or better: normalized comparison starting at 0
+                spx_cumulative = ((1 + spx_ret).cumprod() - 1) * eq_data['Total Portfolio'].max()
+                # Simple visual overlay
+                fig_eq.add_trace(go.Scatter(x=spx.index, y=spx_cumulative, name="SPX (Scaled)", line=dict(color='gray', dash='dot')))
 
-            # --- MARGIN ---
-            with st.container(border=True):
-                ui.section_header("Margin Usage")
-                
-                margin_data = pd.DataFrame(index=full_idx)
-                for s in selected_strats:
-                    s_df = filt[filt['strategy'] == s]
+            fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
+            st.plotly_chart(fig_eq, use_container_width=True)
+
+        # --- MARGIN ---
+        with st.container(border=True):
+            ui.section_header("Margin Usage")
+            
+            margin_data = pd.DataFrame(index=full_idx)
+            for s in selected_strats:
+                s_df = filt[filt['strategy'] == s]
+                if not s_df.empty:
                     margin_data[s] = calc.generate_daily_margin_series_optimized(s_df).reindex(full_idx, fill_value=0)
-                    
-                fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns, 
-                                  color_discrete_sequence=px.colors.qualitative.Prism)
-                fig_mar.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Margin ($)", height=400, legend=dict(orientation="h", y=-0.2))
-                st.plotly_chart(fig_mar, use_container_width=True)
+                
+            fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns, 
+                              color_discrete_sequence=px.colors.qualitative.Prism)
+            fig_mar.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Margin ($)", height=400, legend=dict(orientation="h", y=-0.2))
+            st.plotly_chart(fig_mar, use_container_width=True)
 
-            # --- CORRELATION (Bigger, Truncated) ---
-            with st.container(border=True):
-                ui.section_header("Strategy Correlation")
-                
-                pnl_matrix = pd.DataFrame(index=full_idx)
-                for s in selected_strats:
-                    s_df = filt[filt['strategy'] == s]
+        # --- CORRELATION ---
+        with st.container(border=True):
+            ui.section_header("Strategy Correlation")
+            
+            pnl_matrix = pd.DataFrame(index=full_idx)
+            for s in selected_strats:
+                s_df = filt[filt['strategy'] == s]
+                if not s_df.empty:
                     pnl_matrix[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+            
+            if len(selected_strats) > 1 and not pnl_matrix.empty:
+                # FIX DUPLICATE COLUMNS BUG
+                # Truncate names but ensure uniqueness by appending index if needed
+                new_cols = []
+                seen = {}
+                for c in pnl_matrix.columns:
+                    trunc = c[:15] + ".." if len(c) > 15 else c
+                    if trunc in seen:
+                        seen[trunc] += 1
+                        trunc = f"{trunc}_{seen[trunc]}"
+                    else:
+                        seen[trunc] = 0
+                    new_cols.append(trunc)
+                pnl_matrix.columns = new_cols
                 
-                if len(selected_strats) > 1:
-                    # Truncate column names for cleaner heatmap
-                    pnl_matrix.columns = [c[:15] + ".." if len(c) > 15 else c for c in pnl_matrix.columns]
-                    
-                    corr = pnl_matrix.corr()
-                    fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu", zmin=-1, zmax=1, aspect="auto")
-                    fig_corr.update_layout(height=600) # Bigger
-                    st.plotly_chart(fig_corr, use_container_width=True)
-                else:
-                    st.info("Select multiple strategies to view correlation.")
+                corr = pnl_matrix.corr()
+                fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu", zmin=-1, zmax=1, aspect="auto")
+                fig_corr.update_layout(height=600)
+                st.plotly_chart(fig_corr, use_container_width=True)
+            else:
+                st.info("Select multiple strategies to view correlation.")
 
         # === MONTHLY RETURNS TABLE ===
         with st.container(border=True):
@@ -176,8 +208,9 @@ def page_portfolio_analytics(full_df, live_df=None):
             
             strat_metrics = []
             
-            for s in all_strategies:
+            for s in selected_strats:
                 s_df = filt[filt['strategy'] == s].copy()
+                if s_df.empty: continue
                 
                 s_pnl = s_df['pnl'].sum()
                 lots, lots_per_day = calc.calculate_lots_from_trades(s_df)
@@ -229,7 +262,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                 perf_df,
                 column_config={
                     "P/L": st.column_config.NumberColumn(format="$%.0f"),
-                    "CAGR": st.column_config.NumberColumn(format="%.1%"), # Fixed % format
+                    "CAGR": st.column_config.NumberColumn(format="%.1%"),
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
                     "MART": st.column_config.NumberColumn(format="%.2f"),

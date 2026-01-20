@@ -223,15 +223,15 @@ st.markdown("""
         color: #9CA3AF;
     }
     
-    /* Functional Colors for Grid */
+    /* Functional Colors for Grid - USING CORRECT CI COLORS */
     .hero-cyan { 
-        background-color: #06B6D4 !important; /* Cyan-500 */
+        background-color: #00D2BE !important; /* Turbo Teal */
         border: none !important;
     }
     .hero-cyan .hero-label, .hero-cyan .hero-value, .hero-cyan .hero-sub { color: #FFFFFF !important; }
     
     .hero-red {
-        background-color: #FF2E4D !important;
+        background-color: #FF2E4D !important; /* Radical Coral */
         border: none !important;
     }
     .hero-red .hero-label, .hero-red .hero-value, .hero-red .hero-sub { color: #FFFFFF !important; }

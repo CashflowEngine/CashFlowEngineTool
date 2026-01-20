@@ -16,16 +16,19 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 def render_logo():
     """
     Renders the official Logo with robust error handling.
+    Catches PIL errors if image is corrupt.
     """
     try:
-        # Force a try/except around the image load itself
-        # This catches PIL.UnidentifiedImageError if the file is corrupt
+        # Strict try-catch block for image rendering
         if os.path.exists("CashflowEnginelogo.png"):
-            st.image("CashflowEnginelogo.png", width=350)
+            try:
+                st.image("CashflowEnginelogo.png", width=350)
+            except Exception:
+                raise ValueError("Image file corrupt")
         else:
             raise FileNotFoundError("Logo file missing")
     except Exception:
-        # Silent fallback to text if ANY image error occurs
+        # Fallback to styled text
         st.markdown(f"""
         <div style="text-align: center; padding: 10px 0;">
             <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 30px; color: {COLOR_GREY}; letter-spacing: 1px;">
@@ -89,7 +92,6 @@ def render_hero_metric(label, value, subtext="", color_class="hero-neutral", too
         tooltip_escaped = tooltip.replace("'", "&#39;").replace('"', '&quot;')
         tooltip_html = f"<span class='tooltip-icon' data-tip='{tooltip_escaped}'>?</span>"
     
-    # Apply color classes. 'hero-cyan' and 'hero-red' are defined in app.py CSS
     st.markdown(
         f"<div class='hero-card {color_class}'>"
         f"<div class='hero-label'>{label} {tooltip_html}</div>"

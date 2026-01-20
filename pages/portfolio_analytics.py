@@ -81,6 +81,9 @@ def page_portfolio_analytics(full_df, live_df=None):
         
         # Benchmarking
         spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
+        spx_ret = None
+        spx_equity_source = None
+        
         if spx is not None:
             # STRICT FILTERING: Match the exact selected dates to prevent buffer distortion
             spx.index = pd.to_datetime(spx.index)
@@ -91,12 +94,6 @@ def page_portfolio_analytics(full_df, live_df=None):
             if not spx_filtered.empty:
                 spx_ret = spx_filtered.pct_change().fillna(0)
                 spx_equity_source = spx_filtered
-            else:
-                spx_ret = None
-                spx_equity_source = None
-        else:
-            spx_ret = None
-            spx_equity_source = None
         
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
         
@@ -175,15 +172,17 @@ def page_portfolio_analytics(full_df, live_df=None):
                              color_discrete_sequence=px.colors.qualitative.Prism)
             
             # ADD SPX BENCHMARK (FIXED NORMALIZATION)
-            if spx_ret is not None and spx_equity_source is not None:
+            if spx_ret is not None and not spx_ret.empty:
                 # Calculate SPX Cumulative Return relative to the start of the period
+                # We normalize so that both start at 0 PnL (or aligned to capital)
+                # Here we plot PnL, so SPX PnL = Initial * CumulativeReturn
                 spx_cumulative_return = (1 + spx_ret).cumprod() - 1
-                
-                # Align SPX curve to Portfolio PnL scale (Dollars)
-                # Formula: Invested Capital * Cumulative Return
                 spx_pnl_curve = account_size * spx_cumulative_return
                 
-                fig_eq.add_trace(go.Scatter(x=spx_ret.index, y=spx_pnl_curve, name="SPX Benchmark (Rel)", line=dict(color='gray', dash='dot')))
+                # Ensure the index matches the plot
+                spx_pnl_curve = spx_pnl_curve.reindex(eq_data.index, method='ffill')
+                
+                fig_eq.add_trace(go.Scatter(x=spx_pnl_curve.index, y=spx_pnl_curve, name="SPX Benchmark (Rel)", line=dict(color='gray', dash='dot')))
 
             fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
             st.plotly_chart(fig_eq, use_container_width=True)

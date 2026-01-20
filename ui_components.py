@@ -17,7 +17,6 @@ def render_logo():
     Renders the official Logo using the provided PNG image.
     """
     try:
-        # Use columns to control width if needed, or just standard st.image
         st.image("CashflowEnginelogo.png", use_container_width=True)
     except:
         # Fallback
@@ -114,13 +113,14 @@ def color_monthly_performance(val):
 # --- SAVE/LOAD UI ---
 
 def render_save_load_sidebar(bt_df, live_df):
-    """Enhanced save/load system."""
+    """Enhanced save/load system inside sidebar."""
     
     if not db.DB_AVAILABLE:
-        st.warning("Database not connected")
+        st.warning("DB not connected")
         return
     
-    save_tab, load_tab, manage_tab = st.tabs(["Save", "Load", "Edit"])
+    # Simple Tabs to save space
+    save_tab, load_tab = st.tabs(["Save", "Load"])
     
     with save_tab:
         if bt_df is None or bt_df.empty:
@@ -129,8 +129,8 @@ def render_save_load_sidebar(bt_df, live_df):
             strategies = bt_df['strategy'].unique().tolist() if 'strategy' in bt_df.columns else []
             default_name = f"Analysis {len(strategies)} Strat"
             
-            save_name = st.text_input("Name", value=default_name, key="save_name_input")
-            save_desc = st.text_area("Desc", height=60, key="save_desc_input")
+            save_name = st.text_input("Name", value=default_name, key="save_name_input", label_visibility="collapsed", placeholder="Name")
+            save_desc = st.text_area("Desc", height=60, key="save_desc_input", label_visibility="collapsed", placeholder="Notes")
             
             if st.button("SAVE", use_container_width=True):
                 if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_desc):
@@ -139,30 +139,24 @@ def render_save_load_sidebar(bt_df, live_df):
     with load_tab:
         saved = db.get_analysis_list_enhanced()
         if not saved:
-            st.caption("No saves found.")
+            st.caption("No saves.")
         else:
-            search = st.text_input("Search", key="load_search")
-            filtered = [a for a in saved if search.lower() in a['name'].lower()] if search else saved
+            # Dropdown for compact view
+            opts = {f"{a['name']} ({a['created_at'][:10]})": a['id'] for a in saved}
+            sel_name = st.selectbox("Select", options=list(opts.keys()), label_visibility="collapsed", key="load_sel_sb")
             
-            for a in filtered[:5]:
-                with st.container(border=True):
-                    st.markdown(f"**{a['name']}**")
-                    st.caption(f"{a['created_at'][:10]}")
-                    if st.button("LOAD", key=f"load_{a['id']}", use_container_width=True):
-                        _load_with_feedback(a['id'], a['name'])
-
-    with manage_tab:
-        saved = db.get_analysis_list_enhanced()
-        if saved:
-            opts = {f"{a['name']}": a for a in saved}
-            sel = st.selectbox("Select", list(opts.keys()), key="manage_sel")
-            if sel and st.button("DELETE", use_container_width=True, key="del_btn"):
-                if db.delete_analysis_from_db(opts[sel]['id']):
-                    st.rerun()
+            if sel_name:
+                aid = opts[sel_name]
+                if st.button("LOAD", key=f"load_btn_sb", use_container_width=True):
+                    _load_with_feedback(aid, sel_name)
+                    
+                if st.button("DELETE", key=f"del_btn_sb", use_container_width=True):
+                    if db.delete_analysis_from_db(aid):
+                        st.rerun()
 
 def _load_with_feedback(analysis_id, name):
     loading = st.empty()
-    loading.info(f"Loading {name}...")
+    loading.info(f"Loading...")
     bt_df, live_df = db.load_analysis_from_db(analysis_id)
     if bt_df is not None:
         st.session_state['full_df'] = bt_df
@@ -170,4 +164,5 @@ def _load_with_feedback(analysis_id, name):
             st.session_state['live_df'] = live_df
         loading.success(f"Loaded!")
         time.sleep(0.5)
-        st.session_state.navigate
+        st.session_state.navigate_to_page = "Portfolio Analytics"
+        st.rerun()

@@ -37,7 +37,7 @@ st.markdown("""
     }
     
     /* Headlines - Exo 2 - Space Grey - Uppercase */
-    h1, h2, h3, h4, h5, h6, .card-title {
+    h1, h2, h3, h4, h5, h6, .card-title, .stHeading {
         font-family: 'Exo 2', sans-serif !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
@@ -45,43 +45,55 @@ st.markdown("""
         font-weight: 800 !important; /* Extra Bold */
     }
     
-    /* --- NAVIGATION BAR REDESIGN --- */
+    /* --- NAVIGATION BAR REDESIGN (Pill Style) --- */
     
-    /* Hide default decoration */
+    /* Hide default Streamlit Nav */
     [data-testid="stSidebarNav"] { display: none !important; }
     
-    /* Radio Button styling to look like Menu */
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-        gap: 8px;
+    /* Sidebar Background */
+    section[data-testid="stSidebar"] {
+        background-color: #F9FAFB;
+        border-right: 1px solid #E5E7EB;
     }
 
+    /* Radio Button Container */
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+        gap: 6px;
+        padding: 0 10px;
+    }
+
+    /* Radio Items (Pills) */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
         background-color: transparent;
-        border: none;
-        border-radius: 6px;
-        padding: 12px 16px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 10px 12px;
         margin-bottom: 2px;
-        color: #4B5563;
+        color: #6B7280;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 500;
+        font-size: 14px;
         cursor: pointer;
         transition: all 0.2s ease;
         display: flex;
         align-items: center;
+        box-shadow: none;
     }
     
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-        background-color: #F3F4F6;
+        background-color: #FFFFFF;
         color: #302BFF;
+        border-color: #E5E7EB;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* Active State */
+    /* Active State (Selected Pill) */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] {
-        background-color: #F0F4FF; /* Ice Tint */
+        background-color: #FFFFFF; 
         color: #302BFF; /* Blue */
-        font-weight: 700;
-        border-left: 4px solid #302BFF;
-        border-radius: 0 6px 6px 0;
+        font-weight: 600;
+        border: 1px solid #302BFF;
+        box-shadow: 0 4px 6px rgba(48, 43, 255, 0.05);
     }
     
     /* Hide the radio circle */
@@ -92,6 +104,7 @@ st.markdown("""
     /* Clean up sidebar padding */
     section[data-testid="stSidebar"] .block-container {
         padding-top: 2rem;
+        padding-bottom: 5rem;
     }
 
     /* --- UI ELEMENTS --- */
@@ -129,13 +142,18 @@ st.markdown("""
 
     /* Secondary/Ghost Button styling for 'Coming Soon' etc */
     .ghost-link {
-        color: #302BFF;
+        color: #9CA3AF;
         text-decoration: none;
         font-size: 12px;
         font-weight: 600;
         cursor: not-allowed;
-        opacity: 0.7;
         font-family: 'Poppins', sans-serif;
+        text-transform: uppercase;
+        border: 1px dashed #E5E7EB;
+        padding: 8px;
+        border-radius: 4px;
+        display: block;
+        text-align: center;
     }
 
     /* Links */
@@ -184,7 +202,7 @@ st.markdown("""
         min-height: 220px; 
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
+        justify-content: space-between;
         align-items: center;
         text-align: center;
     }
@@ -202,23 +220,24 @@ st.markdown("""
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(255, 255, 255, 0.95);
-        z-index: 99999;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255, 255, 255, 0.98);
+        z-index: 1000000;
         display: flex;
         justify-content: center;
         align-items: center;
         flex-direction: column;
+        backdrop-filter: blur(5px);
     }
     .data-overlay-box {
         background: white;
         padding: 40px;
         border-radius: 16px;
-        border: 2px solid #FFAB00;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        border: 1px solid #E5E7EB;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         text-align: center;
-        max-width: 500px;
+        max-width: 600px;
     }
 
     /* Footer */
@@ -229,7 +248,7 @@ st.markdown("""
         width: 100%;
         background-color: #F9FAFB;
         border-top: 1px solid #E5E7EB;
-        padding: 10px;
+        padding: 8px;
         text-align: center;
         font-size: 10px;
         color: #9CA3AF;
@@ -250,7 +269,7 @@ st.markdown("""
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
 
-# Define Menu Items (NO EMOJIS in keys for clean look)
+# Define Menu Items (Clean text, no emojis)
 page_map = {
     "Start & Data": "Start & Data",
     "Portfolio Analytics": "Portfolio Analytics",
@@ -271,14 +290,19 @@ else:
     current_key = "Start & Data"
     st.session_state.navigate_to_page = "Start & Data"
 
-# Sidebar Logic
-# We hide the sidebar contents programmatically on the landing page if desired,
-# but since the user requested "Remove navigation bar on landing page", we use CSS in landing.py.
-# Here we just render the structure if we are NOT on landing page conceptually.
-
 current_page_val = st.session_state.navigate_to_page
 
-if current_page_val != "Start & Data":
+# --- SIDEBAR LOGIC ---
+# If on Landing Page, we HIDE the sidebar via CSS injection
+if current_page_val == "Start & Data":
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: none !important; }
+        section[data-testid="stSidebar"] { display: none !important; }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    # Render Sidebar only if NOT landing page
     with st.sidebar:
         ui.render_logo() # Brand Logo on top of Nav
         st.write("") # Spacer

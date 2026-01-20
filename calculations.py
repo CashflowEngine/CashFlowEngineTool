@@ -10,7 +10,6 @@ import re
 logger = logging.getLogger(__name__)
 
 # --- DATA LOADING ---
-# (Existing loading functions preserved)
 @st.cache_data(show_spinner=False)
 def load_and_clean(_file_content, file_name):
     try:
@@ -222,7 +221,8 @@ def calculate_streaks_optimized(pnl_values):
 def calculate_advanced_metrics(daily_returns_series, trades_df=None, benchmark_series=None, account_size=100000):
     """
     Calculate comprehensive portfolio metrics.
-    Fixes MAR vs MART distinction.
+    MAR = CAGR / MaxDD(Peak).
+    MART = CAGR / (MaxDD($) / InitialCap).
     """
     metrics = {
         "CAGR": 0, "Vol": 0, "Sharpe": 0, "Sortino": 0,
@@ -260,11 +260,10 @@ def calculate_advanced_metrics(daily_returns_series, trades_df=None, benchmark_s
     dd_usd = equity_curve - peak_eq
     max_dd_val = dd_usd.min() # Dollar amount, negative
     
-    # MAR Ratio = CAGR / MaxDD (%)
+    # MAR Ratio = CAGR / MaxDD (%) [Standard]
     mar = cagr / abs(max_dd_pct) if max_dd_pct != 0 else 0
 
-    # MART Ratio = CAGR / (MaxDD ($) / Initial_Capital)
-    # This represents risk relative to starting size, not peak
+    # MART Ratio = CAGR / (MaxDD ($) / Initial_Capital) [Risk vs Start]
     dd_pct_initial = abs(max_dd_val) / account_size if account_size > 0 else 0
     mart = cagr / dd_pct_initial if dd_pct_initial != 0 else 0
 
@@ -357,7 +356,6 @@ def calculate_lots_from_trades(strat_df):
     
     return int(total_lots), avg_lots_per_day
 
-# Re-export necessary functions for other modules
 def _infer_strategy_dna(strategy_name, strat_df=None):
     n = strategy_name.upper()
     dna = {"Type": "Custom", "Delta": "Neutral", "Vega": "Neutral", "Theta": "Neutral", "Gamma": "Neutral"}

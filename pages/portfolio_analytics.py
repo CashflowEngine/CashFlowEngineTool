@@ -69,11 +69,10 @@ def page_portfolio_analytics(full_df, live_df=None):
         
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
         
-        # === KPI HIGHLIGHTS (ROW 1) ===
-        # Order: Total P/L, CAGR, Max DD %, Max DD $, MAR, MART
+        # === KPI HIGHLIGHTS (All Returned) ===
+        # Row 1: High Level
         with st.container(border=True):
-            ui.section_header("Highlights & Key Performance Indicators")
-            
+            ui.section_header("Highlights")
             k1, k2, k3, k4, k5, k6 = st.columns(6)
             with k1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal" if filt['pnl'].sum() > 0 else "hero-coral")
             with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", "", "hero-teal" if m['CAGR'] > 0 else "hero-coral")
@@ -81,8 +80,19 @@ def page_portfolio_analytics(full_df, live_df=None):
             with k4: ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", "", "hero-coral")
             with k5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
             with k6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-teal" if m['MART'] > 5 else "hero-neutral")
+        
+        # Row 2: Stats
+        with st.container(border=True):
+            ui.section_header("Statistics")
+            r2k1, r2k2, r2k3, r2k4, r2k5, r2k6 = st.columns(6)
+            with r2k1: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", "", "hero-neutral")
+            with r2k2: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "", "hero-neutral")
+            with r2k3: ui.render_hero_metric("Win Rate", f"{m['WinRate']:.1%}", f"{m['Trades']} Trades", "hero-neutral")
+            with r2k4: ui.render_hero_metric("Profit Factor", f"{m['PF']:.2f}", "", "hero-neutral")
+            with r2k5: ui.render_hero_metric("Alpha", f"{m['Alpha']:.1%}", "", "hero-neutral")
+            with r2k6: ui.render_hero_metric("Beta", f"{m['Beta']:.2f}", "", "hero-neutral")
 
-        # === CHARTS SECTION (With Strategy Selector) ===
+        # === CHARTS SECTION (Full Width Stacked) ===
         st.write("")
         all_strategies = sorted(filt['strategy'].unique())
         
@@ -92,82 +102,56 @@ def page_portfolio_analytics(full_df, live_df=None):
         if not selected_strats:
             st.warning("Please select at least one strategy.")
         else:
-            chart_filt = filt[filt['strategy'].isin(selected_strats)]
-            
-            # --- EQUITY & MARGIN ---
-            c_eq, c_mar = st.columns(2)
-            
-            with c_eq:
-                with st.container(border=True):
-                    ui.section_header("Equity Curve")
-                    
-                    # Prepare Equity Data grouped by Strategy
-                    eq_data = pd.DataFrame(index=full_idx)
-                    
-                    for s in selected_strats:
-                        s_df = filt[filt['strategy'] == s]
-                        s_pnl = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
-                        eq_data[s] = s_pnl.cumsum()
-                    
-                    # Also Total
-                    eq_data['Total Portfolio'] = eq_data.sum(axis=1)
-                    
-                    fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
-                                     color_discrete_sequence=px.colors.qualitative.Prism)
-                    fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=350, legend=dict(orientation="h", y=-0.2))
-                    st.plotly_chart(fig_eq, use_container_width=True)
+            # --- EQUITY ---
+            with st.container(border=True):
+                ui.section_header("Equity Curve")
+                
+                eq_data = pd.DataFrame(index=full_idx)
+                for s in selected_strats:
+                    s_df = filt[filt['strategy'] == s]
+                    s_pnl = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                    eq_data[s] = s_pnl.cumsum()
+                
+                eq_data['Total Portfolio'] = eq_data.sum(axis=1)
+                
+                fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
+                                 color_discrete_sequence=px.colors.qualitative.Prism)
+                fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
+                st.plotly_chart(fig_eq, use_container_width=True)
 
-            with c_mar:
-                with st.container(border=True):
-                    ui.section_header("Margin Usage")
+            # --- MARGIN ---
+            with st.container(border=True):
+                ui.section_header("Margin Usage")
+                
+                margin_data = pd.DataFrame(index=full_idx)
+                for s in selected_strats:
+                    s_df = filt[filt['strategy'] == s]
+                    margin_data[s] = calc.generate_daily_margin_series_optimized(s_df).reindex(full_idx, fill_value=0)
                     
-                    # Prepare Margin Data
-                    margin_data = pd.DataFrame(index=full_idx)
-                    for s in selected_strats:
-                        s_df = filt[filt['strategy'] == s]
-                        # Calc optimized margin series per strategy
-                        margin_data[s] = calc.generate_daily_margin_series_optimized(s_df).reindex(full_idx, fill_value=0)
-                        
-                    fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns, 
-                                      color_discrete_sequence=px.colors.qualitative.Prism)
-                    fig_mar.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Margin ($)", height=350, legend=dict(orientation="h", y=-0.2))
-                    st.plotly_chart(fig_mar, use_container_width=True)
+                fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns, 
+                                  color_discrete_sequence=px.colors.qualitative.Prism)
+                fig_mar.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Margin ($)", height=400, legend=dict(orientation="h", y=-0.2))
+                st.plotly_chart(fig_mar, use_container_width=True)
 
-            # --- CORRELATION & DAY ANALYSIS ---
-            c_corr, c_day = st.columns([1, 1])
-            
-            with c_corr:
-                with st.container(border=True):
-                    ui.section_header("Strategy Correlation")
+            # --- CORRELATION (Bigger, Truncated) ---
+            with st.container(border=True):
+                ui.section_header("Strategy Correlation")
+                
+                pnl_matrix = pd.DataFrame(index=full_idx)
+                for s in selected_strats:
+                    s_df = filt[filt['strategy'] == s]
+                    pnl_matrix[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                
+                if len(selected_strats) > 1:
+                    # Truncate column names for cleaner heatmap
+                    pnl_matrix.columns = [c[:15] + ".." if len(c) > 15 else c for c in pnl_matrix.columns]
                     
-                    # Create daily PnL matrix for correlation
-                    pnl_matrix = pd.DataFrame(index=full_idx)
-                    for s in selected_strats:
-                        s_df = filt[filt['strategy'] == s]
-                        pnl_matrix[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
-                    
-                    if len(selected_strats) > 1:
-                        corr = pnl_matrix.corr()
-                        fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu", zmin=-1, zmax=1, aspect="auto")
-                        fig_corr.update_layout(height=400)
-                        st.plotly_chart(fig_corr, use_container_width=True)
-                    else:
-                        st.info("Select multiple strategies to view correlation.")
-
-            with c_day:
-                with st.container(border=True):
-                    ui.section_header("Day of Week Analysis")
-                    
-                    # Group by day name
-                    filt['Day'] = filt['timestamp'].dt.day_name()
-                    # Ensure correct order
-                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-                    day_stats = filt.groupby('Day')['pnl'].sum().reindex(day_order, fill_value=0)
-                    
-                    fig_day = px.bar(day_stats, x=day_stats.index, y=day_stats.values, 
-                                     color=day_stats.values, color_continuous_scale="RdYlGn")
-                    fig_day.update_layout(template="plotly_white", height=400, xaxis_title=None, showlegend=False)
-                    st.plotly_chart(fig_day, use_container_width=True)
+                    corr = pnl_matrix.corr()
+                    fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu", zmin=-1, zmax=1, aspect="auto")
+                    fig_corr.update_layout(height=600) # Bigger
+                    st.plotly_chart(fig_corr, use_container_width=True)
+                else:
+                    st.info("Select multiple strategies to view correlation.")
 
         # === MONTHLY RETURNS TABLE ===
         with st.container(border=True):
@@ -178,14 +162,9 @@ def page_portfolio_analytics(full_df, live_df=None):
             
             pivot = filt.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0)
             
-            # Rename columns to Jan, Feb...
             import calendar
             pivot.columns = [calendar.month_abbr[c] for c in pivot.columns]
-            
-            # Add Row Totals
             pivot['TOTAL'] = pivot.sum(axis=1)
-            
-            # Add Column Totals
             sum_row = pivot.sum()
             pivot.loc['TOTAL'] = sum_row
             
@@ -200,35 +179,25 @@ def page_portfolio_analytics(full_df, live_df=None):
             for s in all_strategies:
                 s_df = filt[filt['strategy'] == s].copy()
                 
-                # Metrics
                 s_pnl = s_df['pnl'].sum()
-                
-                # Contracts/Day (Lots)
                 lots, lots_per_day = calc.calculate_lots_from_trades(s_df)
                 
-                # CAGR (Contribution)
-                # Calculating contribution to total portfolio CAGR would be complex.
-                # Here we calculate the strategy's own annualized return based on PnL vs Account Size
                 days = (s_df['timestamp'].max() - s_df['timestamp'].min()).days
                 days = max(days, 1)
                 s_ret = s_pnl / account_size
                 s_cagr = (1 + s_ret) ** (365/days) - 1
                 
-                # Drawdown
                 s_daily = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
                 s_cum = s_daily.cumsum()
                 s_peak = s_cum.cummax()
                 s_dd_usd = (s_cum - s_peak).min()
-                s_max_dd_pct = s_dd_usd / account_size # Relative to account
+                s_max_dd_pct = s_dd_usd / account_size 
                 
-                # Ratios
                 s_mar = s_cagr / abs(s_max_dd_pct) if s_max_dd_pct != 0 else 0
                 s_mart = s_cagr / (abs(s_dd_usd) / account_size) if s_dd_usd != 0 else 0
                 
-                # Margin
                 s_margin_series = calc.generate_daily_margin_series_optimized(s_df)
                 s_peak_margin = s_margin_series.max() if not s_margin_series.empty else 0
-                s_avg_margin = s_margin_series[s_margin_series > 0].mean() if not s_margin_series.empty and (s_margin_series > 0).any() else 0
                 
                 strat_metrics.append({
                     "Strategy": s,
@@ -238,24 +207,21 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Max DD ($)": s_dd_usd,
                     "MAR": s_mar,
                     "MART": s_mart,
-                    "Peak Margin": s_peak_margin,
-                    "Avg Margin": s_avg_margin
+                    "Peak Margin": s_peak_margin
                 })
             
             perf_df = pd.DataFrame(strat_metrics)
             
-            # Add Total Row
             if not perf_df.empty:
                 total_row = {
                     "Strategy": "TOTAL",
                     "Contracts/Day": perf_df["Contracts/Day"].sum(),
                     "P/L": perf_df["P/L"].sum(),
-                    "CAGR": m['CAGR'], # Use Portfolio CAGR
-                    "Max DD ($)": m['MaxDD_USD'], # Use Portfolio MaxDD
+                    "CAGR": m['CAGR'], 
+                    "Max DD ($)": m['MaxDD_USD'], 
                     "MAR": m['MAR'],
                     "MART": m['MART'],
-                    "Peak Margin": perf_df["Peak Margin"].max(), # Approx
-                    "Avg Margin": perf_df["Avg Margin"].sum()
+                    "Peak Margin": perf_df["Peak Margin"].max()
                 }
                 perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
             
@@ -263,12 +229,11 @@ def page_portfolio_analytics(full_df, live_df=None):
                 perf_df,
                 column_config={
                     "P/L": st.column_config.NumberColumn(format="$%.0f"),
-                    "CAGR": st.column_config.NumberColumn(format="%.1%"),
+                    "CAGR": st.column_config.NumberColumn(format="%.1%"), # Fixed % format
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
                     "MART": st.column_config.NumberColumn(format="%.2f"),
                     "Peak Margin": st.column_config.NumberColumn(format="$%.0f"),
-                    "Avg Margin": st.column_config.NumberColumn(format="$%.0f"),
                     "Contracts/Day": st.column_config.NumberColumn(format="%.1f")
                 },
                 use_container_width=True,

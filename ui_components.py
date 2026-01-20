@@ -3,16 +3,43 @@ import pandas as pd
 import database as db
 import time
 
-# Constants
-COLOR_TEAL = "#00D2BE"
-COLOR_CORAL = "#FF2E4D"
-COLOR_BLUE = "#302BFF"
-COLOR_GREY = "#4B5563"
-COLOR_PURPLE = "#7B2BFF"
+# --- CORPORATE IDENTITY COLORS ---
+COLOR_BLUE = "#302BFF"   # Electric Blue
+COLOR_TEAL = "#00D2BE"   # Turbo Teal (Profit)
+COLOR_CORAL = "#FF2E4D"  # Radical Coral (Loss)
+COLOR_GREY = "#4B5563"   # Space Grey
+COLOR_ICE = "#F0F4FF"    # Ice Tint (Backgrounds)
+COLOR_AMBER = "#FFAB00"  # Amber Flux (Warning)
+COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
+
+def render_logo():
+    """
+    Renders the official Master-Logo according to CI construction rules.
+    1. Upper Line (Electric Blue)
+    2. Headline (Exo 2 Bold Uppercase)
+    3. Subline (Poppins Bold Uppercase)
+    4. Lower Line (Electric Blue)
+    5. Signature (Poppins Light Uppercase)
+    """
+    st.markdown(f"""
+    <div style="text-align: center; padding: 20px 0;">
+        <div style="height: 2px; background-color: {COLOR_BLUE}; width: 100%; margin-bottom: 15px;"></div>
+        <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 28px; color: {COLOR_GREY}; letter-spacing: 2px; line-height: 1.2;">
+            CASHFLOW<br>ENGINE
+        </div>
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 10px; color: {COLOR_GREY}; letter-spacing: 3px; margin-top: 5px; margin-bottom: 15px;">
+            AUTOMATED OPTIONS TRADING
+        </div>
+        <div style="height: 2px; background-color: {COLOR_BLUE}; width: 100%; margin-bottom: 10px;"></div>
+        <div style="font-family: 'Poppins', sans-serif; font-weight: 300; font-size: 9px; color: {COLOR_BLUE}; letter-spacing: 4px; text-align: center;">
+            ENGINEERED BY THOMAS MEHLITZ
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def section_header(title):
-    """Render a styled blue header for cards."""
-    st.markdown(f"<div class='card-title'>{title}</div>", unsafe_allow_html=True)
+    """Render a styled blue header for cards using Exo 2."""
+    st.markdown(f"<div class='card-title' style='color: {COLOR_BLUE} !important; margin-bottom: 20px;'>{title}</div>", unsafe_allow_html=True)
 
 def show_loading_overlay(message="Processing", submessage="The engine is running..."):
     """Display a custom loading overlay with animated gears."""
@@ -24,7 +51,7 @@ def show_loading_overlay(message="Processing", submessage="The engine is running
                 <span class="gear gear-2">⚙️</span>
                 <span class="gear gear-3">⚙️</span>
             </div>
-            <div class="loading-text">{message}</div>
+            <div class="loading-text" style="color: {COLOR_BLUE};">{message}</div>
             <div class="loading-subtext">{submessage}</div>
             <div class="progress-bar-container">
                 <div class="progress-bar"></div>
@@ -47,7 +74,7 @@ def hide_loading_overlay():
     st.markdown(hide_js, unsafe_allow_html=True)
 
 def render_hero_metric(label, value, subtext="", color_class="hero-neutral", tooltip=""):
-    """Render a hero metric card with optional tooltip shown via question mark icon."""
+    """Render a hero metric card with optional tooltip."""
     tooltip_html = ""
     if tooltip:
         tooltip_escaped = tooltip.replace("'", "&#39;").replace('"', '&quot;')
@@ -74,7 +101,7 @@ def render_standard_metric(label, value, subtext="", value_color=COLOR_GREY):
     )
 
 def color_monthly_performance(val):
-    """Color code monthly performance values - green for positive, red for negative."""
+    """Color code monthly performance values - Turbo Teal vs Radical Coral."""
     try:
         if isinstance(val, str):
             clean_val = val.replace('$', '').replace(',', '').replace('%', '').strip()
@@ -83,11 +110,11 @@ def color_monthly_performance(val):
             num_val = float(val)
         
         if num_val > 0:
-            intensity = min(abs(num_val) / 5000, 1) if abs(num_val) > 100 else min(abs(num_val) / 10, 1)
-            return f'background-color: rgba(0, 210, 190, {0.1 + intensity * 0.4}); color: #065F46'
+            # Green/Teal tint
+            return f'background-color: rgba(0, 210, 190, 0.15); color: {COLOR_GREY}; font-weight: 600;'
         elif num_val < 0:
-            intensity = min(abs(num_val) / 5000, 1) if abs(num_val) > 100 else min(abs(num_val) / 10, 1)
-            return f'background-color: rgba(255, 46, 77, {0.1 + intensity * 0.4}); color: #991B1B'
+            # Red/Coral tint
+            return f'background-color: rgba(255, 46, 77, 0.15); color: {COLOR_GREY}; font-weight: 600;'
         else:
             return 'background-color: white; color: #374151'
     except (ValueError, TypeError):
@@ -102,10 +129,9 @@ def render_save_load_sidebar(bt_df, live_df):
     
     if not db.DB_AVAILABLE:
         st.sidebar.warning("☁️ Database not connected")
-        st.sidebar.caption("Save/Load requires database.")
         return
     
-    save_tab, load_tab, manage_tab = st.sidebar.tabs(["💾 Save", "📂 Load", "⚙️ Manage"])
+    save_tab, load_tab, manage_tab = st.sidebar.tabs(["Save", "Load", "Manage"])
     
     with save_tab:
         _render_save_section(bt_df, live_df)
@@ -129,46 +155,21 @@ def _render_save_section(bt_df, live_df):
         if pd.notna(min_d) and pd.notna(max_d):
             date_range = f"{min_d.strftime('%Y%m%d')}-{max_d.strftime('%Y%m%d')}"
     
-    if len(strategies) == 1:
-        default_name = f"{strategies[0][:20]}_{date_range}"
-    elif len(strategies) <= 3:
-        default_name = f"{'_'.join([s[:8] for s in strategies[:3]])}_{date_range}"
-    else:
-        default_name = f"Portfolio_{len(strategies)}strats_{date_range}"
-    default_name = default_name.replace(" ", "_")[:60]
+    default_name = f"Analysis_{date_range}"
+    if len(strategies) > 0:
+        default_name = f"{strategies[0][:15]}_{date_range}"
     
-    st.markdown("##### 📝 Save")
+    st.markdown("##### 📝 Save Current Analysis")
     save_name = st.text_input("Name", value=default_name, max_chars=100, key="save_name")
-    save_description = st.text_area("Description", placeholder="Optional notes...", max_chars=300, height=60, key="save_desc")
+    save_description = st.text_area("Description", placeholder="Notes...", max_chars=300, height=60, key="save_desc")
     
-    available_tags = ["Backtest", "Live", "MEIC", "Iron Condor", "Calendar", "Optimized", "Conservative", "Production"]
-    default_tags = ["Backtest"] if bt_df is not None and not bt_df.empty else []
-    if live_df is not None and not live_df.empty: default_tags.append("Live")
-    
-    selected_tags = st.multiselect("Tags", options=available_tags, default=default_tags, key="save_tags")
-    
-    with st.expander("📊 Preview"):
-        c1, c2 = st.columns(2)
-        with c1:
-            st.metric("Trades", f"{len(bt_df):,}")
-            st.metric("Strategies", len(strategies))
-        with c2:
-            live_count = len(live_df) if live_df is not None and not live_df.empty else 0
-            st.metric("Live Trades", f"{live_count:,}")
-            st.metric("P/L", f"${bt_df['pnl'].sum():,.0f}" if 'pnl' in bt_df.columns else "N/A")
-    
-    if st.button("💾 Save", use_container_width=True, type="primary", key="save_btn"):
-        if not save_name.strip():
-            st.error("Enter a name.")
-            return
-        
+    if st.button("💾 Save to Cloud", use_container_width=True, type="primary"):
         with st.spinner("Saving..."):
-            if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_description, selected_tags):
+            if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_description):
                 st.success("✅ Saved!")
-                st.balloons()
 
 def _render_load_section():
-    st.markdown("##### 📂 Load")
+    st.markdown("##### 📂 Load Analysis")
     saved = db.get_analysis_list_enhanced()
     if not saved:
         st.info("No saved analyses.")
@@ -180,17 +181,10 @@ def _render_load_section():
     if search:
         filtered = [a for a in filtered if search.lower() in a['name'].lower()]
     
-    if not filtered:
-        st.warning("No matches.")
-        return
-    
-    st.caption(f"Found {len(filtered)} analysis(es)")
-    for a in filtered[:10]:
+    for a in filtered[:5]:
         with st.container(border=True):
             st.markdown(f"**{a['name']}**")
-            meta = [f"📅 {a['created_at'][:10]}"]
-            if a.get('trade_count'): meta.append(f"📊 {a['trade_count']}")
-            st.caption(" | ".join(meta))
+            st.caption(f"📅 {a['created_at'][:10]} | 📊 {a.get('trade_count',0)} Trades")
             if st.button("Load", key=f"load_{a['id']}", use_container_width=True):
                 _load_with_feedback(a['id'], a['name'])
 
@@ -199,23 +193,10 @@ def _render_manage_section():
     saved = db.get_analysis_list_enhanced()
     if not saved: return
     
-    options = {f"{a['name']} ({a['created_at'][:10]})": a for a in saved}
-    sel = st.selectbox("Select", ["--"] + list(options.keys()), key="manage_sel")
-    
-    if sel == "--": return
-    analysis = options[sel]
-    
-    action = st.radio("Action", ["✏️ Rename", "🗑️ Delete"], horizontal=True, key="manage_action")
-    
-    if "Rename" in action:
-        new_name = st.text_input("New name", value=analysis['name'], key="new_name")
-        if st.button("Apply", use_container_width=True, key="rename_btn"):
-            if new_name and new_name != analysis['name']:
-                if db.rename_analysis_in_db(analysis['id'], new_name):
-                    st.success("Renamed!")
-                    time.sleep(0.5)
-                    st.rerun()
-    elif "Delete" in action:
+    options = {f"{a['name']}": a for a in saved}
+    sel = st.selectbox("Select", list(options.keys()), key="manage_sel")
+    if sel:
+        analysis = options[sel]
         if st.button("🗑️ Delete", use_container_width=True, key="del_btn"):
             if db.delete_analysis_from_db(analysis['id']):
                 st.success("Deleted!")
@@ -228,12 +209,11 @@ def _load_with_feedback(analysis_id, name):
     bt_df, live_df = db.load_analysis_from_db(analysis_id)
     if bt_df is not None:
         st.session_state['full_df'] = bt_df
-        st.session_state['bt_filenames'] = f"📂 {name}"
         if live_df is not None:
             st.session_state['live_df'] = live_df
-            st.session_state['live_filenames'] = "Archive"
         loading.success(f"✅ Loaded!")
         time.sleep(0.5)
+        st.session_state.navigate_to_page = "📊 Portfolio Analytics"
         st.rerun()
     else:
         loading.error("Failed to load.")

@@ -88,7 +88,7 @@ def page_portfolio_analytics(full_df, live_df=None):
         with st.container(border=True):
             ui.section_header("Highlights")
             k1, k2, k3, k4, k5, k6 = st.columns(6)
-            # Teal/Coral Logic
+            # Teal/Coral Logic applied
             with k1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal" if filt['pnl'].sum() > 0 else "hero-coral")
             with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", "", "hero-teal" if m['CAGR'] > 0 else "hero-coral")
             with k3: ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", "", "hero-coral")
@@ -96,7 +96,7 @@ def page_portfolio_analytics(full_df, live_df=None):
             with k5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
             with k6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-teal" if m['MART'] > 5 else "hero-neutral")
         
-        # === STATISTICS (ALL) ===
+        # === STATISTICS (ALL PRESERVED) ===
         with st.container(border=True):
             ui.section_header("Detailed Statistics")
             r2k1, r2k2, r2k3, r2k4, r2k5, r2k6 = st.columns(6)
@@ -127,13 +127,18 @@ def page_portfolio_analytics(full_df, live_df=None):
             fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
                              color_discrete_sequence=px.colors.qualitative.Prism)
             
-            # ADD SPX BENCHMARK
+            # ADD SPX BENCHMARK (Normalized to Portfolio start)
             if spx is not None:
-                spx_norm = spx / spx.iloc[0] * eq_data['Total Portfolio'].iloc[-1] if not eq_data.empty else spx
-                # Or better: normalized comparison starting at 0
-                spx_cumulative = ((1 + spx_ret).cumprod() - 1) * eq_data['Total Portfolio'].max()
-                # Simple visual overlay
-                fig_eq.add_trace(go.Scatter(x=spx.index, y=spx_cumulative, name="SPX (Scaled)", line=dict(color='gray', dash='dot')))
+                # Normalize SPX to match portfolio PnL scale (roughly)
+                # Or better, show SPX return % scaled to portfolio max equity change
+                # Simple approach: Normalize both to start at 0
+                spx_cumulative = ((1 + spx_ret).cumprod() - 1) 
+                
+                # Scale SPX to portfolio magnitude for visual comparison
+                scale_factor = eq_data['Total Portfolio'].abs().max()
+                spx_scaled = spx_cumulative * scale_factor
+                
+                fig_eq.add_trace(go.Scatter(x=spx.index, y=spx_scaled, name="SPX (Scaled)", line=dict(color='gray', dash='dot')))
 
             fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
             st.plotly_chart(fig_eq, use_container_width=True)

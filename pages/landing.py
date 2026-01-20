@@ -144,10 +144,9 @@ def show_landing_page():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Render Link Button if active, else Text
+                # Use st.button with type="secondary" which we styled as a link in app.py
                 if target_page:
-                    # Styling st.button to look like a link using specific class defined in app.py
-                    if st.button(f"Launch {title} >>>", key=f"btn_{title}", use_container_width=True):
+                    if st.button(f"Launch {title.replace(' Deep Dive', '').replace(' Optimizer', '')} >>>", key=f"btn_{title}", type="secondary", use_container_width=True):
                         has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
                         if has_data:
                             st.session_state.navigate_to_page = target_page

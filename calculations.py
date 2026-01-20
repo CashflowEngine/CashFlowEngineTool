@@ -389,7 +389,7 @@ def categorize_strategy(strategy_name, strat_df=None):
     if 'METF' in n or 'SPREAD' in n: return 'Workhorse'
     return 'Workhorse'
 
-# --- NEW HELPERS MOVED FROM UTILS ---
+# --- NEW HELPERS (Fixing AttributeError) ---
 def parse_meic_filename(filename):
     """Parses params from filename: MEIC_W{width}_SL{sl}_P{premium}.csv"""
     width_match = re.search(r'W(\d+)', filename, re.IGNORECASE)

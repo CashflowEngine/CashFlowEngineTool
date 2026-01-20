@@ -25,8 +25,8 @@ st.set_page_config(
 # --- 2. CORPORATE IDENTITY CSS ---
 st.markdown("""
 <style>
-    /* IMPORT FONTS */
-    @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+    /* IMPORT FONTS - FULL WEIGHTS */
+    @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Poppins:wght@300;400;500;600;700&display=swap');
     
     /* --- TYPOGRAPHY --- */
     
@@ -149,18 +149,34 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    /* Link Button Style (for Landing Page) */
-    .stButton button.link-style {
+    /* SPECIAL TEXT-LINK BUTTONS (For Landing Page) */
+    /* Target buttons inside specific columns or by class if Streamlit supported it better */
+    /* We will assume Secondary buttons on landing page are links */
+    
+    button[kind="secondary"] {
         background-color: transparent !important;
+        border: none !important;
         color: #302BFF !important;
         box-shadow: none !important;
-        text-align: left;
-        padding: 0;
-        font-size: 14px;
+        text-decoration: none !important;
+        padding: 0 !important;
+        margin-top: 10px !important;
+        font-weight: 600 !important;
+        text-transform: none !important; /* Keep capitalization normal or title case */
+        display: inline-block !important;
+        width: auto !important;
     }
-    .stButton button.link-style:hover {
+    
+    button[kind="secondary"]:hover {
         color: #1e1b9e !important;
-        text-decoration: underline;
+        text-decoration: underline !important;
+        background-color: transparent !important;
+    }
+    
+    button[kind="secondary"]:active, button[kind="secondary"]:focus {
+        color: #302BFF !important;
+        background-color: transparent !important;
+        border: none !important;
     }
 
     /* Secondary/Ghost Button styling */
@@ -177,6 +193,7 @@ st.markdown("""
         border-radius: 4px;
         display: block;
         text-align: center;
+        margin-top: auto;
     }
 
     /* Links */
@@ -231,27 +248,30 @@ st.markdown("""
 
     /* Feature Tiles (Landing Page) */
     .feature-tile {
-        height: 240px; /* Fixed Height */
+        height: 200px; /* Fixed Height for content box */
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: flex-start;
         align-items: center;
         text-align: center;
-        padding: 10px;
+        padding: 5px;
     }
     .feature-title {
         font-family: 'Exo 2', sans-serif !important;
         font-size: 16px;
-        font-weight: 700;
+        font-weight: 800; /* Extra Bold per request */
         color: #4B5563;
         margin-bottom: 12px;
         text-transform: uppercase;
+        height: 40px; /* Fixed height for titles to align description */
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     .feature-desc {
         font-size: 13px;
         color: #6B7280;
-        flex-grow: 1;
-        margin-bottom: 16px;
+        line-height: 1.4;
     }
 
     /* Overlay Data Warning */

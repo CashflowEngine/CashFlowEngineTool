@@ -14,19 +14,10 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
 def render_logo():
     """
-    Renders the official Logo using the provided PNG image.
+    Renders the official Logo.
     """
-    try:
-        st.image("CashflowEnginelogo.png", use_container_width=True)
-    except:
-        # Fallback
-        st.markdown(f"""
-        <div style="text-align: center; padding: 10px 0;">
-            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 20px; color: {COLOR_GREY};">
-                CASHFLOW ENGINE
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Removed try-except block to force render if file exists
+    st.image("CashflowEnginelogo.png", width=350)
 
 def render_footer():
     """

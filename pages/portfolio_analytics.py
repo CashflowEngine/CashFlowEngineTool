@@ -79,33 +79,67 @@ def page_portfolio_analytics(full_df, live_df=None):
         equity = account_size + daily_pnl.cumsum()
         ret = equity.pct_change().fillna(0)
         
+        # Benchmarking
         spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
         spx_ret = spx.pct_change().fillna(0) if spx is not None else None
         
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
         
-        # === KPI HIGHLIGHTS ===
-        with st.container(border=True):
-            ui.section_header("Highlights")
-            k1, k2, k3, k4, k5, k6 = st.columns(6)
-            # Teal/Coral Logic applied
-            with k1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal" if filt['pnl'].sum() > 0 else "hero-coral")
-            with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", "", "hero-teal" if m['CAGR'] > 0 else "hero-coral")
-            with k3: ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", "", "hero-coral")
-            with k4: ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", "", "hero-coral")
-            with k5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
-            with k6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-teal" if m['MART'] > 5 else "hero-neutral")
+        # Calculate Peak/Mean Margin for KPI display
+        margin_series = calc.generate_daily_margin_series_optimized(filt)
+        peak_margin = margin_series.max() if not margin_series.empty else 0
+        avg_margin = margin_series.mean() if not margin_series.empty else 0
         
-        # === STATISTICS (ALL PRESERVED) ===
-        with st.container(border=True):
-            ui.section_header("Detailed Statistics")
-            r2k1, r2k2, r2k3, r2k4, r2k5, r2k6 = st.columns(6)
-            with r2k1: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", "", "hero-neutral")
-            with r2k2: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "", "hero-neutral")
-            with r2k3: ui.render_hero_metric("Win Rate", f"{m['WinRate']:.1%}", f"{m['Trades']} Trades", "hero-neutral")
-            with r2k4: ui.render_hero_metric("Profit Factor", f"{m['PF']:.2f}", "", "hero-neutral")
-            with r2k5: ui.render_hero_metric("Alpha", f"{m['Alpha']:.1%}", "", "hero-neutral")
-            with r2k6: ui.render_hero_metric("Beta", f"{m['Beta']:.2f}", "", "hero-neutral")
+        # === KPI HIGHLIGHTS (Replicated 3x6 Grid from Screenshot) ===
+        # Row 1: The Cyan Headers
+        r1c1, r1c2, r1c3, r1c4, r1c5, r1c6 = st.columns(6)
+        with r1c1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", f"SPX: ${m['SPX_TotalPnL_USD']:,.0f}", "hero-cyan")
+        with r1c2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", f"SPX: {m['SPX_CAGR']:.1%}", "hero-cyan")
+        with r1c3: ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", f"SPX: {m['SPX_MaxDD']:.1%}", "hero-red")
+        with r1c4: ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", "", "hero-red")
+        with r1c5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", f"SPX: {abs(m['SPX_CAGR'] / m['SPX_MaxDD']) if m['SPX_MaxDD'] != 0 else 0:.2f}", "hero-cyan")
+        with r1c6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-cyan")
+        
+        st.write("")
+        
+        # Row 2: Standard metrics
+        r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(6)
+        with r2c1: ui.render_hero_metric("Total Trades", f"{m['Trades']}", "", "hero-neutral")
+        with r2c2: ui.render_hero_metric("Win Rate", f"{m['WinRate']:.1%}", "", "hero-neutral")
+        with r2c3: ui.render_hero_metric("Profit Factor", f"{m['PF']:.2f}", "", "hero-neutral")
+        with r2c4: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", f"SPX: {m['SPX_Sharpe']:.2f}", "hero-neutral")
+        with r2c5: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "", "hero-neutral")
+        with r2c6: ui.render_hero_metric("Volatility", f"{m['Vol']:.1%}", f"SPX: {m['SPX_Vol']:.1%}", "hero-neutral")
+        
+        st.write("")
+        
+        # Row 3: Advanced & Streak
+        r3c1, r3c2, r3c3, r3c4, r3c5, r3c6 = st.columns(6)
+        with r3c1: ui.render_hero_metric("Alpha (vs SPX)", f"{m['Alpha']:.1%}", "Excess return", "hero-neutral")
+        with r3c2: ui.render_hero_metric("Beta (vs SPX)", f"{m['Beta']:.2f}", "Market sensitivity", "hero-neutral")
+        with r3c3: ui.render_hero_metric("Avg Ret/Marg", f"{m['AvgRetMargin']:.1%}", "", "hero-neutral")
+        with r3c4: ui.render_hero_metric("Kelly", f"{m['Kelly']:.1%}", "", "hero-neutral")
+        with r3c5: ui.render_hero_metric("Peak Margin", f"${peak_margin:,.0f}", f"{peak_margin/account_size:.0%} of Account", "hero-neutral")
+        with r3c6: ui.render_hero_metric("Avg Margin", f"${avg_margin:,.0f}", f"{avg_margin/account_size:.0%} of Account", "hero-neutral")
+        
+        st.write("")
+        
+        # Row 4: Streaks (Optional but good for layout balancing)
+        r4c1, r4c2, r4c3, r4c4, r4c5 = st.columns([1, 1, 1, 1, 1])
+        with r4c1: ui.render_hero_metric("Win Streak", f"{m['WinStreak']}", "Best run", "hero-neutral")
+        with r4c2: ui.render_hero_metric("Loss Streak", f"{m['LossStreak']}", "Worst run", "hero-neutral")
+        with r4c3: 
+            # Calculate Avg Win/Loss manually if needed or use what's in m if we added it (we didn't add exact values to m dict yet in calc)
+            # Re-calculating briefly for display
+            pnl_series = filt['pnl']
+            avg_w = pnl_series[pnl_series > 0].mean() if len(pnl_series[pnl_series > 0]) > 0 else 0
+            avg_l = pnl_series[pnl_series <= 0].mean() if len(pnl_series[pnl_series <= 0]) > 0 else 0
+            ui.render_hero_metric("Avg Win", f"${avg_w:,.0f}", "", "hero-neutral")
+        with r4c4: ui.render_hero_metric("Avg Loss", f"${avg_l:,.0f}", "", "hero-neutral")
+        with r4c5: 
+            best_trade = pnl_series.max()
+            worst_trade = pnl_series.min()
+            ui.render_hero_metric("Best/Worst", f"${best_trade:,.0f} / ${worst_trade:,.0f}", "", "hero-neutral")
 
         # === CHARTS SECTION (Full Width Stacked) ===
         st.write("")
@@ -127,18 +161,18 @@ def page_portfolio_analytics(full_df, live_df=None):
             fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
                              color_discrete_sequence=px.colors.qualitative.Prism)
             
-            # ADD SPX BENCHMARK (Normalized to Portfolio start)
+            # ADD SPX BENCHMARK (FIXED NORMALIZATION)
             if spx is not None:
-                # Normalize SPX to match portfolio PnL scale (roughly)
-                # Or better, show SPX return % scaled to portfolio max equity change
-                # Simple approach: Normalize both to start at 0
-                spx_cumulative = ((1 + spx_ret).cumprod() - 1) 
+                # Calculate SPX Equity Growth starting from the same Account Size
+                spx_cumulative_return = (1 + spx_ret).cumprod() - 1
+                spx_equity_curve = spx_cumulative_return * account_size
                 
-                # Scale SPX to portfolio magnitude for visual comparison
-                scale_factor = eq_data['Total Portfolio'].abs().max()
-                spx_scaled = spx_cumulative * scale_factor
+                # We want to plot the PnL (Growth), so subtract initial capital or just plot relative to 0 start
+                # The 'Total Portfolio' line is cumulative PnL. So we should plot SPX Cumulative PnL.
+                # SPX PnL = (AccountSize * (1+CumRet)) - AccountSize
+                spx_pnl_curve = (account_size * (1 + spx_cumulative_return)) - account_size
                 
-                fig_eq.add_trace(go.Scatter(x=spx.index, y=spx_scaled, name="SPX (Scaled)", line=dict(color='gray', dash='dot')))
+                fig_eq.add_trace(go.Scatter(x=spx.index, y=spx_pnl_curve, name="SPX Benchmark (Rel)", line=dict(color='gray', dash='dot')))
 
             fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
             st.plotly_chart(fig_eq, use_container_width=True)
@@ -169,8 +203,6 @@ def page_portfolio_analytics(full_df, live_df=None):
                     pnl_matrix[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
             
             if len(selected_strats) > 1 and not pnl_matrix.empty:
-                # FIX DUPLICATE COLUMNS BUG
-                # Truncate names but ensure uniqueness by appending index if needed
                 new_cols = []
                 seen = {}
                 for c in pnl_matrix.columns:
@@ -267,7 +299,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                 perf_df,
                 column_config={
                     "P/L": st.column_config.NumberColumn(format="$%.0f"),
-                    "CAGR": st.column_config.NumberColumn(format="%.1%"),
+                    "CAGR": st.column_config.NumberColumn(format="%.1%"), # Fixed formatting to percentage
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
                     "MART": st.column_config.NumberColumn(format="%.2f"),
@@ -277,6 +309,33 @@ def page_portfolio_analytics(full_df, live_df=None):
                 use_container_width=True,
                 hide_index=True
             )
+            
+        # === PERFORMANCE BY WEEKDAY ===
+        with st.container(border=True):
+            ui.section_header("Performance by Weekday")
+            
+            # Prepare data
+            filt['weekday'] = filt['timestamp'].dt.day_name()
+            # Sort order
+            days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+            filt['weekday'] = pd.Categorical(filt['weekday'], categories=days_order, ordered=True)
+            
+            weekday_stats = filt.groupby('weekday', observed=True)['pnl'].agg(['count', 'sum', 'mean']).reset_index()
+            weekday_stats.columns = ['Weekday', 'Trades', 'Total P/L', 'Avg P/L']
+            
+            col_wd1, col_wd2 = st.columns(2)
+            
+            with col_wd1:
+                st.dataframe(
+                    weekday_stats.style.applymap(ui.color_monthly_performance, subset=['Total P/L', 'Avg P/L']).format({'Total P/L': '${:,.0f}', 'Avg P/L': '${:,.0f}'}),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            
+            with col_wd2:
+                fig_wd = px.bar(weekday_stats, x='Weekday', y='Total P/L', color='Total P/L', color_continuous_scale='RdYlGn')
+                fig_wd.update_layout(template="plotly_white", xaxis_title=None, showlegend=False)
+                st.plotly_chart(fig_wd, use_container_width=True)
         
         # Hide loading overlay after successful render
         placeholder.empty()

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import database as db
 import time
+import os
 
 # --- CORPORATE IDENTITY COLORS ---
 COLOR_BLUE = "#302BFF"   # Electric Blue
@@ -14,13 +15,12 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
 def render_logo():
     """
-    Renders the official Logo with fallback to text if image fails.
+    Renders the official Logo.
     """
-    try:
-        # Attempt to render the image
+    # Simple direct render to avoid complex error catching that might be false-positive
+    if os.path.exists("CashflowEnginelogo.png"):
         st.image("CashflowEnginelogo.png", width=350)
-    except Exception:
-        # Fallback to styled text if image is missing or corrupt (prevents crash)
+    else:
         st.markdown(f"""
         <div style="text-align: center; padding: 10px 0;">
             <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 30px; color: {COLOR_GREY}; letter-spacing: 1px;">
@@ -84,6 +84,7 @@ def render_hero_metric(label, value, subtext="", color_class="hero-neutral", too
         tooltip_escaped = tooltip.replace("'", "&#39;").replace('"', '&quot;')
         tooltip_html = f"<span class='tooltip-icon' data-tip='{tooltip_escaped}'>?</span>"
     
+    # Apply color classes. 'hero-cyan' and 'hero-red' are defined in app.py CSS
     st.markdown(
         f"<div class='hero-card {color_class}'>"
         f"<div class='hero-label'>{label} {tooltip_html}</div>"

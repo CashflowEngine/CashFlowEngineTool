@@ -30,48 +30,45 @@ st.markdown("""
     
     /* --- TYPOGRAPHY --- */
     
-    /* Body Text - Poppins - Space Grey */
-    html, body, [class*="css"], .stMarkdown, .stText, p, div, span, label, input, .stDataFrame, .stTable, .stSelectbox, .stNumberInput {
+    /* Force Poppins for Body */
+    html, body, [class*="css"], .stMarkdown, .stText, p, div, span, label, input, .stDataFrame, .stTable, .stSelectbox, .stNumberInput, button {
         font-family: 'Poppins', sans-serif !important;
-        color: #4B5563 !important; /* Space Grey */
+        color: #4B5563; 
     }
     
-    /* Headlines - Exo 2 - Space Grey - Uppercase */
-    h1, h2, h3, h4, h5, h6, .card-title, .stHeading, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {
+    /* Force Exo 2 for ALL Headings */
+    h1, h2, h3, h4, h5, h6, .card-title, .stHeading, 
+    [data-testid="stMarkdownContainer"] h1, 
+    [data-testid="stMarkdownContainer"] h2, 
+    [data-testid="stMarkdownContainer"] h3 {
         font-family: 'Exo 2', sans-serif !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
-        color: #4B5563 !important; /* Space Grey */
-        font-weight: 800 !important; /* Extra Bold */
+        color: #4B5563 !important;
+        font-weight: 800 !important;
     }
+    
+    /* Specific overrides for Streamlit elements to ensure font sticks */
+    .stMetricLabel { font-family: 'Poppins', sans-serif !important; }
+    .stMetricValue { font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important; }
     
     /* --- SIDEBAR TOGGLE FIX --- */
-    /* Hides the 'keyboard_double_arrow' text artifacts */
-    button[kind="header"] {
-        color: transparent !important;
-    }
-    button[kind="header"] svg {
-        fill: #4B5563 !important;
-    }
+    button[kind="header"] { color: transparent !important; }
+    button[kind="header"] svg { fill: #4B5563 !important; }
     
-    /* --- NAVIGATION BAR REDESIGN (Pill Style) --- */
-    
-    /* Hide default Streamlit Nav */
+    /* --- NAVIGATION BAR REDESIGN --- */
     [data-testid="stSidebarNav"] { display: none !important; }
     
-    /* Sidebar Background */
     section[data-testid="stSidebar"] {
         background-color: #F9FAFB;
         border-right: 1px solid #E5E7EB;
     }
 
-    /* Radio Button Container */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
         gap: 8px;
         padding: 0 10px;
     }
 
-    /* Radio Items (Pills) */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
         background-color: transparent;
         border: 1px solid transparent;
@@ -96,21 +93,18 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* Active State (Selected Pill) */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] {
         background-color: #FFFFFF !important; 
-        color: #302BFF !important; /* Blue */
+        color: #302BFF !important; 
         font-weight: 700 !important;
         border: 1px solid #302BFF !important;
         box-shadow: 0 4px 6px rgba(48, 43, 255, 0.05) !important;
     }
     
-    /* Hide the radio circle */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
         display: none;
     }
 
-    /* Clean up sidebar padding */
     section[data-testid="stSidebar"] .block-container {
         padding-top: 2rem;
         padding-bottom: 5rem;
@@ -118,12 +112,11 @@ st.markdown("""
 
     /* --- UI ELEMENTS --- */
     
-    /* Primary Button - Electric Blue - White Text - FORCE OVERRIDE */
     div.stButton > button { 
-        background-color: #302BFF !important; /* Electric Blue */
-        color: #FFFFFF !important; /* Pure White Text */
+        background-color: #302BFF !important; 
+        color: #FFFFFF !important; 
         font-family: 'Poppins', sans-serif !important;
-        font-weight: 600 !important; /* Medium/Bold */
+        font-weight: 600 !important; 
         text-transform: uppercase;
         border: none;
         border-radius: 6px;
@@ -140,19 +133,7 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    div.stButton > button:active, div.stButton > button:focus {
-        color: #FFFFFF !important;
-        background-color: #302BFF !important;
-    }
-    
-    div.stButton > button p {
-        color: #FFFFFF !important;
-    }
-    
-    /* SPECIAL TEXT-LINK BUTTONS (For Landing Page) */
-    /* Target buttons inside specific columns or by class if Streamlit supported it better */
-    /* We will assume Secondary buttons on landing page are links */
-    
+    /* Text Links for Landing Page */
     button[kind="secondary"] {
         background-color: transparent !important;
         border: none !important;
@@ -162,7 +143,7 @@ st.markdown("""
         padding: 0 !important;
         margin-top: 10px !important;
         font-weight: 600 !important;
-        text-transform: none !important; /* Keep capitalization normal or title case */
+        text-transform: none !important;
         display: inline-block !important;
         width: auto !important;
     }
@@ -172,17 +153,9 @@ st.markdown("""
         text-decoration: underline !important;
         background-color: transparent !important;
     }
-    
-    button[kind="secondary"]:active, button[kind="secondary"]:focus {
-        color: #302BFF !important;
-        background-color: transparent !important;
-        border: none !important;
-    }
 
-    /* Secondary/Ghost Button styling */
     .ghost-link {
         color: #9CA3AF;
-        text-decoration: none;
         font-size: 12px;
         font-weight: 600;
         cursor: not-allowed;
@@ -196,23 +169,10 @@ st.markdown("""
         margin-top: auto;
     }
 
-    /* Links */
-    a {
-        color: #302BFF !important;
-        font-weight: 600;
-        text-decoration: none;
-    }
-    a:hover {
-        color: #7B2BFF !important; 
-        text-decoration: underline;
-    }
-
     /* --- LAYOUTS --- */
     
-    /* Main App Background */
     .stApp { background-color: #FFFFFF; }
     
-    /* Card Styling */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #FFFFFF;
         border: 1px solid #E5E7EB;
@@ -223,32 +183,58 @@ st.markdown("""
 
     /* KPI Cards */
     .hero-card { 
-        padding: 12px 8px; 
+        padding: 16px 12px; 
         border-radius: 8px; 
         text-align: center; 
         margin-bottom: 8px; 
         border: 1px solid #E5E7EB; 
-        background-color: #F0F4FF; 
-        height: 120px; 
+        background-color: #FFFFFF; 
+        height: 140px; 
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     
-    /* Functional Colors */
-    .hero-teal { background-color: #00D2BE !important; border: none; }
-    .hero-coral { background-color: #FF2E4D !important; border: none; }
-    
-    .hero-teal .hero-label, .hero-coral .hero-label, 
-    .hero-teal .hero-value, .hero-coral .hero-value, 
-    .hero-teal .hero-sub, .hero-coral .hero-sub { 
-        color: #FFFFFF !important; 
+    .hero-label {
+        font-size: 11px !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #6B7280;
     }
+    
+    .hero-value {
+        font-family: 'Exo 2', sans-serif !important;
+        font-size: 28px !important;
+        font-weight: 800 !important;
+        color: #111827;
+        margin-bottom: 4px;
+    }
+    
+    .hero-sub {
+        font-size: 11px;
+        color: #9CA3AF;
+    }
+    
+    /* Functional Colors for Grid */
+    .hero-cyan { 
+        background-color: #06B6D4 !important; /* Cyan-500 */
+        border: none !important;
+    }
+    .hero-cyan .hero-label, .hero-cyan .hero-value, .hero-cyan .hero-sub { color: #FFFFFF !important; }
+    
+    .hero-red {
+        background-color: #FF2E4D !important;
+        border: none !important;
+    }
+    .hero-red .hero-label, .hero-red .hero-value, .hero-red .hero-sub { color: #FFFFFF !important; }
 
-    /* Feature Tiles (Landing Page) */
+    /* Feature Tiles */
     .feature-tile {
-        height: 200px; /* Fixed Height for content box */
+        height: 200px;
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
@@ -259,11 +245,11 @@ st.markdown("""
     .feature-title {
         font-family: 'Exo 2', sans-serif !important;
         font-size: 16px;
-        font-weight: 800; /* Extra Bold per request */
+        font-weight: 800;
         color: #4B5563;
         margin-bottom: 12px;
         text-transform: uppercase;
-        height: 40px; /* Fixed height for titles to align description */
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -272,31 +258,6 @@ st.markdown("""
         font-size: 13px;
         color: #6B7280;
         line-height: 1.4;
-    }
-
-    /* Overlay Data Warning */
-    .data-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-color: rgba(255, 255, 255, 0.98);
-        z-index: 1000000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
-        backdrop-filter: blur(5px);
-    }
-    .data-overlay-box {
-        background: white;
-        padding: 40px;
-        border-radius: 16px;
-        border: 1px solid #E5E7EB;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        text-align: center;
-        max-width: 600px;
     }
 
     /* Footer */

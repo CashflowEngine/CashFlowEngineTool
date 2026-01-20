@@ -30,7 +30,11 @@ st.markdown("""
     
     /* --- TYPOGRAPHY --- */
     
-    /* Force Poppins for Body */
+    /* Force Poppins for All Body Text */
+    * {
+        font-family: 'Poppins', sans-serif;
+    }
+    
     html, body, [class*="css"], .stMarkdown, .stText, p, div, span, label, input, .stDataFrame, .stTable, .stSelectbox, .stNumberInput, button {
         font-family: 'Poppins', sans-serif !important;
         color: #4B5563; 
@@ -40,7 +44,8 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6, .card-title, .stHeading, 
     [data-testid="stMarkdownContainer"] h1, 
     [data-testid="stMarkdownContainer"] h2, 
-    [data-testid="stMarkdownContainer"] h3 {
+    [data-testid="stMarkdownContainer"] h3,
+    .stMetricValue {
         font-family: 'Exo 2', sans-serif !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
@@ -49,8 +54,7 @@ st.markdown("""
     }
     
     /* Specific overrides for Streamlit elements to ensure font sticks */
-    .stMetricLabel { font-family: 'Poppins', sans-serif !important; }
-    .stMetricValue { font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important; }
+    .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
     
     /* --- SIDEBAR TOGGLE FIX --- */
     button[kind="header"] { color: transparent !important; }
@@ -201,7 +205,7 @@ st.markdown("""
         font-size: 11px !important;
         text-transform: uppercase;
         letter-spacing: 1px;
-        font-weight: 600;
+        font-weight: 600 !important;
         margin-bottom: 8px;
         color: #6B7280;
     }

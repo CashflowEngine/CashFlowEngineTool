@@ -15,12 +15,17 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
 def render_logo():
     """
-    Renders the official Logo.
+    Renders the official Logo with robust error handling.
     """
-    # Simple direct render to avoid complex error catching that might be false-positive
-    if os.path.exists("CashflowEnginelogo.png"):
-        st.image("CashflowEnginelogo.png", width=350)
-    else:
+    try:
+        # Force a try/except around the image load itself
+        # This catches PIL.UnidentifiedImageError if the file is corrupt
+        if os.path.exists("CashflowEnginelogo.png"):
+            st.image("CashflowEnginelogo.png", width=350)
+        else:
+            raise FileNotFoundError("Logo file missing")
+    except Exception:
+        # Silent fallback to text if ANY image error occurs
         st.markdown(f"""
         <div style="text-align: center; padding: 10px 0;">
             <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 30px; color: {COLOR_GREY}; letter-spacing: 1px;">

@@ -81,7 +81,22 @@ def page_portfolio_analytics(full_df, live_df=None):
         
         # Benchmarking
         spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
-        spx_ret = spx.pct_change().fillna(0) if spx is not None else None
+        if spx is not None:
+            # STRICT FILTERING: Match the exact selected dates to prevent buffer distortion
+            spx.index = pd.to_datetime(spx.index)
+            # Filter to selected dates
+            spx_filtered = spx[(spx.index.date >= dates[0]) & (spx.index.date <= dates[1])]
+            
+            # Calculate returns on the filtered series
+            if not spx_filtered.empty:
+                spx_ret = spx_filtered.pct_change().fillna(0)
+                spx_equity_source = spx_filtered
+            else:
+                spx_ret = None
+                spx_equity_source = None
+        else:
+            spx_ret = None
+            spx_equity_source = None
         
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
         
@@ -129,16 +144,14 @@ def page_portfolio_analytics(full_df, live_df=None):
         with r4c1: ui.render_hero_metric("Win Streak", f"{m['WinStreak']}", "Best run", "hero-neutral")
         with r4c2: ui.render_hero_metric("Loss Streak", f"{m['LossStreak']}", "Worst run", "hero-neutral")
         with r4c3: 
-            # Calculate Avg Win/Loss manually if needed or use what's in m if we added it (we didn't add exact values to m dict yet in calc)
-            # Re-calculating briefly for display
             pnl_series = filt['pnl']
             avg_w = pnl_series[pnl_series > 0].mean() if len(pnl_series[pnl_series > 0]) > 0 else 0
             avg_l = pnl_series[pnl_series <= 0].mean() if len(pnl_series[pnl_series <= 0]) > 0 else 0
             ui.render_hero_metric("Avg Win", f"${avg_w:,.0f}", "", "hero-neutral")
         with r4c4: ui.render_hero_metric("Avg Loss", f"${avg_l:,.0f}", "", "hero-neutral")
         with r4c5: 
-            best_trade = pnl_series.max()
-            worst_trade = pnl_series.min()
+            best_trade = pnl_series.max() if not pnl_series.empty else 0
+            worst_trade = pnl_series.min() if not pnl_series.empty else 0
             ui.render_hero_metric("Best/Worst", f"${best_trade:,.0f} / ${worst_trade:,.0f}", "", "hero-neutral")
 
         # === CHARTS SECTION (Full Width Stacked) ===
@@ -162,17 +175,15 @@ def page_portfolio_analytics(full_df, live_df=None):
                              color_discrete_sequence=px.colors.qualitative.Prism)
             
             # ADD SPX BENCHMARK (FIXED NORMALIZATION)
-            if spx is not None:
-                # Calculate SPX Equity Growth starting from the same Account Size
+            if spx_ret is not None and spx_equity_source is not None:
+                # Calculate SPX Cumulative Return relative to the start of the period
                 spx_cumulative_return = (1 + spx_ret).cumprod() - 1
-                spx_equity_curve = spx_cumulative_return * account_size
                 
-                # We want to plot the PnL (Growth), so subtract initial capital or just plot relative to 0 start
-                # The 'Total Portfolio' line is cumulative PnL. So we should plot SPX Cumulative PnL.
-                # SPX PnL = (AccountSize * (1+CumRet)) - AccountSize
-                spx_pnl_curve = (account_size * (1 + spx_cumulative_return)) - account_size
+                # Align SPX curve to Portfolio PnL scale (Dollars)
+                # Formula: Invested Capital * Cumulative Return
+                spx_pnl_curve = account_size * spx_cumulative_return
                 
-                fig_eq.add_trace(go.Scatter(x=spx.index, y=spx_pnl_curve, name="SPX Benchmark (Rel)", line=dict(color='gray', dash='dot')))
+                fig_eq.add_trace(go.Scatter(x=spx_ret.index, y=spx_pnl_curve, name="SPX Benchmark (Rel)", line=dict(color='gray', dash='dot')))
 
             fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=500, legend=dict(orientation="h", y=-0.2))
             st.plotly_chart(fig_eq, use_container_width=True)
@@ -273,7 +284,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Strategy": s,
                     "Contracts/Day": lots_per_day,
                     "P/L": s_pnl,
-                    "CAGR": s_cagr,
+                    "CAGR": s_cagr,  # Keep as float here
                     "Max DD ($)": s_dd_usd,
                     "MAR": s_mar,
                     "MART": s_mart,
@@ -294,12 +305,15 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Peak Margin": perf_df["Peak Margin"].max()
                 }
                 perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
+                
+                # Multiply CAGR by 100 for proper display with %.1f%% format
+                perf_df['CAGR'] = perf_df['CAGR'] * 100
             
             st.dataframe(
                 perf_df,
                 column_config={
                     "P/L": st.column_config.NumberColumn(format="$%.0f"),
-                    "CAGR": st.column_config.NumberColumn(format="%.1%"), # Fixed formatting to percentage
+                    "CAGR": st.column_config.NumberColumn(format="%.1f%%"), # Now using 100-based scale
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
                     "MART": st.column_config.NumberColumn(format="%.2f"),

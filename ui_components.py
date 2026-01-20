@@ -3,6 +3,7 @@ import pandas as pd
 import database as db
 import time
 import os
+from PIL import Image
 
 # --- CORPORATE IDENTITY COLORS ---
 COLOR_BLUE = "#302BFF"   # Electric Blue
@@ -15,21 +16,39 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
 def render_logo():
     """
-    Renders the official Logo with robust error handling.
-    Catches PIL errors if image is corrupt.
+    Renders the official Logo with robust pre-validation.
     """
+    logo_file = "CashflowEnginelogo.png"
+    
+    # 1. Existence Check
+    if not os.path.exists(logo_file):
+        _render_text_fallback()
+        return
+        
+    # 2. Validity Check (Check independently beforehand)
+    valid_image = False
     try:
-        # Strict try-catch block for image rendering
-        if os.path.exists("CashflowEnginelogo.png"):
-            try:
-                st.image("CashflowEnginelogo.png", width=350)
-            except Exception:
-                raise ValueError("Image file corrupt")
-        else:
-            raise FileNotFoundError("Logo file missing")
-    except Exception:
-        # Fallback to styled text
-        st.markdown(f"""
+        # Try to open only the header to verify it's a real image
+        with Image.open(logo_file) as img:
+            img.verify() 
+        valid_image = True
+    except Exception as e:
+        # File exists but is corrupt (e.g., Git LFS pointer text file)
+        # We catch this silently to prevent the app from crashing
+        pass
+        
+    # 3. Render
+    if valid_image:
+        try:
+            # Re-open for Streamlit (verify() closes the file)
+            st.image(logo_file, width=350)
+        except Exception:
+            _render_text_fallback()
+    else:
+        _render_text_fallback()
+
+def _render_text_fallback():
+     st.markdown(f"""
         <div style="text-align: center; padding: 10px 0;">
             <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 30px; color: {COLOR_GREY}; letter-spacing: 1px;">
                 ⚡ CASHFLOW ENGINE

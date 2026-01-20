@@ -82,7 +82,6 @@ def page_portfolio_analytics(full_df, live_df=None):
         # Benchmarking
         spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
         spx_ret = None
-        spx_equity_source = None
         
         if spx is not None:
             # STRICT FILTERING: Match the exact selected dates to prevent buffer distortion
@@ -93,7 +92,6 @@ def page_portfolio_analytics(full_df, live_df=None):
             # Calculate returns on the filtered series
             if not spx_filtered.empty:
                 spx_ret = spx_filtered.pct_change().fillna(0)
-                spx_equity_source = spx_filtered
         
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
         

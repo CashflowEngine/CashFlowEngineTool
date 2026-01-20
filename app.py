@@ -15,7 +15,12 @@ import pages.meic_optimizer as meic_optimizer
 import pages.ai_analyst as ai_analyst
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Cashflow Engine", page_icon="⚡", layout="wide")
+st.set_page_config(
+    page_title="Cashflow Engine", 
+    page_icon="⚡", 
+    layout="wide",
+    initial_sidebar_state="expanded" 
+)
 
 # --- 2. CORPORATE IDENTITY CSS ---
 st.markdown("""
@@ -68,10 +73,11 @@ st.markdown("""
         text-transform: uppercase;
         border: none;
         border-radius: 6px;
-        padding: 0.6rem 1.2rem;
+        padding: 0.4rem 1.0rem; /* Smaller padding */
         box-shadow: 0 4px 6px rgba(48, 43, 255, 0.2); /* Blue Glow */
         transition: all 0.2s ease;
         letter-spacing: 0.5px;
+        font-size: 13px; /* Smaller text */
     }
     
     div.stButton > button:hover { 
@@ -97,50 +103,44 @@ st.markdown("""
 
     /* --- LANDING PAGE TILES --- */
     .feature-tile {
-        background-color: #F0F4FF; /* Ice Tint */
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        padding: 24px;
         height: 100%;
-        transition: all 0.3s ease;
+        min-height: 220px; 
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-    }
-    .feature-tile:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 15px -3px rgba(48, 43, 255, 0.1);
-        border-color: #302BFF;
-    }
-    .feature-icon {
-        font-size: 32px;
-        margin-bottom: 16px;
-        color: #302BFF;
+        justify-content: flex-start;
+        align-items: center;
+        text-align: center;
     }
     .feature-title {
         font-family: 'Exo 2', sans-serif !important;
         font-size: 18px;
         font-weight: 700;
         color: #4B5563; /* Space Grey */
-        margin-bottom: 8px;
+        margin-bottom: 12px;
         text-transform: uppercase;
     }
     .feature-desc {
-        font-size: 14px;
+        font-size: 13px;
         color: #6B7280;
-        margin-bottom: 16px;
+        margin-bottom: 20px;
         line-height: 1.5;
+        flex-grow: 1;
     }
 
     /* --- KPI CARDS --- */
+    /* Ensure equal height for KPI boxes */
     .hero-card { 
-        padding: 16px; 
-        border-radius: 10px; 
+        padding: 12px 8px; 
+        border-radius: 8px; 
         text-align: center; 
         margin-bottom: 8px; 
         border: 1px solid #E5E7EB; 
         background-color: #F0F4FF; /* Ice Tint */
-        height: 100%;
+        height: 120px; /* Fixed height for uniformity */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
     
     /* Functional Colors */
@@ -154,9 +154,9 @@ st.markdown("""
         color: #FFFFFF !important; 
     }
 
-    .hero-label { font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; opacity: 0.9; }
-    .hero-value { font-family: 'Exo 2', sans-serif !important; font-size: 22px; font-weight: 700; margin: 0; }
-    .hero-sub { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+    .hero-label { font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; opacity: 0.9; }
+    .hero-value { font-family: 'Exo 2', sans-serif !important; font-size: 20px; font-weight: 700; margin: 0; }
+    .hero-sub { font-size: 10px; opacity: 0.8; margin-top: 2px; }
 
     /* HIDE NATIVE NAV */
     [data-testid="stSidebarNav"] {
@@ -185,30 +185,30 @@ if 'navigate_to_page' not in st.session_state:
 
 # Determine current page
 page_options = [
-    "🏠 Start & Data",
-    "📊 Portfolio Analytics", 
-    "🏗️ Portfolio Builder", 
-    "🎲 Monte Carlo Punisher", 
-    "⚖️ Live vs. Backtest", 
-    "🔬 MEIC Deep Dive", 
-    "🧪 MEIC Optimizer", 
-    "🤖 AI Analyst"
+    "Start & Data",
+    "Portfolio Analytics", 
+    "Portfolio Builder", 
+    "Monte Carlo Punisher", 
+    "Live vs. Backtest", 
+    "MEIC Deep Dive", 
+    "MEIC Optimizer", 
+    "AI Analyst"
 ]
 
 # Handle programmatic navigation (from Tiles)
 if st.session_state.navigate_to_page in page_options:
     current_page = st.session_state.navigate_to_page
 else:
-    current_page = "🏠 Start & Data"
+    current_page = "Start & Data"
 
 # Sidebar Logic (Hidden on Landing Page, visible elsewhere)
-if current_page != "🏠 Start & Data":
+if current_page != "Start & Data":
     with st.sidebar:
         ui.render_logo() # Brand Logo
         st.markdown("---")
         
         # Navigation
-        st.markdown("### 🧭 MENU")
+        st.markdown("### MENU")
         selected_page = st.radio("Go to", page_options, index=page_options.index(current_page), label_visibility="collapsed")
         
         # If user clicks sidebar, update state
@@ -218,44 +218,46 @@ if current_page != "🏠 Start & Data":
             
         # Reset Button
         st.markdown("---")
-        if st.button("🔄 Reset App", use_container_width=True):
+        if st.button("RESET APP", use_container_width=True):
             st.session_state.clear()
             st.rerun()
             
-        # Save/Load
-        ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
+        # Analysis Manager - Hidden in Expander
+        with st.expander("ANALYSIS MANAGER"):
+            ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
 else:
     # On landing page, ensure no sidebar distraction, but keep variable for logic
-    selected_page = "🏠 Start & Data"
+    selected_page = "Start & Data"
 
 # --- 4. PAGE RENDERING ---
 
 df = st.session_state.get('full_df', pd.DataFrame())
 live_df = st.session_state.get('live_df', pd.DataFrame())
 
-if current_page == "🏠 Start & Data":
+if current_page == "Start & Data":
     landing.show_landing_page()
 
-elif df.empty and current_page != "🏠 Start & Data":
+elif df.empty and current_page != "Start & Data":
     # Safety fallback if user somehow gets here without data
-    st.session_state.navigate_to_page = "🏠 Start & Data"
+    st.session_state.navigate_to_page = "Start & Data"
     st.session_state.show_data_warning = True
     st.rerun()
 
 else:
     # Module Routing
-    if current_page == "📊 Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)
-    elif current_page == "🏗️ Portfolio Builder": portfolio_builder.page_portfolio_builder(df)
-    elif current_page == "🎲 Monte Carlo Punisher": monte_carlo.page_monte_carlo(df)
-    elif current_page == "⚖️ Live vs. Backtest": comparison.page_comparison(df, live_df)
-    elif current_page == "🔬 MEIC Deep Dive": meic_analysis.page_meic_analysis(df, live_df)
-    elif current_page == "🧪 MEIC Optimizer": meic_optimizer.page_meic_optimizer()
-    elif current_page == "🤖 AI Analyst": ai_analyst.page_ai_analyst(df)
+    if current_page == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)
+    elif current_page == "Portfolio Builder": portfolio_builder.page_portfolio_builder(df)
+    elif current_page == "Monte Carlo Punisher": monte_carlo.page_monte_carlo(df)
+    elif current_page == "Live vs. Backtest": comparison.page_comparison(df, live_df)
+    elif current_page == "MEIC Deep Dive": meic_analysis.page_meic_analysis(df, live_df)
+    elif current_page == "MEIC Optimizer": meic_optimizer.page_meic_optimizer()
+    elif current_page == "AI Analyst": ai_analyst.page_ai_analyst(df)
 
 # Footer
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #9CA3AF; font-size: 12px; font-family: "Poppins", sans-serif;'>
-    ENGINEERED BY THOMAS MEHLITZ
-</div>
-""", unsafe_allow_html=True)
+if current_page != "Start & Data":
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: #9CA3AF; font-size: 12px; font-family: "Poppins", sans-serif;'>
+        ENGINEERED BY THOMAS MEHLITZ
+    </div>
+    """, unsafe_allow_html=True)

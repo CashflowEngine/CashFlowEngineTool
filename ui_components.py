@@ -14,28 +14,19 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
 def render_logo():
     """
-    Renders the official Master-Logo according to CI construction rules.
-    1. Upper Line (Electric Blue)
-    2. Headline (Exo 2 Bold Uppercase)
-    3. Subline (Poppins Bold Uppercase)
-    4. Lower Line (Electric Blue)
-    5. Signature (Poppins Light Uppercase)
+    Renders the official Logo using the provided PNG image.
     """
-    st.markdown(f"""
-    <div style="text-align: center; padding: 20px 0;">
-        <div style="height: 2px; background-color: {COLOR_BLUE}; width: 100%; margin-bottom: 15px;"></div>
-        <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 28px; color: {COLOR_GREY}; letter-spacing: 2px; line-height: 1.2;">
-            CASHFLOW<br>ENGINE
+    try:
+        st.image("CashflowEnginelogo.png", use_container_width=True)
+    except:
+        # Fallback if image missing
+        st.markdown(f"""
+        <div style="text-align: center; padding: 20px 0;">
+            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 24px; color: {COLOR_GREY};">
+                CASHFLOW ENGINE
+            </div>
         </div>
-        <div style="font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 10px; color: {COLOR_GREY}; letter-spacing: 3px; margin-top: 5px; margin-bottom: 15px;">
-            AUTOMATED OPTIONS TRADING
-        </div>
-        <div style="height: 2px; background-color: {COLOR_BLUE}; width: 100%; margin-bottom: 10px;"></div>
-        <div style="font-family: 'Poppins', sans-serif; font-weight: 300; font-size: 9px; color: {COLOR_BLUE}; letter-spacing: 4px; text-align: center;">
-            ENGINEERED BY THOMAS MEHLITZ
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 def section_header(title):
     """Render a styled blue header for cards using Exo 2."""
@@ -110,10 +101,8 @@ def color_monthly_performance(val):
             num_val = float(val)
         
         if num_val > 0:
-            # Green/Teal tint
             return f'background-color: rgba(0, 210, 190, 0.15); color: {COLOR_GREY}; font-weight: 600;'
         elif num_val < 0:
-            # Red/Coral tint
             return f'background-color: rgba(255, 46, 77, 0.15); color: {COLOR_GREY}; font-weight: 600;'
         else:
             return 'background-color: white; color: #374151'
@@ -123,15 +112,13 @@ def color_monthly_performance(val):
 # --- SAVE/LOAD UI ---
 
 def render_save_load_sidebar(bt_df, live_df):
-    """Enhanced save/load system in sidebar."""
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 💾 Analysis Manager")
+    """Enhanced save/load system (designed to be inside an expander)."""
     
     if not db.DB_AVAILABLE:
-        st.sidebar.warning("☁️ Database not connected")
+        st.warning("☁️ Database not connected")
         return
     
-    save_tab, load_tab, manage_tab = st.sidebar.tabs(["Save", "Load", "Manage"])
+    save_tab, load_tab, manage_tab = st.tabs(["Save", "Load", "Manage"])
     
     with save_tab:
         _render_save_section(bt_df, live_df)
@@ -159,11 +146,11 @@ def _render_save_section(bt_df, live_df):
     if len(strategies) > 0:
         default_name = f"{strategies[0][:15]}_{date_range}"
     
-    st.markdown("##### 📝 Save Current Analysis")
+    st.markdown("##### 📝 Save Current")
     save_name = st.text_input("Name", value=default_name, max_chars=100, key="save_name")
-    save_description = st.text_area("Description", placeholder="Notes...", max_chars=300, height=60, key="save_desc")
+    save_description = st.text_area("Notes", placeholder="Description...", max_chars=300, height=60, key="save_desc")
     
-    if st.button("💾 Save to Cloud", use_container_width=True, type="primary"):
+    if st.button("SAVE TO CLOUD", use_container_width=True):
         with st.spinner("Saving..."):
             if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_description):
                 st.success("✅ Saved!")
@@ -185,7 +172,7 @@ def _render_load_section():
         with st.container(border=True):
             st.markdown(f"**{a['name']}**")
             st.caption(f"📅 {a['created_at'][:10]} | 📊 {a.get('trade_count',0)} Trades")
-            if st.button("Load", key=f"load_{a['id']}", use_container_width=True):
+            if st.button("LOAD", key=f"load_{a['id']}", use_container_width=True):
                 _load_with_feedback(a['id'], a['name'])
 
 def _render_manage_section():
@@ -197,7 +184,7 @@ def _render_manage_section():
     sel = st.selectbox("Select", list(options.keys()), key="manage_sel")
     if sel:
         analysis = options[sel]
-        if st.button("🗑️ Delete", use_container_width=True, key="del_btn"):
+        if st.button("DELETE", use_container_width=True, key="del_btn"):
             if db.delete_analysis_from_db(analysis['id']):
                 st.success("Deleted!")
                 time.sleep(0.5)
@@ -213,7 +200,7 @@ def _load_with_feedback(analysis_id, name):
             st.session_state['live_df'] = live_df
         loading.success(f"✅ Loaded!")
         time.sleep(0.5)
-        st.session_state.navigate_to_page = "📊 Portfolio Analytics"
+        st.session_state.navigate_to_page = "Portfolio Analytics"
         st.rerun()
     else:
         loading.error("Failed to load.")

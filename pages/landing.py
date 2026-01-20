@@ -10,45 +10,42 @@ def show_landing_page():
     No Sidebar navigation here.
     """
     
-    # 1. RENDER LOGO (Centered for Landing Page impact)
+    # 1. RENDER LOGO
     ui.render_logo()
     
     st.markdown(
-        """<div style="text-align: center; margin-bottom: 40px; font-size: 18px; color: #4B5563;">
+        """<div style="text-align: center; margin-bottom: 40px; font-size: 24px; color: #4B5563; font-family: 'Exo 2', sans-serif; font-weight: 800;">
         ADVANCED PORTFOLIO ANALYTICS & RISK SIMULATION FOR OPTION TRADERS
         </div>""", 
         unsafe_allow_html=True
     )
 
     # --- DATA CHECK OVERLAY ---
-    # If the user tried to navigate but had no data, show this warning box
     if st.session_state.get('show_data_warning', False):
         st.markdown("""
         <div class="data-warning">
-            <h3 style="color: #B45309; margin: 0;">⚠️ DATA REQUIRED</h3>
+            <h3 style="color: #B45309; margin: 0; font-family: 'Exo 2', sans-serif;">DATA REQUIRED</h3>
             <p style="margin: 5px 0 0 0; color: #92400E;">To access the analytics engine, you must first upload backtest files or load an analysis from the database below.</p>
         </div>
         """, unsafe_allow_html=True)
-        # Reset flag after showing
         st.session_state.show_data_warning = False
 
-    # --- SECTION 1: DATA MANAGEMENT (The Gatekeeper) ---
+    # --- SECTION 1: DATA IMPORT ---
     with st.container(border=True):
-        ui.section_header("📂 1. DATA INGESTION")
+        ui.section_header("1. DATA IMPORT")
         
-        # Check status
         has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
         
         if has_data:
             c_stat1, c_stat2 = st.columns([3, 1])
             with c_stat1:
-                st.success(f"✅ **ENGINE READY:** {len(st.session_state['full_df']):,} trades loaded.")
+                st.success(f"ENGINE READY: {len(st.session_state['full_df']):,} trades loaded.")
             with c_stat2:
-                if st.button("🔄 Reset Data", use_container_width=True):
+                if st.button("RESET DATA", use_container_width=True):
                     st.session_state.clear()
                     st.rerun()
         
-        tab_upload, tab_db = st.tabs(["📤 Upload New Files", "☁️ Load from Database"])
+        tab_upload, tab_db = st.tabs(["Upload New Files", "Load from Database"])
         
         with tab_upload:
             c1, c2 = st.columns(2)
@@ -63,7 +60,7 @@ def show_landing_page():
                 live_files = st.file_uploader("Upload Live Log", accept_multiple_files=True,
                                               type=['csv', 'xlsx', 'xls'], key="live_uploader", label_visibility="collapsed")
 
-            if st.button("🚀 INGEST DATA", use_container_width=True, type="primary"):
+            if st.button("IMPORT DATA", use_container_width=True, type="primary"):
                 if bt_files:
                     ui.show_loading_overlay("IGNITION SEQUENCE", "Parsing CSVs and normalizing formats...")
                     
@@ -125,49 +122,48 @@ def show_landing_page():
     # --- SECTION 2: MODULE SELECTION (Feature Tiles) ---
     st.markdown("<h3 style='text-align:center; margin-bottom:30px; color:#4B5563;'>2. SELECT MODULE</h3>", unsafe_allow_html=True)
 
-    def render_tile(col, icon, title, desc, target_page):
+    def render_tile(col, title, desc, target_page):
         with col:
-            with st.container():
+            with st.container(border=True):
                 st.markdown(f"""
                 <div class="feature-tile">
-                    <div class="feature-icon">{icon}</div>
                     <div class="feature-title">{title}</div>
                     <div class="feature-desc">{desc}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Logic: Button triggers navigation ONLY if data exists
-                if st.button(f"OPEN {title.split(' ')[0].upper()}", key=f"btn_{title}", use_container_width=True):
+                # Button inside the container
+                if st.button("LAUNCH", key=f"btn_{title}", use_container_width=True):
                     has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
                     
                     if has_data:
                         st.session_state.navigate_to_page = target_page
                         st.rerun()
                     else:
-                        # Trigger warning overlay
                         st.session_state.show_data_warning = True
                         st.rerun()
 
     # Grid Layout
     r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-    render_tile(r1c1, "📊", "Portfolio Analytics", "Deep dive into KPIs, monthly returns, and equity curves.", "📊 Portfolio Analytics")
-    render_tile(r1c2, "🏗️", "Portfolio Builder", "Allocate capital and optimize weights (Kelly/MART).", "🏗️ Portfolio Builder")
-    render_tile(r1c3, "🎲", "Monte Carlo", "Stress test against Black Swan events.", "🎲 Monte Carlo Punisher")
-    render_tile(r1c4, "⚖️", "Live vs Backtest", "Reality check your execution performance.", "⚖️ Live vs. Backtest")
+    render_tile(r1c1, "Portfolio Analytics", "Comprehensive deep dive into your portfolio performance. Analyze backtest and live trade data, key performance indicators, monthly return matrices, and equity growth curves.", "Portfolio Analytics")
+    render_tile(r1c2, "Portfolio Builder", "Construct and balance a multi-strategy portfolio. Allocate capital efficiently, simulate margin requirements, and optimize strategy weights using Kelly Criterion or MART ratios.", "Portfolio Builder")
+    render_tile(r1c3, "Monte Carlo Punisher", "Stress test your portfolio against thousands of market scenarios. Simulate Black Swan events, analyze drawdown probabilities, and ensure your strategy survives extreme volatility.", "Monte Carlo Punisher")
+    render_tile(r1c4, "Live vs Backtest", "Compare your actual live trading execution against your theoretical backtest results. Identify slippage, deviation, and performance gaps to refine your execution.", "Live vs. Backtest")
 
     st.write("")
 
     r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-    render_tile(r2c1, "🔬", "MEIC Deep Dive", "Analyze entry time performance for Iron Condors.", "🔬 MEIC Deep Dive")
-    render_tile(r2c2, "🧪", "MEIC Optimizer", "Generate signals for Option Omega.", "🧪 MEIC Optimizer")
-    render_tile(r2c3, "🤖", "AI Analyst", "Chat with your portfolio data using Gemini AI.", "🤖 AI Analyst")
+    render_tile(r2c1, "MEIC Deep Dive", "Specialized analysis for Multiple Entry Iron Condors. Visualize performance based on entry times, market conditions, and specific trade parameters to optimize your MEIC strategy.", "MEIC Deep Dive")
+    render_tile(r2c2, "MEIC Optimizer", "Generate entry signals for Option Omega based on your optimization criteria. Analyze batch results and find the most robust parameter sets for your strategy.", "MEIC Optimizer")
+    render_tile(r2c3, "AI Analyst", "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.", "AI Analyst")
     
     with r2c4:
-        st.markdown("""
-        <div class="feature-tile" style="background-color: white; border-style: dashed;">
-            <div class="feature-icon">📚</div>
-            <div class="feature-title">DOCUMENTATION</div>
-            <div class="feature-desc">Learn how to interpret metrics and use the tools.</div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.button("COMING SOON", disabled=True, use_container_width=True)
+        # Documentation Tile
+        with st.container(border=True):
+            st.markdown("""
+            <div class="feature-tile" style="border-style: dashed; background-color: #FAFAFA;">
+                <div class="feature-title">DOCUMENTATION</div>
+                <div class="feature-desc">Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.button("LAUNCH", disabled=True, use_container_width=True, key="btn_doc")

@@ -2,170 +2,282 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
+import time
 
 def page_portfolio_analytics(full_df, live_df=None):
-    # Header
-    st.markdown("<h1>Backtest Portfolio Asset Allocation</h1>", unsafe_allow_html=True)
+    # --- 1. OVERLAY & LOADING ---
+    # We display the overlay using a placeholder, run calcs, then remove it
+    placeholder = st.empty()
+    with placeholder:
+        ui.show_loading_overlay("Calculating Analytics", "Crunching numbers for Portfolio Analysis...")
     
-    st.markdown("""
-    <div style='color: #4B5563; font-size: 15px; line-height: 1.6; margin-bottom: 20px;'>
-        <strong>Portfolio Backtesting Overview</strong><br>
-        Analyze and reconstruct the performance of your options strategies. 
-        Review detailed risk metrics, drawdowns, and compare against the S&P 500 benchmark.
-    </div>
-    """, unsafe_allow_html=True)
+    # Allow UI to render the overlay before blocking computation
+    time.sleep(0.05)
 
-    # === CONFIGURATION ===
-    with st.container(border=True):
-        ui.section_header("Configuration")
+    try:
+        # Header
+        st.markdown("<h1>PORTFOLIO ANALYTICS</h1>", unsafe_allow_html=True)
         
-        data_source = "Backtest Data"
-        if live_df is not None and not live_df.empty:
-            data_source = st.radio("Source:", ["Backtest Data", "Live Data"], horizontal=True)
-        
-        target_df = live_df if data_source == "Live Data" and live_df is not None else full_df
-        if target_df.empty: return
+        st.markdown("""
+        <div style='color: #4B5563; font-size: 14px; line-height: 1.5; margin-bottom: 20px;'>
+            <strong>Comprehensive Portfolio Analysis (Backtest & Live)</strong><br>
+            Analyze and reconstruct the performance of your options strategies using both backtest data and actual live execution logs.
+        </div>
+        """, unsafe_allow_html=True)
 
-        col_cap, col_date = st.columns(2)
-        with col_cap: account_size = st.number_input("Account Size ($)", 100000, 10000000, 100000)
-        
-        min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
-        with col_date:
-            dates = st.date_input("Period", [min_ts.date(), max_ts.date()], min_value=min_ts.date(), max_value=max_ts.date())
-        
-        if len(dates) != 2: return
-        
-        filt = target_df[(target_df['timestamp'].dt.date >= dates[0]) & (target_df['timestamp'].dt.date <= dates[1])].copy()
-    
-    # === CALCULATIONS ===
-    full_idx = pd.date_range(dates[0], dates[1])
-    daily_pnl = filt.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
-    equity = account_size + daily_pnl.cumsum()
-    ret = equity.pct_change().fillna(0)
-    
-    spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
-    spx_ret = spx.pct_change().fillna(0) if spx is not None else None
-    
-    # Calculate ALL advanced metrics
-    m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
-    
-    # Margin Stats
-    margin_series = calc.generate_daily_margin_series_optimized(filt).reindex(full_idx, fill_value=0)
-    peak_margin = margin_series.max()
-    avg_margin = margin_series[margin_series > 0].mean() if not margin_series.empty and (margin_series > 0).any() else 0
-    max_margin_pct = (peak_margin / account_size) * 100 if account_size > 0 else 0
-    
-    # === HIGHLIGHTS (Restored Comprehensive Grid) ===
-    with st.container(border=True):
-        ui.section_header("Highlights & Key Performance Indicators")
-        
-        # ROW 1: Primary Return/Risk
-        c1, c2, c3, c4, c5, c6 = st.columns(6)
-        with c1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal")
-        with c2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", f"SPX: {m['SPX_CAGR']:.1%}", "hero-teal")
-        with c3: ui.render_hero_metric("Max DD", f"{m['MaxDD']:.1%}", f"${abs(m['MaxDD_USD']):,.0f}", "hero-coral")
-        with c4: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "CAGR/MaxDD", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
-        with c5: ui.render_hero_metric("Sharpe", f"{m['Sharpe']:.2f}", f"SPX: {m['SPX_Sharpe']:.2f}", "hero-neutral")
-        with c6: ui.render_hero_metric("Sortino", f"{m['Sortino']:.2f}", "Downside Risk", "hero-neutral")
-        
-        st.write("")
-        
-        # ROW 2: Trade Statistics
-        r2c1, r2c2, r2c3, r2c4, r2c5, r2c6 = st.columns(6)
-        with r2c1: ui.render_hero_metric("Total Trades", f"{m['Trades']}", "", "hero-neutral")
-        with r2c2: ui.render_hero_metric("Win Rate", f"{m['WinRate']:.1%}", "", "hero-neutral")
-        with r2c3: ui.render_hero_metric("Profit Factor", f"{m['PF']:.2f}", "", "hero-neutral")
-        with r2c4: ui.render_hero_metric("Kelly", f"{m['Kelly']:.1%}", "Optimal Stake", "hero-neutral")
-        with r2c5: ui.render_hero_metric("Avg Win", f"${filt[filt['pnl']>0]['pnl'].mean():,.0f}", "", "hero-neutral")
-        with r2c6: ui.render_hero_metric("Avg Loss", f"${filt[filt['pnl']<=0]['pnl'].mean():,.0f}", "", "hero-neutral")
-
-        st.write("")
-
-        # ROW 3: Advanced & Risk
-        r3c1, r3c2, r3c3, r3c4, r3c5, r3c6 = st.columns(6)
-        with r3c1: ui.render_hero_metric("Alpha", f"{m['Alpha']:.1%}", "vs SPX", "hero-neutral")
-        with r3c2: ui.render_hero_metric("Beta", f"{m['Beta']:.2f}", "vs SPX", "hero-neutral")
-        with r3c3: ui.render_hero_metric("Volatility", f"{m['Vol']:.1%}", f"SPX: {m['SPX_Vol']:.1%}", "hero-neutral")
-        with r3c4: ui.render_hero_metric("MART", f"{m['MART']:.2f}", "Risk Adjusted", "hero-neutral")
-        with r3c5: ui.render_hero_metric("Peak Margin", f"${peak_margin:,.0f}", f"{max_margin_pct:.0f}% Util", "hero-neutral")
-        with r3c6: ui.render_hero_metric("Ret / Margin", f"{m['AvgRetMargin']:.1%}", "Efficiency", "hero-neutral")
-
-        st.write("")
-        
-        # ROW 4: Streaks
-        r4c1, r4c2, r4c3, r4c4 = st.columns(4)
-        with r4c1: ui.render_hero_metric("Win Streak", f"{m['WinStreak']}", "Consecutive", "hero-neutral")
-        with r4c2: ui.render_hero_metric("Loss Streak", f"{m['LossStreak']}", "Consecutive", "hero-neutral")
-        with r4c3: ui.render_hero_metric("Best Trade", f"${filt['pnl'].max():,.0f}", "", "hero-neutral")
-        with r4c4: ui.render_hero_metric("Worst Trade", f"${filt['pnl'].min():,.0f}", "", "hero-neutral")
-
-    # === CHARTS ===
-    with st.container(border=True):
-        ui.section_header("Portfolio Growth")
-        
-        chart_data = pd.DataFrame(index=equity.index)
-        chart_data['Sample Portfolio'] = equity
-        
-        if spx_ret is not None and len(spx_ret) > 0:
-            spx_equity = (1 + spx_ret).cumprod() * account_size
-            spx_equity = spx_equity.reindex(equity.index, method='ffill').fillna(account_size)
-            chart_data['SPDR S&P 500 ETF'] = spx_equity
-        
-        fig_growth = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
-                             color_discrete_map={'Sample Portfolio': '#302BFF', 'SPDR S&P 500 ETF': '#34D399'})
-        
-        fig_growth.update_layout(
-            template="plotly_white",
-            xaxis_title=None,
-            yaxis_title="Portfolio Balance ($)",
-            legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center", title=None),
-            hovermode="x unified",
-            height=450
-        )
-        st.plotly_chart(fig_growth, use_container_width=True)
-        
-        c1, c2 = st.columns(2)
-        with c1: st.checkbox("Logarithmic scale")
-        with c2: st.checkbox("Inflation adjusted")
-
-    # === STRATEGY BREAKDOWN ===
-    with st.container(border=True):
-        ui.section_header("Strategy Allocation & Performance")
-        
-        c_table, c_chart = st.columns([3, 2])
-        
-        strat_stats = []
-        for strat, group in filt.groupby('strategy'):
-            s_pnl = group['pnl'].sum()
-            s_trades = len(group)
-            s_wr = (group['pnl'] > 0).mean()
-            strat_stats.append({'Strategy': strat, 'P/L': s_pnl, 'Trades': s_trades, 'Win Rate': s_wr})
-        
-        if strat_stats:
-            df_stats = pd.DataFrame(strat_stats).sort_values('P/L', ascending=False)
+        # === CONFIGURATION ===
+        with st.container(border=True):
+            ui.section_header("Configuration")
             
-            with c_table:
-                st.dataframe(
-                    df_stats,
-                    column_config={
-                        "P/L": st.column_config.NumberColumn(format="$%d"),
-                        "Win Rate": st.column_config.NumberColumn(format="%.1f%%")
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+            data_source = "Backtest Data"
+            if live_df is not None and not live_df.empty:
+                data_source = st.radio("Source:", ["Backtest Data", "Live Data"], horizontal=True)
             
-            with c_chart:
-                fig_pie = px.pie(df_stats, values='Trades', names='Strategy', title="Allocation by Trade Count",
-                                 color_discrete_sequence=px.colors.qualitative.Prism)
-                st.plotly_chart(fig_pie, use_container_width=True)
+            target_df = live_df if data_source == "Live Data" and live_df is not None else full_df
+            if target_df.empty: 
+                placeholder.empty()
+                return
 
-    # === MONTHLY RETURNS ===
-    with st.container(border=True):
-        ui.section_header("Monthly Returns Table")
-        filt['Year'] = filt['timestamp'].dt.year
-        filt['Month'] = filt['timestamp'].dt.month
-        pivot = filt.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0)
-        st.dataframe(pivot.style.applymap(ui.color_monthly_performance).format("${:,.0f}"), use_container_width=True)
+            col_cap, col_date = st.columns(2)
+            with col_cap: account_size = st.number_input("Account Size ($)", 100000, 10000000, 100000)
+            
+            min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
+            with col_date:
+                dates = st.date_input("Period", [min_ts.date(), max_ts.date()], min_value=min_ts.date(), max_value=max_ts.date())
+            
+            if len(dates) != 2: 
+                placeholder.empty()
+                return
+            
+            # Global Filter
+            mask = (target_df['timestamp'].dt.date >= dates[0]) & (target_df['timestamp'].dt.date <= dates[1])
+            filt = target_df[mask].copy()
+
+        # === CALCULATIONS ===
+        daily_pnl = filt.set_index('timestamp').resample('D')['pnl'].sum()
+        full_idx = pd.date_range(dates[0], dates[1])
+        daily_pnl = daily_pnl.reindex(full_idx, fill_value=0)
+        
+        equity = account_size + daily_pnl.cumsum()
+        ret = equity.pct_change().fillna(0)
+        
+        spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
+        spx_ret = spx.pct_change().fillna(0) if spx is not None else None
+        
+        m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
+        
+        # === KPI HIGHLIGHTS (ROW 1) ===
+        # Order: Total P/L, CAGR, Max DD %, Max DD $, MAR, MART
+        with st.container(border=True):
+            ui.section_header("Highlights & Key Performance Indicators")
+            
+            k1, k2, k3, k4, k5, k6 = st.columns(6)
+            with k1: ui.render_hero_metric("Total P/L", f"${filt['pnl'].sum():,.0f}", "", "hero-teal" if filt['pnl'].sum() > 0 else "hero-coral")
+            with k2: ui.render_hero_metric("CAGR", f"{m['CAGR']:.1%}", "", "hero-teal" if m['CAGR'] > 0 else "hero-coral")
+            with k3: ui.render_hero_metric("Max DD (%)", f"{m['MaxDD']:.1%}", "", "hero-coral")
+            with k4: ui.render_hero_metric("Max DD ($)", f"${abs(m['MaxDD_USD']):,.0f}", "", "hero-coral")
+            with k5: ui.render_hero_metric("MAR Ratio", f"{m['MAR']:.2f}", "", "hero-teal" if m['MAR'] > 1 else "hero-neutral")
+            with k6: ui.render_hero_metric("MART Ratio", f"{m['MART']:.2f}", "", "hero-teal" if m['MART'] > 5 else "hero-neutral")
+
+        # === CHARTS SECTION (With Strategy Selector) ===
+        st.write("")
+        all_strategies = sorted(filt['strategy'].unique())
+        
+        # Strategy Filter for Charts
+        selected_strats = st.multiselect("Filter Charts by Strategy", all_strategies, default=all_strategies)
+        
+        if not selected_strats:
+            st.warning("Please select at least one strategy.")
+        else:
+            chart_filt = filt[filt['strategy'].isin(selected_strats)]
+            
+            # --- EQUITY & MARGIN ---
+            c_eq, c_mar = st.columns(2)
+            
+            with c_eq:
+                with st.container(border=True):
+                    ui.section_header("Equity Curve")
+                    
+                    # Prepare Equity Data grouped by Strategy
+                    eq_data = pd.DataFrame(index=full_idx)
+                    
+                    for s in selected_strats:
+                        s_df = filt[filt['strategy'] == s]
+                        s_pnl = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                        eq_data[s] = s_pnl.cumsum()
+                    
+                    # Also Total
+                    eq_data['Total Portfolio'] = eq_data.sum(axis=1)
+                    
+                    fig_eq = px.line(eq_data, x=eq_data.index, y=eq_data.columns, 
+                                     color_discrete_sequence=px.colors.qualitative.Prism)
+                    fig_eq.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Cumulative P/L ($)", height=350, legend=dict(orientation="h", y=-0.2))
+                    st.plotly_chart(fig_eq, use_container_width=True)
+
+            with c_mar:
+                with st.container(border=True):
+                    ui.section_header("Margin Usage")
+                    
+                    # Prepare Margin Data
+                    margin_data = pd.DataFrame(index=full_idx)
+                    for s in selected_strats:
+                        s_df = filt[filt['strategy'] == s]
+                        # Calc optimized margin series per strategy
+                        margin_data[s] = calc.generate_daily_margin_series_optimized(s_df).reindex(full_idx, fill_value=0)
+                        
+                    fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns, 
+                                      color_discrete_sequence=px.colors.qualitative.Prism)
+                    fig_mar.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Margin ($)", height=350, legend=dict(orientation="h", y=-0.2))
+                    st.plotly_chart(fig_mar, use_container_width=True)
+
+            # --- CORRELATION & DAY ANALYSIS ---
+            c_corr, c_day = st.columns([1, 1])
+            
+            with c_corr:
+                with st.container(border=True):
+                    ui.section_header("Strategy Correlation")
+                    
+                    # Create daily PnL matrix for correlation
+                    pnl_matrix = pd.DataFrame(index=full_idx)
+                    for s in selected_strats:
+                        s_df = filt[filt['strategy'] == s]
+                        pnl_matrix[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                    
+                    if len(selected_strats) > 1:
+                        corr = pnl_matrix.corr()
+                        fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu", zmin=-1, zmax=1, aspect="auto")
+                        fig_corr.update_layout(height=400)
+                        st.plotly_chart(fig_corr, use_container_width=True)
+                    else:
+                        st.info("Select multiple strategies to view correlation.")
+
+            with c_day:
+                with st.container(border=True):
+                    ui.section_header("Day of Week Analysis")
+                    
+                    # Group by day name
+                    filt['Day'] = filt['timestamp'].dt.day_name()
+                    # Ensure correct order
+                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+                    day_stats = filt.groupby('Day')['pnl'].sum().reindex(day_order, fill_value=0)
+                    
+                    fig_day = px.bar(day_stats, x=day_stats.index, y=day_stats.values, 
+                                     color=day_stats.values, color_continuous_scale="RdYlGn")
+                    fig_day.update_layout(template="plotly_white", height=400, xaxis_title=None, showlegend=False)
+                    st.plotly_chart(fig_day, use_container_width=True)
+
+        # === MONTHLY RETURNS TABLE ===
+        with st.container(border=True):
+            ui.section_header("Monthly Returns")
+            
+            filt['Year'] = filt['timestamp'].dt.year
+            filt['Month'] = filt['timestamp'].dt.month
+            
+            pivot = filt.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0)
+            
+            # Rename columns to Jan, Feb...
+            import calendar
+            pivot.columns = [calendar.month_abbr[c] for c in pivot.columns]
+            
+            # Add Row Totals
+            pivot['TOTAL'] = pivot.sum(axis=1)
+            
+            # Add Column Totals
+            sum_row = pivot.sum()
+            pivot.loc['TOTAL'] = sum_row
+            
+            st.dataframe(pivot.style.applymap(ui.color_monthly_performance).format("${:,.0f}"), use_container_width=True)
+
+        # === STRATEGY PERFORMANCE TABLE ===
+        with st.container(border=True):
+            ui.section_header("Strategy Performance")
+            
+            strat_metrics = []
+            
+            for s in all_strategies:
+                s_df = filt[filt['strategy'] == s].copy()
+                
+                # Metrics
+                s_pnl = s_df['pnl'].sum()
+                
+                # Contracts/Day (Lots)
+                lots, lots_per_day = calc.calculate_lots_from_trades(s_df)
+                
+                # CAGR (Contribution)
+                # Calculating contribution to total portfolio CAGR would be complex.
+                # Here we calculate the strategy's own annualized return based on PnL vs Account Size
+                days = (s_df['timestamp'].max() - s_df['timestamp'].min()).days
+                days = max(days, 1)
+                s_ret = s_pnl / account_size
+                s_cagr = (1 + s_ret) ** (365/days) - 1
+                
+                # Drawdown
+                s_daily = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                s_cum = s_daily.cumsum()
+                s_peak = s_cum.cummax()
+                s_dd_usd = (s_cum - s_peak).min()
+                s_max_dd_pct = s_dd_usd / account_size # Relative to account
+                
+                # Ratios
+                s_mar = s_cagr / abs(s_max_dd_pct) if s_max_dd_pct != 0 else 0
+                s_mart = s_cagr / (abs(s_dd_usd) / account_size) if s_dd_usd != 0 else 0
+                
+                # Margin
+                s_margin_series = calc.generate_daily_margin_series_optimized(s_df)
+                s_peak_margin = s_margin_series.max() if not s_margin_series.empty else 0
+                s_avg_margin = s_margin_series[s_margin_series > 0].mean() if not s_margin_series.empty and (s_margin_series > 0).any() else 0
+                
+                strat_metrics.append({
+                    "Strategy": s,
+                    "Contracts/Day": lots_per_day,
+                    "P/L": s_pnl,
+                    "CAGR": s_cagr,
+                    "Max DD ($)": s_dd_usd,
+                    "MAR": s_mar,
+                    "MART": s_mart,
+                    "Peak Margin": s_peak_margin,
+                    "Avg Margin": s_avg_margin
+                })
+            
+            perf_df = pd.DataFrame(strat_metrics)
+            
+            # Add Total Row
+            if not perf_df.empty:
+                total_row = {
+                    "Strategy": "TOTAL",
+                    "Contracts/Day": perf_df["Contracts/Day"].sum(),
+                    "P/L": perf_df["P/L"].sum(),
+                    "CAGR": m['CAGR'], # Use Portfolio CAGR
+                    "Max DD ($)": m['MaxDD_USD'], # Use Portfolio MaxDD
+                    "MAR": m['MAR'],
+                    "MART": m['MART'],
+                    "Peak Margin": perf_df["Peak Margin"].max(), # Approx
+                    "Avg Margin": perf_df["Avg Margin"].sum()
+                }
+                perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
+            
+            st.dataframe(
+                perf_df,
+                column_config={
+                    "P/L": st.column_config.NumberColumn(format="$%.0f"),
+                    "CAGR": st.column_config.NumberColumn(format="%.1%"),
+                    "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
+                    "MAR": st.column_config.NumberColumn(format="%.2f"),
+                    "MART": st.column_config.NumberColumn(format="%.2f"),
+                    "Peak Margin": st.column_config.NumberColumn(format="$%.0f"),
+                    "Avg Margin": st.column_config.NumberColumn(format="$%.0f"),
+                    "Contracts/Day": st.column_config.NumberColumn(format="%.1f")
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+        
+        # Hide loading overlay after successful render
+        placeholder.empty()
+
+    except Exception as e:
+        placeholder.empty()
+        st.error(f"An error occurred during analysis: {e}")

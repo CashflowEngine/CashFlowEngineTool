@@ -7,20 +7,11 @@ import ui_components as ui
 def page_meic_analysis(bt_df, live_df=None):
     """MEIC Deep Dive analysis page."""
 
-    # Header with Exo 2 font
-    st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
-                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
-            MEIC DEEP DIVE
-        </h1>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style='color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px; font-family: Poppins, sans-serif;'>
-        Specialized analysis for Multiple Entry Iron Condors. Visualize performance based on entry times,
-        market conditions, and specific trade parameters.
-    </div>
-    """, unsafe_allow_html=True)
+    # Header with consistent font
+    ui.render_page_header(
+        "MEIC DEEP DIVE",
+        "Specialized analysis for Multiple Entry Iron Condors. Visualize performance based on entry times, market conditions, and specific trade parameters."
+    )
 
     # === CONFIGURATION (Card) ===
     with st.container(border=True):

@@ -8,20 +8,11 @@ import ui_components as ui
 def page_comparison(bt_df, live_df):
     """Reality Check: Backtest vs Live comparison page."""
 
-    # Header with Exo 2 font
-    st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
-                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
-            REALITY CHECK
-        </h1>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style='color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px; font-family: Poppins, sans-serif;'>
-        Compare your actual live trading execution against theoretical backtest results.
-        Identify slippage, deviation, and performance gaps to refine your execution.
-    </div>
-    """, unsafe_allow_html=True)
+    # Header with consistent font
+    ui.render_page_header(
+        "REALITY CHECK",
+        "Compare your actual live trading execution against theoretical backtest results. Identify slippage, deviation, and performance gaps to refine your execution."
+    )
 
     # Check for live data
     if live_df is None or live_df.empty:

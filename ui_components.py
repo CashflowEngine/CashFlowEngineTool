@@ -16,12 +16,38 @@ COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
 # --- FONT INJECTION ---
 def inject_fonts():
-    """Inject Google Fonts directly into the page for reliable loading."""
+    """Inject Google Fonts with JavaScript enforcement for reliable loading."""
     st.markdown("""
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        /* Force Exo 2 on all headings */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Exo 2', sans-serif !important;
+            font-weight: 800 !important;
+        }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Wait for fonts to load, then force apply
+        document.fonts.ready.then(function() {
+            // Apply Exo 2 to all headings
+            document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function(el) {
+                el.style.fontFamily = "'Exo 2', sans-serif";
+                el.style.fontWeight = "800";
+            });
+        });
+
+        // Also run after a short delay to catch dynamically loaded content
+        setTimeout(function() {
+            document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function(el) {
+                el.style.fontFamily = "'Exo 2', sans-serif";
+                el.style.fontWeight = "800";
+            });
+        }, 500);
+    </script>
     """, unsafe_allow_html=True)
 
 def render_page_header(title, subtitle=None):

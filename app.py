@@ -70,25 +70,44 @@ st.markdown("""
     .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
 
     /* --- SIDEBAR TOGGLE FIX --- */
-    /* Hide all text in the toggle button, show only the icon */
-    button[kind="header"] {
+    /* Hide all text in sidebar toggle buttons, show only icons */
+    button[kind="header"],
+    [data-testid="baseButton-header"],
+    [data-testid="stSidebarCollapseButton"] button,
+    .stAppViewBlockContainer button[kind="header"] {
         color: transparent !important;
         overflow: hidden;
+        font-size: 0 !important;
     }
-    button[kind="header"] * {
+    button[kind="header"] *,
+    [data-testid="baseButton-header"] * {
         color: transparent !important;
+        font-size: 0 !important;
     }
-    button[kind="header"] svg {
+    button[kind="header"] svg,
+    [data-testid="baseButton-header"] svg {
         fill: #4B5563 !important;
         color: #4B5563 !important;
+        font-size: 24px !important;
+        width: 24px !important;
+        height: 24px !important;
     }
     /* Ensure the collapse button doesn't show text */
-    [data-testid="collapsedControl"] {
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
         color: transparent !important;
+        font-size: 0 !important;
     }
     [data-testid="collapsedControl"] span,
-    [data-testid="collapsedControl"] p {
+    [data-testid="collapsedControl"] p,
+    [data-testid="stSidebarCollapsedControl"] span,
+    [data-testid="stSidebarCollapsedControl"] p {
         display: none !important;
+    }
+    /* Hide keyboard_double text that appears */
+    [data-testid="collapsedControl"]::before,
+    [data-testid="collapsedControl"]::after {
+        content: none !important;
     }
 
     /* --- NAVIGATION BAR REDESIGN --- */
@@ -128,19 +147,22 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* Active/Selected menu item - improved styling */
+    /* Active/Selected menu item - light gray background */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"],
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] {
-        background-color: #302BFF !important;
-        color: #FFFFFF !important;
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"],
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
+        background-color: #E5E7EB !important;
+        color: #1F2937 !important;
         font-weight: 600 !important;
-        border: none !important;
-        box-shadow: 0 4px 6px rgba(48, 43, 255, 0.15) !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 6px !important;
+        box-shadow: none !important;
     }
 
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] span,
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] span {
-        color: #FFFFFF !important;
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] span,
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) span {
+        color: #1F2937 !important;
     }
 
     /* Hide the radio button circle */
@@ -492,20 +514,32 @@ st.markdown("""
         display: none;
     }
 
-    /* Active menu item with dark gray background */
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"],
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"],
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
-        background-color: #374151 !important;
-        color: #FFFFFF !important;
-        font-weight: 600 !important;
-        border: none !important;
-        box-shadow: none !important;
+    /* Fix sidebar collapse/expand button - hide text, show only icon */
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="collapsedControl"] button,
+    button[data-testid="baseButton-headerNoPadding"] {
+        font-size: 0 !important;
+        color: transparent !important;
     }
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] span,
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] span,
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) span {
-        color: #FFFFFF !important;
+    [data-testid="stSidebarCollapsedControl"] button span,
+    [data-testid="collapsedControl"] button span,
+    button[data-testid="baseButton-headerNoPadding"] span {
+        font-size: 0 !important;
+        display: none !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button svg,
+    [data-testid="collapsedControl"] button svg,
+    button[data-testid="baseButton-headerNoPadding"] svg {
+        width: 20px !important;
+        height: 20px !important;
+        display: block !important;
+    }
+
+    /* Hide any arrow_right or arrow_left text */
+    [data-testid="stSidebar"] span:contains("arrow"),
+    button span[class*="material"] {
+        font-size: 0 !important;
+        visibility: hidden !important;
     }
 
 </style>

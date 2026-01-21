@@ -27,6 +27,226 @@ def show_login_page():
         [data-testid="stSidebar"] { display: none !important; }
         section[data-testid="stSidebar"] { display: none !important; }
 
+        /* Login page container */
+        .login-container {
+            display: flex;
+            min-height: 85vh;
+            margin: -1rem -1rem 0 -1rem;
+        }
+
+        /* Left panel - Login form */
+        .login-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px 80px;
+            background-color: #FFFFFF;
+        }
+
+        .login-form-wrapper {
+            width: 100%;
+            max-width: 380px;
+        }
+
+        .login-logo {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .login-logo img {
+            max-width: 220px;
+            height: auto;
+        }
+
+        .welcome-text {
+            font-family: 'Exo 2', sans-serif !important;
+            font-size: 28px;
+            font-weight: 600 !important;
+            color: #302BFF;
+            margin-bottom: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .brand-title {
+            font-family: 'Exo 2', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: #4B5563;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .session-message {
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            color: #FF2E4D;
+            margin-bottom: 25px;
+        }
+
+        /* Right panel - Marketing content */
+        .login-right {
+            flex: 1.2;
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 50%, #C7D2FE 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .marketing-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            height: 600px;
+        }
+
+        /* Feature cards */
+        .feature-card {
+            position: absolute;
+            background: #FFFFFF;
+            border-radius: 12px;
+            padding: 20px 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .feature-card-highlight {
+            font-family: 'Exo 2', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: #302BFF;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .feature-card-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #4B5563;
+        }
+
+        .feature-card-desc {
+            font-size: 12px;
+            color: #6B7280;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        /* Positioned cards */
+        .card-strategies { top: 40px; left: 30px; }
+        .card-time { top: 20px; right: 0; }
+        .card-tool { bottom: 180px; left: 0; }
+        .card-years { bottom: 40px; left: 50%; transform: translateX(-50%); }
+        .card-experience { bottom: 100px; right: 0; }
+
+        /* Icon in card */
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #302BFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+
+        /* Decorative curves */
+        .curve-decoration {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .curve-1 {
+            top: 10%;
+            right: 15%;
+            width: 200px;
+            height: 200px;
+            border: 3px solid #302BFF;
+            border-radius: 50%;
+            border-left-color: transparent;
+            border-bottom-color: transparent;
+            transform: rotate(-45deg);
+            opacity: 0.3;
+        }
+
+        .curve-2 {
+            bottom: 20%;
+            left: 10%;
+            width: 300px;
+            height: 300px;
+            border: 3px solid #302BFF;
+            border-radius: 50%;
+            border-right-color: transparent;
+            border-top-color: transparent;
+            transform: rotate(45deg);
+            opacity: 0.3;
+        }
+
+        /* Screenshot/dashboard preview */
+        .dashboard-preview {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 300px;
+            background: #FFFFFF;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(48, 43, 255, 0.15);
+            border: 1px solid #E5E7EB;
+            overflow: hidden;
+        }
+
+        .dashboard-header {
+            height: 40px;
+            background: linear-gradient(90deg, #302BFF 0%, #7B2BFF 100%);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+        }
+
+        .dashboard-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .dot-red { background: #FF2E4D; }
+        .dot-yellow { background: #FFAB00; }
+        .dot-green { background: #00D2BE; }
+
+        .dashboard-content {
+            padding: 20px;
+            background: #F9FAFB;
+            height: calc(100% - 40px);
+        }
+
+        .dashboard-chart {
+            width: 100%;
+            height: 80%;
+            background: linear-gradient(180deg, rgba(0, 210, 190, 0.1) 0%, rgba(0, 210, 190, 0.3) 100%);
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .chart-line {
+            position: absolute;
+            bottom: 30%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #00D2BE 0%, #302BFF 50%, #00D2BE 100%);
+        }
+
         /* Forgot password link */
         .forgot-password a {
             font-family: 'Poppins', sans-serif;
@@ -53,7 +273,7 @@ def show_login_page():
         # --- WELCOME TEXT (at the very top) ---
         st.markdown("""
             <div style="text-align: center; margin-bottom: 10px;">
-                <div style="font-family: 'Poppins', sans-serif; font-size: 28px; font-weight: 400; color: #302BFF;">
+                <div style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 600; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
                 </div>
             </div>
@@ -131,12 +351,6 @@ def show_login_page():
                     st.session_state['login_error'] = True
                     st.session_state['login_error_message'] = "Please enter both email and password."
                     st.rerun()
-
-            # Back to product page link
-            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-            if st.button("Zurück zur Produktübersicht", use_container_width=True, type="tertiary", key="back_to_sales"):
-                st.session_state.show_sales_page = True
-                st.rerun()
 
     with col_right:
         # --- MARKETING IMAGE - Right Panel ---

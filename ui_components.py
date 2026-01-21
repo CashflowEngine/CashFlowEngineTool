@@ -54,9 +54,8 @@ def render_page_header(title, subtitle=None):
 
     st.markdown(header_html, unsafe_allow_html=True)
 
-def _get_logo_base64():
+def _get_logo_base64(logo_file="CashflowEnginelogo.png"):
     """Load logo as base64 for reliable rendering."""
-    logo_file = "CashflowEnginelogo.png"
     if os.path.exists(logo_file):
         try:
             with open(logo_file, "rb") as f:
@@ -68,11 +67,11 @@ def _get_logo_base64():
             pass
     return None
 
-def render_logo(width=200, centered=True):
+def render_logo(width=200, centered=True, logo_file="CashflowEnginelogo.png"):
     """
     Renders the official Logo using base64 encoding for reliability.
     """
-    logo_b64 = _get_logo_base64()
+    logo_b64 = _get_logo_base64(logo_file)
 
     if logo_b64:
         align = "center" if centered else "left"
@@ -85,8 +84,8 @@ def render_logo(width=200, centered=True):
         _render_text_fallback(centered)
 
 def render_logo_sidebar():
-    """Render logo for sidebar (smaller)."""
-    render_logo(width=180, centered=True)
+    """Render grey logo for sidebar (smaller, matches gray background)."""
+    render_logo(width=180, centered=True, logo_file="CashflowEnginelogogrey.png")
 
 def _render_text_fallback(centered=True):
     align = "center" if centered else "left"

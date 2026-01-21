@@ -12,9 +12,13 @@ def show_landing_page():
     # --- DATA CHECK OVERLAY (Full screen) ---
     if st.session_state.get('show_data_warning', False):
         ui.render_data_required_overlay()
-        col_ack = st.columns([1, 2, 1])[1]
-        with col_ack:
-            if st.button("ACKNOWLEDGE & IMPORT DATA", key="ack_btn_overlay", use_container_width=True):
+        col_space, col_btn1, col_btn2, col_space2 = st.columns([1, 1.5, 1, 1])
+        with col_btn1:
+            if st.button("IMPORT DATA", key="ack_btn_overlay", use_container_width=True, type="primary"):
+                st.session_state.show_data_warning = False
+                st.rerun()
+        with col_btn2:
+            if st.button("CANCEL", key="cancel_btn_overlay", use_container_width=True, type="secondary"):
                 st.session_state.show_data_warning = False
                 st.rerun()
         return
@@ -150,16 +154,14 @@ def show_landing_page():
 
     # --- SECTION 2: MODULE SELECTION (Feature Tiles with Text Links) ---
     st.markdown(f"""
-        <div style='text-align:center; margin-bottom:30px;'>
-            <h2 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 22px !important;
-                       color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1px !important;
-                       margin-bottom: 10px !important;">
-                2. Select Module
-            </h2>
-            <p style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #6B7280;">
-                Choose an analysis module below. Data must be imported first to access most features.
-            </p>
-        </div>
+        <h2 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 22px !important;
+                   color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1px !important;
+                   margin-bottom: 10px !important;">
+            2. Select Module
+        </h2>
+        <p style="font-family: 'Poppins', sans-serif !important; font-size: 13px; color: #6B7280; margin-bottom: 20px;">
+            Choose an analysis module below. Data must be imported first to access most features.
+        </p>
     """, unsafe_allow_html=True)
 
     def render_tile(col, title, desc, target_page, coming_soon=False):

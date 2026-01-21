@@ -50,11 +50,13 @@ def show_login_page():
         }
 
         .welcome-text {
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Exo 2', sans-serif !important;
             font-size: 28px;
-            font-weight: 400;
+            font-weight: 600 !important;
             color: #302BFF;
             margin-bottom: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .brand-title {

@@ -546,6 +546,37 @@ st.markdown("""
     }
 
 </style>
+<script>
+    // Force Exo 2 font on all headings after page load
+    function applyExo2Fonts() {
+        const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6, .hero-value, .feature-title, .section-title, .data-required-title');
+        headings.forEach(function(el) {
+            el.style.setProperty('font-family', "'Exo 2', sans-serif", 'important');
+            el.style.setProperty('font-weight', '800', 'important');
+            el.style.setProperty('text-transform', 'uppercase', 'important');
+        });
+    }
+
+    // Run when fonts are ready
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(applyExo2Fonts);
+    }
+
+    // Run on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', applyExo2Fonts);
+
+    // Run after delays to catch Streamlit's dynamic content
+    setTimeout(applyExo2Fonts, 100);
+    setTimeout(applyExo2Fonts, 500);
+    setTimeout(applyExo2Fonts, 1000);
+    setTimeout(applyExo2Fonts, 2000);
+
+    // Use MutationObserver to catch any new elements
+    const observer = new MutationObserver(function(mutations) {
+        applyExo2Fonts();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+</script>
 """, unsafe_allow_html=True)
 
 # --- 3. ROUTING & NAVIGATION ---

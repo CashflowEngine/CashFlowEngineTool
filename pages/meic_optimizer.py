@@ -4,39 +4,69 @@ import calculations as calc
 import ui_components as ui
 
 def page_meic_optimizer():
-    st.markdown("<h1>🧪 MEIC OPTIMIZER</h1>", unsafe_allow_html=True)
-    
+    """MEIC Optimizer page - Beta."""
+
+    # Header with Exo 2 font and Beta badge
+    st.markdown(f"""
+        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
+                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
+            MEIC OPTIMIZER
+            <span style="display: inline-block; background-color: #FEF3C7; color: #D97706;
+                        font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 4px;
+                        margin-left: 12px; vertical-align: middle; text-transform: uppercase;">
+                Beta
+            </span>
+        </h1>
+    """, unsafe_allow_html=True)
+
+    # Beta notice
+    st.warning("This tool is currently in development. Features may change and results should be verified independently.")
+
     tab1, tab2 = st.tabs(["Signal Generator", "Analyzer"])
-    
+
     with tab1:
         with st.container(border=True):
-            ui.section_header("Generate Option Omega Signals")
-            st.caption("Create a CSV to force entry times in Option Omega backtests.")
-            
+            ui.section_header("Generate Option Omega Signals",
+                description="Create a CSV file to force specific entry times in Option Omega backtests.")
+
             c1, c2 = st.columns(2)
-            with c1: d1 = st.date_input("Start Date")
-            with c2: d2 = st.date_input("End Date")
-            
+            with c1:
+                d1 = st.date_input("Start Date", key="meic_start_date")
+            with c2:
+                d2 = st.date_input("End Date", key="meic_end_date")
+
             if st.button("Generate CSV", type="primary"):
-                df = calc.generate_oo_signals(d1, d2)
-                csv = df.to_csv(index=False)
-                st.download_button("⬇️ Download signals.csv", csv, "signals.csv", "text/csv")
-            
+                try:
+                    df = calc.generate_oo_signals(d1, d2)
+                    csv = df.to_csv(index=False)
+                    st.download_button("Download signals.csv", csv, "signals.csv", "text/csv")
+                except Exception as e:
+                    st.error(f"Error generating signals: {e}")
+
     with tab2:
         with st.container(border=True):
-            ui.section_header("Analyze Backtest Results")
-            files = st.file_uploader("Upload Multiple MEIC CSVs", accept_multiple_files=True)
-            
+            ui.section_header("Analyze Backtest Results",
+                description="Upload multiple MEIC backtest CSVs to compare performance across different parameter sets.")
+
+            files = st.file_uploader("Upload Multiple MEIC CSVs", accept_multiple_files=True, key="meic_files")
+
             if files:
                 res = []
                 for f in files:
-                    meta = calc.parse_meic_filename(f.name)
-                    df = calc.load_file_with_caching(f)
-                    if df is not None:
-                        # Simple MAR calc assumption
-                        stats = calc.analyze_meic_group(df, 100000)
-                        res.append({**meta, 'MAR': stats['MAR'], 'CAGR': stats['CAGR'], 'MaxDD': stats['MaxDD']})
-                
+                    try:
+                        meta = calc.parse_meic_filename(f.name)
+                        df = calc.load_file_with_caching(f)
+                        if df is not None:
+                            stats = calc.analyze_meic_group(df, 100000)
+                            res.append({**meta, 'MAR': stats['MAR'], 'CAGR': stats['CAGR'], 'MaxDD': stats['MaxDD']})
+                    except Exception as e:
+                        st.warning(f"Could not process {f.name}: {e}")
+
                 if res:
                     df_res = pd.DataFrame(res).sort_values('MAR', ascending=False)
-                    st.dataframe(df_res.style.format({'MAR': '{:.2f}', 'CAGR': '{:.1%}', 'MaxDD': '{:.1%}'}), use_container_width=True)
+                    st.dataframe(
+                        df_res.style.format({'MAR': '{:.2f}', 'CAGR': '{:.1%}', 'MaxDD': '{:.1%}'}),
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No valid results to display.")

@@ -167,16 +167,16 @@ def section_header(title, description=None):
     """Render a styled blue header using Exo 2 with optional description."""
     st.markdown(f"""
         <div style="margin-bottom: 20px;">
-            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 18px;
-                        color: {COLOR_BLUE}; text-transform: uppercase; letter-spacing: 1px;">
+            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px !important;
+                        color: {COLOR_BLUE} !important; text-transform: uppercase !important; letter-spacing: 1px !important;">
                 {title}
             </div>
         </div>
     """, unsafe_allow_html=True)
     if description:
         st.markdown(f"""
-            <div style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #6B7280;
-                        margin-top: -12px; margin-bottom: 16px; line-height: 1.5;">
+            <div style="font-family: 'Poppins', sans-serif !important; font-size: 14px !important; color: #6B7280 !important;
+                        margin-top: -12px; margin-bottom: 16px; line-height: 1.6 !important;">
                 {description}
             </div>
         """, unsafe_allow_html=True)

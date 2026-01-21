@@ -38,6 +38,17 @@ def show_landing_page():
         </div>
     """, unsafe_allow_html=True)
 
+    # --- EXPLANATORY TEXT ---
+    st.markdown(f"""
+        <div style="text-align: center; max-width: 800px; margin: 0 auto 40px auto; padding: 0 20px;">
+            <p style="font-family: 'Poppins', sans-serif !important; font-size: 15px; color: #6B7280; line-height: 1.7;">
+                Cashflow Engine is your comprehensive analytics suite for evaluating option trading strategies.
+                To begin, import your backtest data or load a previously saved analysis from the database.
+                Once your data is loaded, you'll have access to all analysis modules.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
     # --- SECTION 1: DATA IMPORT ---
     with st.container(border=True):
         st.markdown(f"""

@@ -69,25 +69,44 @@ st.markdown("""
     .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
 
     /* --- SIDEBAR TOGGLE FIX --- */
-    /* Hide all text in the toggle button, show only the icon */
-    button[kind="header"] {
+    /* Hide all text in sidebar toggle buttons, show only icons */
+    button[kind="header"],
+    [data-testid="baseButton-header"],
+    [data-testid="stSidebarCollapseButton"] button,
+    .stAppViewBlockContainer button[kind="header"] {
         color: transparent !important;
         overflow: hidden;
+        font-size: 0 !important;
     }
-    button[kind="header"] * {
+    button[kind="header"] *,
+    [data-testid="baseButton-header"] * {
         color: transparent !important;
+        font-size: 0 !important;
     }
-    button[kind="header"] svg {
+    button[kind="header"] svg,
+    [data-testid="baseButton-header"] svg {
         fill: #4B5563 !important;
         color: #4B5563 !important;
+        font-size: 24px !important;
+        width: 24px !important;
+        height: 24px !important;
     }
     /* Ensure the collapse button doesn't show text */
-    [data-testid="collapsedControl"] {
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
         color: transparent !important;
+        font-size: 0 !important;
     }
     [data-testid="collapsedControl"] span,
-    [data-testid="collapsedControl"] p {
+    [data-testid="collapsedControl"] p,
+    [data-testid="stSidebarCollapsedControl"] span,
+    [data-testid="stSidebarCollapsedControl"] p {
         display: none !important;
+    }
+    /* Hide keyboard_double text that appears */
+    [data-testid="collapsedControl"]::before,
+    [data-testid="collapsedControl"]::after {
+        content: none !important;
     }
 
     /* --- NAVIGATION BAR REDESIGN --- */

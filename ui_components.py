@@ -3,7 +3,7 @@ import pandas as pd
 import database as db
 import time
 import os
-from PIL import Image
+import base64
 
 # --- CORPORATE IDENTITY COLORS ---
 COLOR_BLUE = "#302BFF"   # Electric Blue
@@ -14,47 +14,104 @@ COLOR_ICE = "#F0F4FF"    # Ice Tint (Backgrounds)
 COLOR_AMBER = "#FFAB00"  # Amber Flux (Warning)
 COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
-def render_logo():
-    """
-    Renders the official Logo with robust pre-validation.
-    """
+@st.cache_data(show_spinner=False)
+def _get_logo_base64():
+    """Load logo as base64 for reliable rendering."""
     logo_file = "CashflowEnginelogo.png"
-    
-    # 1. Existence Check
-    if not os.path.exists(logo_file):
-        _render_text_fallback()
-        return
-        
-    # 2. Validity Check (Check independently beforehand)
-    valid_image = False
-    try:
-        # Try to open only the header to verify it's a real image
-        with Image.open(logo_file) as img:
-            img.verify() 
-        valid_image = True
-    except Exception as e:
-        # File exists but is corrupt (e.g., Git LFS pointer text file)
-        # We catch this silently to prevent the app from crashing
-        pass
-        
-    # 3. Render
-    if valid_image:
+    if os.path.exists(logo_file):
         try:
-            # Re-open for Streamlit (verify() closes the file)
-            st.image(logo_file, width=350)
+            with open(logo_file, "rb") as f:
+                data = f.read()
+                # Verify it's a PNG (check for PNG signature anywhere in first 16 bytes)
+                if b'PNG' in data[:16]:
+                    return base64.b64encode(data).decode()
         except Exception:
-            _render_text_fallback()
-    else:
-        _render_text_fallback()
+            pass
+    return None
 
-def _render_text_fallback():
-     st.markdown(f"""
-        <div style="text-align: center; padding: 10px 0;">
-            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 30px; color: {COLOR_GREY}; letter-spacing: 1px;">
-                ⚡ CASHFLOW ENGINE
+def render_logo(width=200, centered=True):
+    """
+    Renders the official Logo using base64 encoding for reliability.
+    """
+    logo_b64 = _get_logo_base64()
+
+    if logo_b64:
+        align = "center" if centered else "left"
+        st.markdown(f"""
+            <div style="text-align: {align}; padding: 10px 0;">
+                <img src="data:image/png;base64,{logo_b64}" width="{width}" alt="Cashflow Engine Logo" />
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        _render_text_fallback(centered)
+
+def render_logo_sidebar():
+    """Render logo for sidebar (smaller)."""
+    render_logo(width=180, centered=True)
+
+def _render_text_fallback(centered=True):
+    align = "center" if centered else "left"
+    st.markdown(f"""
+        <div style="text-align: {align}; padding: 10px 0;">
+            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 24px; color: {COLOR_BLUE}; letter-spacing: 1px;">
+                CASHFLOW ENGINE
             </div>
         </div>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+def render_data_required_overlay():
+    """Render a full-screen overlay for data required warning."""
+    st.markdown(f"""
+        <style>
+            .data-required-overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(255, 255, 255, 0.95);
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }}
+            .data-required-box {{
+                background: white;
+                padding: 60px 80px;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+                text-align: center;
+                max-width: 500px;
+            }}
+            .data-required-icon {{
+                font-size: 64px;
+                margin-bottom: 20px;
+            }}
+            .data-required-title {{
+                font-family: 'Exo 2', sans-serif;
+                font-weight: 800;
+                font-size: 28px;
+                color: {COLOR_GREY};
+                text-transform: uppercase;
+                margin-bottom: 16px;
+            }}
+            .data-required-text {{
+                font-family: 'Poppins', sans-serif;
+                font-size: 16px;
+                color: #6B7280;
+                line-height: 1.6;
+            }}
+        </style>
+        <div class="data-required-overlay" id="dataRequiredOverlay">
+            <div class="data-required-box">
+                <div class="data-required-icon">📊</div>
+                <div class="data-required-title">Data Required</div>
+                <div class="data-required-text">
+                    To access the analytics engine, please import your trading data first via the Landing Page.
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 def render_footer():
     """
@@ -68,19 +125,98 @@ def render_footer():
     </div>
     """, unsafe_allow_html=True)
 
-def section_header(title):
-    """Render a styled blue header using Exo 2."""
-    st.markdown(f"<div class='card-title' style='color: {COLOR_BLUE} !important; margin-bottom: 20px;'>{title}</div>", unsafe_allow_html=True)
+def section_header(title, description=None):
+    """Render a styled blue header using Exo 2 with optional description."""
+    st.markdown(f"""
+        <div style="margin-bottom: 20px;">
+            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 18px;
+                        color: {COLOR_BLUE}; text-transform: uppercase; letter-spacing: 1px;">
+                {title}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    if description:
+        st.markdown(f"""
+            <div style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #6B7280;
+                        margin-top: -12px; margin-bottom: 16px; line-height: 1.5;">
+                {description}
+            </div>
+        """, unsafe_allow_html=True)
 
 def show_loading_overlay(message="Processing", submessage="The engine is running..."):
-    """Display a custom loading overlay."""
+    """Display a full-screen loading overlay."""
     loading_html = f"""
+    <style>
+        .loading-overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }}
+        .engine-container {{
+            text-align: center;
+            padding: 40px;
+        }}
+        .gear-system {{
+            margin-bottom: 30px;
+        }}
+        .gear {{
+            display: inline-block;
+            font-size: 48px;
+            animation: spin 2s linear infinite;
+        }}
+        .gear-1 {{ animation-duration: 3s; }}
+        .gear-2 {{ animation-duration: 2s; animation-direction: reverse; margin: 0 -10px; }}
+        .gear-3 {{ animation-duration: 2.5s; }}
+        @keyframes spin {{
+            from {{ transform: rotate(0deg); }}
+            to {{ transform: rotate(360deg); }}
+        }}
+        .loading-text {{
+            font-family: 'Exo 2', sans-serif;
+            font-weight: 800;
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }}
+        .loading-subtext {{
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            color: #6B7280;
+        }}
+        .progress-bar-container {{
+            width: 200px;
+            height: 4px;
+            background: #E5E7EB;
+            border-radius: 2px;
+            margin: 20px auto 0;
+            overflow: hidden;
+        }}
+        .progress-bar {{
+            width: 40%;
+            height: 100%;
+            background: {COLOR_BLUE};
+            border-radius: 2px;
+            animation: progress 1.5s ease-in-out infinite;
+        }}
+        @keyframes progress {{
+            0% {{ transform: translateX(-100%); }}
+            100% {{ transform: translateX(350%); }}
+        }}
+    </style>
     <div class="loading-overlay" id="loadingOverlay">
         <div class="engine-container">
             <div class="gear-system">
-                <span class="gear gear-1">⚙️</span>
-                <span class="gear gear-2">⚙️</span>
-                <span class="gear gear-3">⚙️</span>
+                <span class="gear gear-1">&#9881;</span>
+                <span class="gear gear-2">&#9881;</span>
+                <span class="gear gear-3">&#9881;</span>
             </div>
             <div class="loading-text" style="color: {COLOR_BLUE};">{message}</div>
             <div class="loading-subtext">{submessage}</div>
@@ -93,7 +229,7 @@ def show_loading_overlay(message="Processing", submessage="The engine is running
     return st.markdown(loading_html, unsafe_allow_html=True)
 
 def hide_loading_overlay():
-    """Hide the loading overlay."""
+    """Hide the loading overlay via JavaScript."""
     hide_js = """
     <script>
         var overlay = document.getElementById('loadingOverlay');

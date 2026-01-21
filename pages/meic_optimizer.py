@@ -31,11 +31,20 @@ def page_meic_optimizer():
 
             st.info("The generated CSV can be imported into Option Omega to run backtests with predetermined entry times, useful for testing MEIC strategies with specific time windows.")
 
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             with c1:
                 d1 = st.date_input("Start Date", key="meic_start_date")
             with c2:
                 d2 = st.date_input("End Date", key="meic_end_date")
+            with c3:
+                interval_minutes = st.selectbox(
+                    "Signal Interval",
+                    options=[5, 10, 15, 30, 60],
+                    index=2,
+                    format_func=lambda x: f"{x} minutes",
+                    key="meic_interval",
+                    help="Time interval between signals in the generated CSV"
+                )
 
             if st.button("Generate CSV", type="primary"):
                 try:

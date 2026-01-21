@@ -89,16 +89,41 @@ def page_comparison(bt_df, live_df):
     # Get matching backtest strategy
     bt_strat = st.session_state.strategy_matching.get(sel, sel)
 
-    b = bt_df[bt_df['strategy'] == bt_strat] if bt_strat in bt_df['strategy'].values else pd.DataFrame()
+    b_full = bt_df[bt_df['strategy'] == bt_strat] if bt_strat in bt_df['strategy'].values else pd.DataFrame()
     l = live_df[live_df['strategy'] == sel]
 
-    if b.empty:
+    if b_full.empty:
         st.warning(f"No backtest data found for strategy: {bt_strat}")
         return
 
     if l.empty:
         st.warning(f"No live data found for strategy: {sel}")
         return
+
+    # === TIME PERIOD MATCHING ===
+    # Get live data date range
+    live_start = l['timestamp'].min().date()
+    live_end = l['timestamp'].max().date()
+    bt_start = b_full['timestamp'].min().date()
+    bt_end = b_full['timestamp'].max().date()
+
+    # Filter backtest to match live period
+    match_period = st.checkbox(
+        f"Match time periods (Live: {live_start} to {live_end})",
+        value=True,
+        help="Filter backtest data to the same time period as live data for fair comparison."
+    )
+
+    if match_period:
+        b = b_full[(b_full['timestamp'].dt.date >= live_start) & (b_full['timestamp'].dt.date <= live_end)]
+        if b.empty:
+            st.warning(f"No backtest data in live period ({live_start} to {live_end}). Showing full backtest.")
+            b = b_full
+        else:
+            st.caption(f"Comparing: Live {live_start} to {live_end} | Backtest filtered to same period")
+    else:
+        b = b_full
+        st.caption(f"Comparing: Live {live_start} to {live_end} | Backtest {bt_start} to {bt_end} (full period)")
 
     # === STATISTICAL COMPARISON (Card) ===
     with st.container(border=True):

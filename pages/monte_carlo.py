@@ -252,51 +252,132 @@ def page_monte_carlo(full_df):
                 ui.render_hero_metric("Return/Risk", f"{sharpe_like:.2f}", "", "hero-neutral",
                     tooltip="Average return divided by return standard deviation")
 
-        # === SCENARIOS (Card) ===
+        # === RETURN SCENARIOS (Card) ===
         with st.container(border=True):
-            ui.section_header("Scenarios",
-                description="Percentile-based outcomes showing best, median, and worst case scenarios.")
+            ui.section_header("Return Scenarios (CAGR)",
+                description="Percentile-based return outcomes. Best case = top 5% of simulations, Worst case = bottom 5%.")
+
+            # Calculate CAGR percentiles
+            cagr_values = ((r['end_vals'] / start_cap) ** (12 / sim_months)) - 1
+            cagr_p95, cagr_p50, cagr_p05 = np.percentile(cagr_values, [95, 50, 5])
+
             r1, r2, r3 = st.columns(3)
-            with r1: ui.render_hero_metric("Best Case (95%)", f"${r['p95']:,.0f}", f"DD: {r['d05']:.1%}", "hero-neutral")
-            with r2: ui.render_hero_metric("Median (50%)", f"${r['p50']:,.0f}", f"DD: {r['d50']:.1%}", "hero-neutral")
-            with r3: ui.render_hero_metric("Worst Case (5%)", f"${r['p05']:,.0f}", f"DD: {r['d95']:.1%}", "hero-neutral")
+            with r1:
+                ui.render_hero_metric("Best Case (95%)", f"{cagr_p95:.1%}", f"${r['p95']:,.0f}", "hero-neutral",
+                    tooltip="Top 5% of simulations achieved this CAGR or better. This represents an optimistic but realistic outcome.")
+            with r2:
+                ui.render_hero_metric("Most Likely (50%)", f"{cagr_p50:.1%}", f"${r['p50']:,.0f}", "hero-neutral",
+                    tooltip="The median outcome - 50% of simulations ended above this, 50% below. This is your expected typical result.")
+            with r3:
+                ui.render_hero_metric("Worst Case (5%)", f"{cagr_p05:.1%}", f"${r['p05']:,.0f}", "hero-neutral",
+                    tooltip="Bottom 5% of simulations. Use this to prepare for adverse scenarios.")
+
+        # === DRAWDOWN SCENARIOS (Card) ===
+        with st.container(border=True):
+            ui.section_header("Drawdown Scenarios",
+                description="Maximum drawdown distribution across simulations. Expected DD is the average, Typical DD is the median.")
+
+            # Calculate DD in dollars
+            dd_dollars = r['dds'] * start_cap
+
+            d1, d2, d3 = st.columns(3)
+            with d1:
+                ui.render_hero_metric("Best Case DD", f"{r['d05']:.1%}", f"Top 5%", "hero-neutral",
+                    tooltip="Only 5% of simulations had a drawdown this small. This is the best-case scenario for drawdown.")
+            with d2:
+                ui.render_hero_metric("Typical DD", f"{r['d50']:.1%}", f"Median", "hero-neutral",
+                    tooltip="The median drawdown - your most likely maximum drawdown experience. Different from Expected DD which is the average.")
+            with d3:
+                ui.render_hero_metric("Worst Case DD", f"{r['d95']:.1%}", f"Bottom 5%", "hero-neutral",
+                    tooltip="5% of simulations had drawdowns this severe or worse. Plan for this possibility.")
 
         # === VISUALIZATION (Card) ===
         with st.container(border=True):
-            ui.section_header("Portfolio Growth Paths",
-                description="Sample of simulated equity paths with percentile bands showing the range of possible outcomes.")
+            ui.section_header("Portfolio Growth",
+                description="Simulated equity paths with key trajectories highlighted.")
+
+            show_individual = st.checkbox("Show individual paths", value=True, key="show_paths")
 
             mc_paths = r['mc_paths']
             x = np.arange(mc_paths.shape[1])
             fig = go.Figure()
 
-            # Show a subset of paths
-            indices = np.random.choice(mc_paths.shape[0], min(50, mc_paths.shape[0]), replace=False)
-            for idx in indices:
-                fig.add_trace(go.Scatter(x=x, y=mc_paths[idx], mode='lines', line=dict(color='rgba(200,200,200,0.2)', width=1), showlegend=False))
+            # Show a subset of paths if enabled
+            if show_individual:
+                indices = np.random.choice(mc_paths.shape[0], min(100, mc_paths.shape[0]), replace=False)
+                for idx in indices:
+                    fig.add_trace(go.Scatter(x=x, y=mc_paths[idx], mode='lines',
+                        line=dict(color='rgba(200,200,200,0.15)', width=0.5), showlegend=False, hoverinfo='skip'))
 
-            # Percentiles
+            # Find best, worst, and max DD paths
+            best_idx = np.argmax(r['end_vals'])
+            worst_idx = np.argmin(r['end_vals'])
+            max_dd_idx = np.argmax(r['dds'])
+
+            # Add key paths
+            fig.add_trace(go.Scatter(x=x, y=mc_paths[best_idx], mode='lines',
+                line=dict(color=ui.COLOR_TEAL, width=2), name="Best Path"))
+            fig.add_trace(go.Scatter(x=x, y=mc_paths[worst_idx], mode='lines',
+                line=dict(color=ui.COLOR_CORAL, width=2), name="Worst Path"))
+            fig.add_trace(go.Scatter(x=x, y=mc_paths[max_dd_idx], mode='lines',
+                line=dict(color='#7B2BFF', width=2, dash='dot'), name="Max DD Path"))
+
+            # Confidence band (5-95%)
             pp95, pp50, pp05 = np.percentile(mc_paths, [95, 50, 5], axis=0)
-            fig.add_trace(go.Scatter(x=x, y=pp95, mode='lines', line=dict(color=ui.COLOR_TEAL, width=2), name="95th %"))
-            fig.add_trace(go.Scatter(x=x, y=pp50, mode='lines', line=dict(color=ui.COLOR_BLUE, width=3), name="Median"))
-            fig.add_trace(go.Scatter(x=x, y=pp05, mode='lines', line=dict(color=ui.COLOR_CORAL, width=2), name="5th %"))
+            fig.add_trace(go.Scatter(x=np.concatenate([x, x[::-1]]),
+                y=np.concatenate([pp95, pp05[::-1]]),
+                fill='toself', fillcolor='rgba(48, 43, 255, 0.1)',
+                line=dict(color='rgba(255,255,255,0)'), name='5-95% Conf.', hoverinfo='skip'))
 
-            fig.update_layout(template="plotly_white", height=500, xaxis_title="Trade Steps", yaxis_title="Equity ($)")
+            # Median line
+            fig.add_trace(go.Scatter(x=x, y=pp50, mode='lines',
+                line=dict(color=ui.COLOR_BLUE, width=3), name="Median"))
+
+            # Starting capital line
+            fig.add_hline(y=start_cap, line_dash="dash", line_color="gray", annotation_text="Start")
+
+            fig.update_layout(template="plotly_white", height=500, xaxis_title="Trade Steps", yaxis_title="Equity ($)",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig, use_container_width=True)
 
         # === DISTRIBUTIONS (Card) ===
         with st.container(border=True):
-            ui.section_header("Distributions",
-                description="Distribution of ending equity values and maximum drawdowns across all simulations.")
-            d1, d2 = st.columns(2)
-            with d1:
-                fig_ret = go.Figure()
-                fig_ret.add_trace(go.Histogram(x=r['end_vals'], marker_color=ui.COLOR_BLUE, opacity=0.7))
-                fig_ret.add_vline(x=r['start_cap'], line_dash="dash", line_color="gray", annotation_text="Starting Capital")
-                fig_ret.update_layout(title="Ending Equity Distribution", template="plotly_white", height=350)
-                st.plotly_chart(fig_ret, use_container_width=True)
-            with d2:
-                fig_dd = go.Figure()
-                fig_dd.add_trace(go.Histogram(x=r['dds']*100, marker_color=ui.COLOR_CORAL, opacity=0.7))
-                fig_dd.update_layout(title="Max Drawdown Distribution (%)", template="plotly_white", height=350)
-                st.plotly_chart(fig_dd, use_container_width=True)
+            ui.section_header("Return Distribution",
+                description="Distribution of cumulative returns with percentile markers.")
+
+            # Calculate cumulative returns as percentages
+            cum_returns = ((r['end_vals'] / start_cap) - 1) * 100
+            ret_p05, ret_p50, ret_p95 = np.percentile(cum_returns, [5, 50, 95])
+
+            fig_ret = go.Figure()
+            fig_ret.add_trace(go.Histogram(x=cum_returns, marker_color=ui.COLOR_BLUE, opacity=0.7, name="Returns"))
+            # Add percentile lines
+            fig_ret.add_vline(x=ret_p05, line_dash="dash", line_color=ui.COLOR_CORAL,
+                annotation_text=f"P5: {ret_p05:.1f}%", annotation_position="top left")
+            fig_ret.add_vline(x=ret_p50, line_dash="solid", line_color=ui.COLOR_BLUE,
+                annotation_text=f"P50: {ret_p50:.1f}%", annotation_position="top")
+            fig_ret.add_vline(x=ret_p95, line_dash="dash", line_color=ui.COLOR_TEAL,
+                annotation_text=f"P95: {ret_p95:.1f}%", annotation_position="top right")
+            fig_ret.update_layout(title="Cumulative Return (%)", template="plotly_white", height=350,
+                xaxis_title="Cumulative Return (%)", yaxis_title="Frequency")
+            st.plotly_chart(fig_ret, use_container_width=True)
+
+        with st.container(border=True):
+            ui.section_header("Drawdown Analysis",
+                description="Distribution of maximum drawdowns with percentile markers.")
+
+            dd_pct = r['dds'] * 100
+            dd_p05, dd_p50, dd_p95 = np.percentile(dd_pct, [5, 50, 95])
+
+            fig_dd = go.Figure()
+            fig_dd.add_trace(go.Histogram(x=dd_pct, marker_color=ui.COLOR_CORAL, opacity=0.7, name="Drawdowns"))
+            # Add percentile lines
+            fig_dd.add_vline(x=dd_p05, line_dash="dash", line_color=ui.COLOR_CORAL,
+                annotation_text=f"P5: {dd_p05:.1f}%", annotation_position="top left")
+            fig_dd.add_vline(x=dd_p50, line_dash="solid", line_color=ui.COLOR_BLUE,
+                annotation_text=f"P50: {dd_p50:.1f}%", annotation_position="top")
+            fig_dd.add_vline(x=dd_p95, line_dash="dash", line_color=ui.COLOR_TEAL,
+                annotation_text=f"P95: {dd_p95:.1f}%", annotation_position="top right")
+            fig_dd.update_layout(title="Drawdown (%)", template="plotly_white", height=350,
+                xaxis_title="Drawdown (%)", yaxis_title="Frequency")
+            st.plotly_chart(fig_dd, use_container_width=True)

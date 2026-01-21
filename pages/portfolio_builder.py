@@ -125,8 +125,22 @@ def page_portfolio_builder(full_df):
 
     # Allocation Table (Card)
     with st.container(border=True):
-        ui.section_header("Strategy Allocation",
-            description="Adjust the multiplier for each strategy to change its allocation. Click CALCULATE to update the projected performance. Use Kelly Opt or MART Opt for automatic optimization.")
+        ui.section_header("Strategy Allocation")
+
+        # Optimizer explanation
+        st.markdown("""
+        <div style='background-color: #F0F4FF; padding: 16px; border-radius: 8px; margin-bottom: 20px; font-family: Poppins, sans-serif;'>
+            <div style='font-weight: 600; color: #302BFF; margin-bottom: 8px;'>How to use this section:</div>
+            <div style='font-size: 13px; color: #4B5563; line-height: 1.6;'>
+                <strong>Multiplier Column:</strong> Adjust the multiplier (highlighted in yellow) to scale each strategy's position size.
+                A multiplier of 1.0 = historical average contracts/day, 2.0 = double, 0.5 = half.<br><br>
+                <strong>Kelly Optimizer:</strong> Uses the Kelly Criterion to maximize long-term growth based on each strategy's
+                win rate and average win/loss ratio. The Kelly % input controls how aggressive the optimization is (lower = more conservative).<br><br>
+                <strong>MART Optimizer:</strong> Optimizes for the best MART ratio (CAGR / Max Drawdown $ / Account Size),
+                balancing returns against dollar drawdown risk. Set Min P/L to require a minimum expected return.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         if 'portfolio_allocation' not in st.session_state: st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
         if 'category_overrides' not in st.session_state: st.session_state.category_overrides = {}
@@ -140,69 +154,62 @@ def page_portfolio_builder(full_df):
             cat = st.session_state.category_overrides.get(strat, stats['category'])
             mult = st.session_state.portfolio_allocation.get(strat, 1.0)
 
+            # Truncate strategy name for display
+            strat_display = strat[:20] + ".." if len(strat) > 20 else strat
+
             allocation_data.append({
                 'Category': cat,
-                'Strategy': strat,
+                'Strategy': strat_display,
+                'StrategyFull': strat,
                 'Hist': stats['contracts_per_day'],
                 'P&L': stats['total_pnl'],
                 'Margin/Lot': stats['margin_per_contract'],
                 'Margin After': stats['margin_per_contract'] * stats['contracts_per_day'] * mult,
-                'Multiplier': mult,
-                'Kelly%': stats['kelly'] * 100
+                'Multiplier': mult
             })
 
         alloc_df = pd.DataFrame(allocation_data)
 
-        alloc_col, action_col = st.columns([5, 1])
-        with alloc_col:
-            edited_alloc = st.data_editor(
-                alloc_df,
-                column_config={
-                    "Category": st.column_config.SelectboxColumn("Type", options=["Workhorse", "Airbag", "Opportunist"]),
-                    "Multiplier": st.column_config.NumberColumn("MULT", min_value=0.0, max_value=10.0, step=0.1),
-                    "P&L": st.column_config.NumberColumn(format="$%.0f"),
-                    "Margin/Lot": st.column_config.NumberColumn(format="$%.0f"),
-                    "Margin After": st.column_config.NumberColumn(format="$%.0f"),
-                    "Kelly%": st.column_config.NumberColumn(format="%.1f%%")
-                },
-                use_container_width=True,
-                key="allocation_editor_v18",
-                hide_index=True
-            )
+        # Data editor with styled Multiplier column
+        edited_alloc = st.data_editor(
+            alloc_df[['Category', 'Strategy', 'Hist', 'P&L', 'Margin/Lot', 'Margin After', 'Multiplier']],
+            column_config={
+                "Category": st.column_config.SelectboxColumn("Type", options=["Workhorse", "Airbag", "Opportunist"], width="small"),
+                "Strategy": st.column_config.TextColumn(width="medium"),
+                "Hist": st.column_config.NumberColumn("Hist C/D", format="%.1f", width="small"),
+                "P&L": st.column_config.NumberColumn(format="$%.0f", width="small"),
+                "Margin/Lot": st.column_config.NumberColumn("Marg/Lot", format="$%.0f", width="small"),
+                "Margin After": st.column_config.NumberColumn("Total Marg", format="$%.0f", width="small"),
+                "Multiplier": st.column_config.NumberColumn(
+                    "MULT ✏️",
+                    min_value=0.0,
+                    max_value=10.0,
+                    step=0.1,
+                    help="Edit this column to adjust allocation"
+                )
+            },
+            use_container_width=True,
+            key="allocation_editor_v19",
+            hide_index=True
+        )
 
-            # Update state WITHOUT triggering recalculation
-            for _, row in edited_alloc.iterrows():
-                st.session_state.portfolio_allocation[row['Strategy']] = float(row['Multiplier'])
-                st.session_state.category_overrides[row['Strategy']] = row['Category']
+        # Update state using full strategy name
+        for idx, row in edited_alloc.iterrows():
+            full_strat = alloc_df.iloc[idx]['StrategyFull']
+            st.session_state.portfolio_allocation[full_strat] = float(row['Multiplier'])
+            st.session_state.category_overrides[full_strat] = row['Category']
 
-        with action_col:
+        # Action buttons row
+        btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
+        with btn_col1:
             if st.button("CALCULATE", use_container_width=True, type="primary"):
                 st.session_state.calculate_kpis = True
                 st.rerun()
-
-            # Reset and Set to 0 as links
-            col_reset, col_zero = st.columns(2)
-            with col_reset:
-                if st.button("Reset", key="reset_btn", type="tertiary"):
-                    st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
-                    st.session_state.calculate_kpis = False
-                    st.rerun()
-            with col_zero:
-                if st.button("Set to 0", key="zero_btn", type="tertiary"):
-                    st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
-                    st.session_state.calculate_kpis = False
-                    st.rerun()
-
-            st.write("")
-            st.markdown("**Optimization**")
-
-            # Kelly Optimizer with explanation
-            kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input",
-                help="Kelly Criterion optimizes for maximum growth based on win rate and payoff ratio. Use a fraction (e.g., 20%) to be conservative.")
+        with btn_col2:
+            kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input", label_visibility="collapsed")
             st.session_state.kelly_pct = kelly_input
-
-            if st.button("Kelly Opt", use_container_width=True,
-                help="Allocates based on Kelly Criterion - maximizes long-term growth while limiting risk."):
+        with btn_col3:
+            if st.button("Kelly Opt", use_container_width=True, type="secondary"):
                 with placeholder:
                     ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
                 optimized = calc.kelly_optimize_allocation(
@@ -214,14 +221,11 @@ def page_portfolio_builder(full_df):
                 st.session_state.calculate_kpis = True
                 placeholder.empty()
                 st.rerun()
-
-            # MART Optimizer with min P/L parameter
-            mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input",
-                help="Minimum total P/L constraint for the MART optimizer. Set to 0 for no constraint.")
+        with btn_col4:
+            mart_min_pnl = st.number_input("Min P/L", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input", label_visibility="collapsed")
             st.session_state.mart_min_pnl = mart_min_pnl
-
-            if st.button("MART Opt", use_container_width=True,
-                help="MART = CAGR / (Max DD $ / Account). Optimizes for best risk-adjusted returns relative to drawdown."):
+        with btn_col5:
+            if st.button("MART Opt", use_container_width=True, type="secondary"):
                 with placeholder:
                     ui.show_loading_overlay("Optimizing", "Running MART optimization...")
                 optimized = calc.mart_optimize_allocation(
@@ -233,6 +237,23 @@ def page_portfolio_builder(full_df):
                 st.session_state.calculate_kpis = True
                 placeholder.empty()
                 st.rerun()
+
+        # Reset links centered below
+        st.markdown("<div style='text-align: center; margin-top: 8px;'>", unsafe_allow_html=True)
+        reset_col1, reset_col2, reset_col3 = st.columns([2, 1, 2])
+        with reset_col2:
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Reset", key="reset_btn", type="tertiary"):
+                    st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
+            with col_b:
+                if st.button("Set to 0", key="zero_btn", type="tertiary"):
+                    st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if not st.session_state.get('calculate_kpis', False):
         st.info("Adjust allocations and click CALCULATE to see projected performance.")

@@ -5,6 +5,7 @@ import database as db
 import calculations as calc
 
 # Import page modules
+import pages.login as login
 import pages.landing as landing
 import pages.portfolio_analytics as portfolio_analytics
 import pages.portfolio_builder as portfolio_builder
@@ -325,6 +326,10 @@ st.markdown("""
 
 # --- 3. ROUTING & NAVIGATION ---
 
+# Initialize authentication state
+if 'is_authenticated' not in st.session_state:
+    st.session_state.is_authenticated = False
+
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
 
@@ -351,14 +356,15 @@ else:
 current_page_val = st.session_state.navigate_to_page
 
 # --- SIDEBAR LOGIC ---
-if current_page_val == "Start & Data":
+# Hide sidebar on login page and landing page
+if not st.session_state.is_authenticated or current_page_val == "Start & Data":
     st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: none !important; }
         section[data-testid="stSidebar"] { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
-else:
+elif st.session_state.is_authenticated:
     with st.sidebar:
         ui.render_logo()
         st.write("")
@@ -373,32 +379,52 @@ else:
             
         st.markdown("---")
         if st.button("RESET APP", use_container_width=True):
+            # Keep authentication but clear data
+            auth_state = st.session_state.is_authenticated
+            user_email = st.session_state.get('user_email', '')
             st.session_state.clear()
+            st.session_state.is_authenticated = auth_state
+            st.session_state.user_email = user_email
             st.rerun()
-            
+
         # Analysis Manager
         with st.expander("ANALYSIS MANAGER", expanded=False):
             ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
 
+        st.markdown("---")
+        # Show logged in user
+        if st.session_state.get('user_email'):
+            st.caption(f"Logged in as: {st.session_state.user_email}")
+
+        # Logout button
+        if st.button("LOG OUT", use_container_width=True, type="secondary"):
+            st.session_state.clear()
+            st.rerun()
+
 # --- 4. PAGE RENDERING ---
 
-df = st.session_state.get('full_df', pd.DataFrame())
-live_df = st.session_state.get('live_df', pd.DataFrame())
-
-if current_page_val == "Start & Data":
-    landing.show_landing_page()
-
-elif df.empty and current_page_val != "Start & Data":
-    st.session_state.navigate_to_page = "Start & Data"
-    st.rerun()
-
+# Check authentication first - show login page if not authenticated
+if not st.session_state.is_authenticated:
+    login.show_login_page()
 else:
-    if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)
-    elif current_page_val == "Portfolio Builder": portfolio_builder.page_portfolio_builder(df)
-    elif current_page_val == "Monte Carlo": monte_carlo.page_monte_carlo(df)
-    elif current_page_val == "Live vs. Backtest": comparison.page_comparison(df, live_df)
-    elif current_page_val == "MEIC Deep Dive": meic_analysis.page_meic_analysis(df, live_df)
-    elif current_page_val == "MEIC Optimizer": meic_optimizer.page_meic_optimizer()
-    elif current_page_val == "AI Analyst": ai_analyst.page_ai_analyst(df)
+    # User is authenticated - show main app
+    df = st.session_state.get('full_df', pd.DataFrame())
+    live_df = st.session_state.get('live_df', pd.DataFrame())
 
-ui.render_footer()
+    if current_page_val == "Start & Data":
+        landing.show_landing_page()
+
+    elif df.empty and current_page_val != "Start & Data":
+        st.session_state.navigate_to_page = "Start & Data"
+        st.rerun()
+
+    else:
+        if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)
+        elif current_page_val == "Portfolio Builder": portfolio_builder.page_portfolio_builder(df)
+        elif current_page_val == "Monte Carlo": monte_carlo.page_monte_carlo(df)
+        elif current_page_val == "Live vs. Backtest": comparison.page_comparison(df, live_df)
+        elif current_page_val == "MEIC Deep Dive": meic_analysis.page_meic_analysis(df, live_df)
+        elif current_page_val == "MEIC Optimizer": meic_optimizer.page_meic_optimizer()
+        elif current_page_val == "AI Analyst": ai_analyst.page_ai_analyst(df)
+
+    ui.render_footer()

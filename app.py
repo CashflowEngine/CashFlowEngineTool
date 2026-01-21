@@ -24,9 +24,16 @@ st.set_page_config(
 )
 
 # --- 2. CORPORATE IDENTITY CSS ---
+# Preload fonts for faster loading
+st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
-    /* IMPORT FONTS - FULL WEIGHTS */
+    /* IMPORT FONTS - FULL WEIGHTS (backup) */
     @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Poppins:wght@300;400;500;600;700&display=swap');
 
     /* --- TYPOGRAPHY --- */
@@ -50,7 +57,11 @@ st.markdown("""
     [data-testid="stMarkdownContainer"] h3,
     .stMetricValue,
     .page-header,
-    .section-title {
+    .section-title,
+    .hero-value,
+    .feature-title,
+    .data-required-title,
+    .loading-text {
         font-family: 'Exo 2', sans-serif !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;

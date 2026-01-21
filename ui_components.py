@@ -14,6 +14,46 @@ COLOR_ICE = "#F0F4FF"    # Ice Tint (Backgrounds)
 COLOR_AMBER = "#FFAB00"  # Amber Flux (Warning)
 COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
+# --- FONT INJECTION ---
+def inject_fonts():
+    """Inject Google Fonts directly into the page for reliable loading."""
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap');
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    """, unsafe_allow_html=True)
+
+def render_page_header(title, subtitle=None):
+    """Render a consistent page header with Exo 2 font."""
+    inject_fonts()
+
+    header_html = f"""
+    <h1 style="
+        font-family: 'Exo 2', 'Segoe UI', Tahoma, sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 2.5rem !important;
+        text-transform: uppercase !important;
+        color: {COLOR_GREY} !important;
+        letter-spacing: 1px !important;
+        margin-bottom: 0.5rem !important;
+        line-height: 1.2 !important;
+    ">{title}</h1>
+    """
+
+    if subtitle:
+        header_html += f"""
+        <div style="
+            font-family: 'Poppins', 'Segoe UI', Tahoma, sans-serif;
+            color: #6B7280;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        ">{subtitle}</div>
+        """
+
+    st.markdown(header_html, unsafe_allow_html=True)
+
 def _get_logo_base64():
     """Load logo as base64 for reliable rendering."""
     logo_file = "CashflowEnginelogo.png"

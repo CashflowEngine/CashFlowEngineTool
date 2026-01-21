@@ -6,10 +6,12 @@ import ui_components as ui
 def page_meic_optimizer():
     """MEIC Optimizer page - Beta."""
 
-    # Header with Exo 2 font and Beta badge
+    # Header with consistent font and Beta badge
+    ui.inject_fonts()
     st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
-                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
+        <h1 style="font-family: 'Exo 2', 'Segoe UI', Tahoma, sans-serif !important; font-weight: 800 !important;
+                   font-size: 2.5rem !important; text-transform: uppercase !important;
+                   color: {ui.COLOR_GREY} !important; letter-spacing: 1px !important;">
             MEIC OPTIMIZER
             <span style="display: inline-block; background-color: #FEF3C7; color: #D97706;
                         font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 4px;

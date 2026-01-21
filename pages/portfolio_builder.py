@@ -14,14 +14,11 @@ def page_portfolio_builder(full_df):
     # Loading overlay
     placeholder = st.empty()
 
-    # Header with Exo 2 font (no emoji)
-    st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
-                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
-            PORTFOLIO BUILDER
-        </h1>
-    """, unsafe_allow_html=True)
-    st.caption("INTERACTIVE CONTRACT ALLOCATION - 1 LOT = 1 CONTRACT/DAY")
+    # Header with consistent font
+    ui.render_page_header(
+        "PORTFOLIO BUILDER",
+        "Interactive contract allocation tool. 1 LOT = 1 CONTRACT/DAY"
+    )
 
     if full_df.empty:
         st.info("Please upload CSV files to start building your portfolio.")

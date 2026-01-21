@@ -16,20 +16,11 @@ def page_monte_carlo(full_df):
     if 'mc_results' not in st.session_state:
         st.session_state.mc_results = None
 
-    # Header with Exo 2 font
-    st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
-                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
-            MONTE CARLO PUNISHER
-        </h1>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style='color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px; font-family: Poppins, sans-serif;'>
-        Stress test your portfolio against thousands of simulated scenarios. See how your strategies perform
-        under various market conditions including black swan events.
-    </div>
-    """, unsafe_allow_html=True)
+    # Header with consistent font
+    ui.render_page_header(
+        "MONTE CARLO PUNISHER",
+        "Stress test your portfolio against thousands of simulated scenarios. See how your strategies perform under various market conditions including black swan events."
+    )
 
     # Check data source
     from_builder = st.session_state.get('mc_from_builder', False)

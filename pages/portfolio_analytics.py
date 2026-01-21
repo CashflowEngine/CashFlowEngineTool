@@ -15,20 +15,11 @@ def page_portfolio_analytics(full_df, live_df=None):
     time.sleep(0.05)
 
     try:
-        # Header with Exo 2 font
-        st.markdown(f"""
-            <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
-                       text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
-                PORTFOLIO ANALYTICS
-            </h1>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style='color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px; font-family: Poppins, sans-serif;'>
-            Comprehensive analysis of your portfolio performance. Analyze backtest and live trade data,
-            key performance indicators, monthly return matrices, and equity growth curves.
-        </div>
-        """, unsafe_allow_html=True)
+        # Header with consistent font
+        ui.render_page_header(
+            "PORTFOLIO ANALYTICS",
+            "Comprehensive analysis of your portfolio performance. Analyze backtest and live trade data, key performance indicators, monthly return matrices, and equity growth curves."
+        )
 
         # === CONFIGURATION (FILTER AT TOP) ===
         with st.container(border=True):

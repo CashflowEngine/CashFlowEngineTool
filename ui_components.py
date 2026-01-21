@@ -54,10 +54,10 @@ def render_page_header(title, subtitle=None):
     """Render a consistent page header with Exo 2 font."""
     inject_fonts()
 
-    # Use single-line CSS to avoid rendering issues
-    h1_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 2.5rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 1px !important; margin-bottom: 0.5rem !important; line-height: 1.2 !important;"
+    # Use div instead of h1 to avoid Streamlit's CSS overrides
+    header_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 2.5rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 1px !important; margin-bottom: 0.5rem !important; line-height: 1.2 !important;"
 
-    header_html = f'<h1 style="{h1_style}">{title}</h1>'
+    header_html = f'<div class="exo2-heading" style="{header_style}">{title}</div>'
 
     if subtitle:
         sub_style = "font-family: 'Poppins', sans-serif !important; color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px;"
@@ -179,7 +179,7 @@ def render_footer():
 def section_header(title, description=None):
     """Render a styled blue header using Exo 2 with optional description."""
     title_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px !important; color: #302BFF !important; text-transform: uppercase !important; letter-spacing: 1px !important; margin-bottom: 10px;"
-    st.markdown(f'<div style="{title_style}">{title}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="exo2-heading" style="{title_style}">{title}</div>', unsafe_allow_html=True)
     if description:
         desc_style = "font-family: 'Poppins', sans-serif !important; font-size: 14px !important; color: #6B7280 !important; margin-bottom: 16px; line-height: 1.6 !important;"
         st.markdown(f'<p style="{desc_style}">{description}</p>', unsafe_allow_html=True)

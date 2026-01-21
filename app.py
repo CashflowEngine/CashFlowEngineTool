@@ -49,12 +49,10 @@ st.markdown("""
     }
 
     /* Force Exo 2 for ALL Headings - More specific selectors */
-    h1, h2, h3, h4, h5, h6,
+    /* Force Exo 2 for ALL Headings and custom classes */
+    .exo2-heading,
     .card-title,
     .stHeading,
-    [data-testid="stMarkdownContainer"] h1,
-    [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stMarkdownContainer"] h3,
     .stMetricValue,
     .page-header,
     .section-title,
@@ -549,7 +547,7 @@ st.markdown("""
 <script>
     // Force Exo 2 font on all headings after page load
     function applyExo2Fonts() {
-        const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6, .hero-value, .feature-title, .section-title, .data-required-title');
+        const headings = document.querySelectorAll('.exo2-heading, .hero-value, .feature-title, .section-title, .data-required-title, .loading-text');
         headings.forEach(function(el) {
             el.style.setProperty('font-family', "'Exo 2', sans-serif", 'important');
             el.style.setProperty('font-weight', '800', 'important');

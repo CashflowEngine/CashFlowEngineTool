@@ -38,7 +38,7 @@ def page_ai_analyst(full_df):
         with col1:
             st.markdown("""
             **Natural Language Queries**
-            - Ask questions about your portfolio in plain English
+            - Ask questions about your portfolio naturally
             - Get instant insights without complex analysis
 
             **Performance Analysis**

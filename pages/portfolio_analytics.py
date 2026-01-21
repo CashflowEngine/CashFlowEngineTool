@@ -57,45 +57,41 @@ def page_portfolio_analytics(full_df, live_df=None):
                 placeholder.empty()
                 return
 
-            # Strategy Filter - IMPROVED: Collapsible with Select All
+            # Strategy Filter - Inline with Select All and Recalculate
             all_strategies = sorted(target_df['strategy'].unique())
 
             # Initialize session state for selected strategies
             if 'pa_selected_strats' not in st.session_state:
                 st.session_state.pa_selected_strats = all_strategies.copy()
 
-            # Filter header with Select All link
-            filter_col1, filter_col2 = st.columns([3, 1])
+            # Filter header row: Label, Select All, Recalculate - all inline
+            filter_col1, filter_col2, filter_col3 = st.columns([2, 1, 1])
             with filter_col1:
                 st.markdown("**Filter Strategies**")
             with filter_col2:
                 if st.button("Select All", key="select_all_strats", type="tertiary"):
                     st.session_state.pa_selected_strats = all_strategies.copy()
+                    st.session_state.pa_recalculate = True
+                    st.rerun()
+            with filter_col3:
+                if st.button("Recalculate", type="primary", key="recalc_btn"):
+                    st.session_state.pa_recalculate = True
                     st.rerun()
 
-            # Collapsible strategy selection
-            with st.expander(f"Selected: {len(st.session_state.pa_selected_strats)} of {len(all_strategies)} strategies", expanded=False):
-                selected_strats = st.multiselect(
-                    "Strategies",
-                    all_strategies,
-                    default=st.session_state.pa_selected_strats,
-                    label_visibility="collapsed",
-                    key="pa_strat_multiselect"
-                )
-                st.session_state.pa_selected_strats = selected_strats
-
-            selected_strats = st.session_state.pa_selected_strats
-
-            # Recalculate button
-            st.write("")
-            if st.button("RECALCULATE", type="primary", use_container_width=True):
-                st.session_state.pa_recalculate = True
-                st.rerun()
+            # Strategy multiselect (not in expander to avoid text-over-text)
+            selected_strats = st.multiselect(
+                f"Selected: {len(st.session_state.pa_selected_strats)} of {len(all_strategies)}",
+                all_strategies,
+                default=st.session_state.pa_selected_strats,
+                label_visibility="collapsed",
+                key="pa_strat_multiselect"
+            )
+            st.session_state.pa_selected_strats = selected_strats
 
             # Check if we should recalculate or use cached results
             if not st.session_state.get('pa_recalculate', True):
                 placeholder.empty()
-                st.info("Adjust filters above and click RECALCULATE to update analytics.")
+                st.info("Adjust filters above and click Recalculate to update analytics.")
                 return
 
             # Apply Filter
@@ -323,13 +319,20 @@ def page_portfolio_analytics(full_df, live_df=None):
                 s_cum = s_daily.cumsum()
                 s_peak = s_cum.cummax()
                 s_dd_usd = (s_cum - s_peak).min()
-                s_max_dd_pct = s_dd_usd / account_size
 
-                s_mar = s_cagr / abs(s_max_dd_pct) if s_max_dd_pct != 0 else 0
+                # Calculate peak-relative equity for proper MAR
+                s_equity = account_size + s_cum
+                s_equity_peak = s_equity.cummax()
+                s_dd_pct_from_peak = ((s_equity - s_equity_peak) / s_equity_peak).min()
+
+                # MAR = CAGR / Max DD (relative to peak equity)
+                s_mar = s_cagr / abs(s_dd_pct_from_peak) if s_dd_pct_from_peak != 0 else 0
+                # MART = CAGR / Max DD (relative to initial account size)
                 s_mart = s_cagr / (abs(s_dd_usd) / account_size) if s_dd_usd != 0 else 0
 
                 s_margin_series = calc.generate_daily_margin_series_optimized(s_df)
                 s_peak_margin = s_margin_series.max() if not s_margin_series.empty else 0
+                s_avg_margin = s_margin_series.mean() if not s_margin_series.empty else 0
 
                 strat_metrics.append({
                     "Strategy": s,
@@ -339,7 +342,8 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Max DD ($)": s_dd_usd,
                     "MAR": s_mar,
                     "MART": s_mart,
-                    "Peak Margin": s_peak_margin
+                    "Peak Margin": s_peak_margin,
+                    "Avg Margin": s_avg_margin
                 })
 
             perf_df = pd.DataFrame(strat_metrics)
@@ -353,7 +357,8 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Max DD ($)": m['MaxDD_USD'],
                     "MAR": m['MAR'],
                     "MART": m['MART'],
-                    "Peak Margin": perf_df["Peak Margin"].max()
+                    "Peak Margin": perf_df["Peak Margin"].max(),
+                    "Avg Margin": perf_df["Avg Margin"].mean()
                 }
                 perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
                 perf_df['CAGR'] = perf_df['CAGR'] * 100
@@ -361,13 +366,15 @@ def page_portfolio_analytics(full_df, live_df=None):
             st.dataframe(
                 perf_df,
                 column_config={
+                    "Strategy": st.column_config.TextColumn(width="small"),
+                    "Contracts/Day": st.column_config.NumberColumn(format="%.1f"),
                     "P/L": st.column_config.NumberColumn(format="$%.0f"),
                     "CAGR": st.column_config.NumberColumn(format="%.1f%%"),
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
                     "MART": st.column_config.NumberColumn(format="%.2f"),
                     "Peak Margin": st.column_config.NumberColumn(format="$%.0f"),
-                    "Contracts/Day": st.column_config.NumberColumn(format="%.1f")
+                    "Avg Margin": st.column_config.NumberColumn(format="$%.0f")
                 },
                 use_container_width=True,
                 hide_index=True

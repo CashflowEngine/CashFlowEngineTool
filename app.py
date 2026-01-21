@@ -419,6 +419,94 @@ st.markdown("""
         padding-bottom: 50px;
     }
 
+    /* --- TOOLTIP STYLING --- */
+    .tooltip-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        background-color: rgba(255,255,255,0.3);
+        border-radius: 50%;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: help;
+        margin-left: 4px;
+        position: relative;
+        vertical-align: middle;
+    }
+    .tooltip-icon:hover::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #1F2937;
+        color: #FFFFFF;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 400;
+        white-space: normal;
+        width: max-content;
+        max-width: 250px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        line-height: 1.4;
+        text-transform: none;
+        letter-spacing: normal;
+    }
+    .tooltip-icon:hover::before {
+        content: '';
+        position: absolute;
+        bottom: 110%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: #1F2937;
+        z-index: 10001;
+    }
+
+    /* --- SIDEBAR EXPANDER ARROW FIX --- */
+    /* Fix the Material Icons display issue */
+    [data-testid="stSidebar"] button[kind="header"],
+    [data-testid="collapsedControl"] button {
+        font-size: 0 !important;
+    }
+    [data-testid="stSidebar"] button[kind="header"] svg,
+    [data-testid="collapsedControl"] button svg {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    /* Fix expander arrow icons showing as text */
+    .streamlit-expanderHeader span[data-testid="stExpanderToggleIcon"],
+    [data-testid="stExpander"] summary span {
+        font-family: inherit !important;
+    }
+
+    /* Ensure expanders show proper icons */
+    details summary::marker,
+    details summary::-webkit-details-marker {
+        display: none;
+    }
+
+    /* Active menu item with dark gray background */
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"],
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"],
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) {
+        background-color: #374151 !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] span,
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] span,
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:has(input:checked) span {
+        color: #FFFFFF !important;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -488,15 +576,9 @@ elif st.session_state.is_authenticated:
 
         st.markdown("---")
 
-        # Analysis Manager at bottom
-        st.markdown("""
-            <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 12px;
-                        color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;
-                        margin-bottom: 8px; padding-left: 8px;">
-                Analysis Manager
-            </div>
-        """, unsafe_allow_html=True)
-        ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
+        # Analysis Manager as collapsible expander
+        with st.expander("Analysis Manager", expanded=False):
+            ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
 
         st.markdown("---")
         # Show logged in user

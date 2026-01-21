@@ -12,7 +12,7 @@ def page_ai_analyst(full_df):
     st.markdown(f"""
         <div style="text-align: center; padding: 80px 40px; background: {ui.COLOR_ICE}; border-radius: 16px; margin: 40px 0;">
             <div style="font-size: 64px; margin-bottom: 24px;">🤖</div>
-            <div style="font-family: 'Exo 2', 'Segoe UI', Tahoma, sans-serif; font-weight: 800; font-size: 32px;
+            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 32px;
                         color: {ui.COLOR_GREY}; text-transform: uppercase; margin-bottom: 16px;">
                 Coming Soon
             </div>

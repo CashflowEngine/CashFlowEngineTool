@@ -14,7 +14,6 @@ import pages.comparison as comparison
 import pages.meic_analysis as meic_analysis
 import pages.meic_optimizer as meic_optimizer
 import pages.ai_analyst as ai_analyst
-import pages.sales_landing as sales_landing
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
@@ -69,45 +68,38 @@ st.markdown("""
     /* Specific overrides for Streamlit elements to ensure font sticks */
     .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
 
-    /* --- SIDEBAR TOGGLE FIX --- */
-    /* Hide all text in sidebar toggle buttons, show only icons */
+    /* --- SIDEBAR TOGGLE - COMPLETELY HIDDEN --- */
+    /* Hide the entire collapse/expand button */
     button[kind="header"],
     [data-testid="baseButton-header"],
-    [data-testid="stSidebarCollapseButton"] button,
-    .stAppViewBlockContainer button[kind="header"] {
-        color: transparent !important;
-        overflow: hidden;
-        font-size: 0 !important;
-    }
-    button[kind="header"] *,
-    [data-testid="baseButton-header"] * {
-        color: transparent !important;
-        font-size: 0 !important;
-    }
-    button[kind="header"] svg,
-    [data-testid="baseButton-header"] svg {
-        fill: #4B5563 !important;
-        color: #4B5563 !important;
-        font-size: 24px !important;
-        width: 24px !important;
-        height: 24px !important;
-    }
-    /* Ensure the collapse button doesn't show text */
+    [data-testid="stSidebarCollapseButton"],
     [data-testid="collapsedControl"],
     [data-testid="stSidebarCollapsedControl"] {
-        color: transparent !important;
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Ensure sidebar is always visible and cannot be collapsed */
+    section[data-testid="stSidebar"] {
+        transform: none !important;
+        visibility: visible !important;
+        position: relative !important;
+    }
+
+    /* Fix expander text-on-text bug - hide icon text */
+    .streamlit-expanderHeader span[data-testid="stExpanderToggleIcon"] {
         font-size: 0 !important;
     }
-    [data-testid="collapsedControl"] span,
-    [data-testid="collapsedControl"] p,
-    [data-testid="stSidebarCollapsedControl"] span,
-    [data-testid="stSidebarCollapsedControl"] p {
-        display: none !important;
+    .streamlit-expanderHeader svg {
+        width: 16px !important;
+        height: 16px !important;
     }
-    /* Hide keyboard_double text that appears */
-    [data-testid="collapsedControl"]::before,
-    [data-testid="collapsedControl"]::after {
-        content: none !important;
+    /* Hide any arrow text in expanders */
+    details summary span {
+        font-family: 'Poppins', sans-serif !important;
+    }
+    details summary span:first-child {
+        font-size: 0 !important;
     }
 
     /* --- NAVIGATION BAR REDESIGN --- */
@@ -554,10 +546,6 @@ if 'is_authenticated' not in st.session_state:
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
 
-# Initialize sales landing page state (show by default for non-authenticated users)
-if 'show_sales_page' not in st.session_state:
-    st.session_state.show_sales_page = True
-
 # Define Menu Items with display names
 # Format: {display_name: internal_page_value}
 page_map = {
@@ -592,8 +580,9 @@ if not st.session_state.is_authenticated or current_page_val == "Start & Data":
     """, unsafe_allow_html=True)
 elif st.session_state.is_authenticated:
     with st.sidebar:
-        # Logo in sidebar
+        # Logo in sidebar - at the top
         ui.render_logo_sidebar()
+
         st.write("")
 
         # Navigation with current page indicator
@@ -610,33 +599,37 @@ elif st.session_state.is_authenticated:
             st.session_state.navigate_to_page = target_val
             st.rerun()
 
-        # Spacer to push Analysis Manager to bottom
-        st.markdown("<div style='flex-grow: 1; min-height: 50px;'></div>", unsafe_allow_html=True)
+        # Spacer to push content to bottom
+        st.markdown("<div style='flex-grow: 1; min-height: 100px;'></div>", unsafe_allow_html=True)
 
         st.markdown("---")
 
-        # Analysis Manager as collapsible expander
-        with st.expander("Analysis Manager", expanded=False):
-            ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
+        # Analysis Manager - simple section without expander
+        st.markdown("""
+            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
+                        font-size: 12px; color: #4B5563; text-transform: uppercase;
+                        letter-spacing: 1px; margin-bottom: 10px;">
+                Analysis Manager
+            </div>
+        """, unsafe_allow_html=True)
+        ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
 
         st.markdown("---")
+
         # Show logged in user
         if st.session_state.get('user_email'):
             st.caption(f"Logged in as: {st.session_state.user_email}")
 
-        # Logout button
+        # Logout button at the very bottom
         if st.button("LOG OUT", use_container_width=True, type="secondary"):
             st.session_state.clear()
             st.rerun()
 
 # --- 4. PAGE RENDERING ---
 
-# Check authentication first - show sales landing or login page if not authenticated
+# Check authentication first - show login page if not authenticated
 if not st.session_state.is_authenticated:
-    if st.session_state.show_sales_page:
-        sales_landing.show_sales_landing()
-    else:
-        login.show_login_page()
+    login.show_login_page()
 else:
     # User is authenticated - show main app
     df = st.session_state.get('full_df', pd.DataFrame())

@@ -28,29 +28,14 @@ def render_page_header(title, subtitle=None):
     """Render a consistent page header with Exo 2 font."""
     inject_fonts()
 
-    header_html = f"""
-    <h1 style="
-        font-family: 'Exo 2', 'Segoe UI', Tahoma, sans-serif !important;
-        font-weight: 800 !important;
-        font-size: 2.5rem !important;
-        text-transform: uppercase !important;
-        color: {COLOR_GREY} !important;
-        letter-spacing: 1px !important;
-        margin-bottom: 0.5rem !important;
-        line-height: 1.2 !important;
-    ">{title}</h1>
-    """
+    # Use single-line CSS to avoid rendering issues
+    h1_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 2.5rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 1px !important; margin-bottom: 0.5rem !important; line-height: 1.2 !important;"
+
+    header_html = f'<h1 style="{h1_style}">{title}</h1>'
 
     if subtitle:
-        header_html += f"""
-        <div style="
-            font-family: 'Poppins', 'Segoe UI', Tahoma, sans-serif;
-            color: #6B7280;
-            font-size: 14px;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        ">{subtitle}</div>
-        """
+        sub_style = "font-family: 'Poppins', sans-serif !important; color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px;"
+        header_html += f'<p style="{sub_style}">{subtitle}</p>'
 
     st.markdown(header_html, unsafe_allow_html=True)
 
@@ -84,8 +69,8 @@ def render_logo(width=200, centered=True, logo_file="CashflowEnginelogo.png"):
         _render_text_fallback(centered)
 
 def render_logo_sidebar():
-    """Render grey logo for sidebar (smaller, matches gray background)."""
-    render_logo(width=180, centered=True, logo_file="CashflowEnginelogogrey.png")
+    """Render grey logo for sidebar (matches gray background)."""
+    render_logo(width=216, centered=False, logo_file="CashflowEnginelogogrey.png")
 
 def _render_text_fallback(centered=True):
     align = "center" if centered else "left"
@@ -98,7 +83,7 @@ def _render_text_fallback(centered=True):
     """, unsafe_allow_html=True)
 
 def render_data_required_overlay():
-    """Render a full-screen overlay for data required warning."""
+    """Render a full-screen overlay for data required warning with close button."""
     st.markdown(f"""
         <style>
             .data-required-overlay {{
@@ -120,21 +105,23 @@ def render_data_required_overlay():
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
                 text-align: center;
                 max-width: 500px;
+                position: relative;
             }}
             .data-required-icon {{
                 font-size: 64px;
                 margin-bottom: 20px;
             }}
             .data-required-title {{
-                font-family: 'Exo 2', sans-serif;
-                font-weight: 800;
+                font-family: 'Exo 2', sans-serif !important;
+                font-weight: 800 !important;
                 font-size: 28px;
                 color: {COLOR_GREY};
                 text-transform: uppercase;
                 margin-bottom: 16px;
+                letter-spacing: 1px;
             }}
             .data-required-text {{
-                font-family: 'Poppins', sans-serif;
+                font-family: 'Poppins', sans-serif !important;
                 font-size: 16px;
                 color: #6B7280;
                 line-height: 1.6;
@@ -165,21 +152,11 @@ def render_footer():
 
 def section_header(title, description=None):
     """Render a styled blue header using Exo 2 with optional description."""
-    st.markdown(f"""
-        <div style="margin-bottom: 20px;">
-            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px !important;
-                        color: {COLOR_BLUE} !important; text-transform: uppercase !important; letter-spacing: 1px !important;">
-                {title}
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    title_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px !important; color: #302BFF !important; text-transform: uppercase !important; letter-spacing: 1px !important; margin-bottom: 10px;"
+    st.markdown(f'<div style="{title_style}">{title}</div>', unsafe_allow_html=True)
     if description:
-        st.markdown(f"""
-            <div style="font-family: 'Poppins', sans-serif !important; font-size: 14px !important; color: #6B7280 !important;
-                        margin-top: -12px; margin-bottom: 16px; line-height: 1.6 !important;">
-                {description}
-            </div>
-        """, unsafe_allow_html=True)
+        desc_style = "font-family: 'Poppins', sans-serif !important; font-size: 14px !important; color: #6B7280 !important; margin-bottom: 16px; line-height: 1.6 !important;"
+        st.markdown(f'<p style="{desc_style}">{description}</p>', unsafe_allow_html=True)
 
 def show_loading_overlay(message="Processing", submessage="The engine is running..."):
     """Display a full-screen loading overlay."""

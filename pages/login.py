@@ -272,8 +272,8 @@ def show_login_page():
 
         # --- WELCOME TEXT (at the very top) ---
         st.markdown("""
-            <div style="text-align: center; margin-bottom: 10px;">
-                <div style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 600; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 700 !important; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
                 </div>
             </div>
@@ -283,17 +283,17 @@ def show_login_page():
         logo_b64 = _get_image_base64("CashflowEnginelogo.png")
         if logo_b64:
             st.markdown(f"""
-                <div style="text-align: center; margin-bottom: 20px;">
+                <div style="text-align: center; margin-bottom: 40px;">
                     <img src="data:image/png;base64,{logo_b64}"
-                         style="width: 320px; height: auto; max-width: 100%;"
+                         style="width: 384px; height: auto; max-width: 100%;"
                          alt="Cashflow Engine Logo" />
                 </div>
             """, unsafe_allow_html=True)
         else:
             # Fallback text if logo not available
             st.markdown("""
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <div style="font-family: 'Exo 2', sans-serif; font-size: 32px; font-weight: 800;
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <div style="font-family: 'Exo 2', sans-serif !important; font-size: 32px; font-weight: 800 !important;
                                 color: #302BFF; text-transform: uppercase; letter-spacing: 1px;">
                         CASHFLOW ENGINE
                     </div>

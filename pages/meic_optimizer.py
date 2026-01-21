@@ -9,7 +9,7 @@ def page_meic_optimizer():
     # Header with consistent font and Beta badge
     ui.inject_fonts()
     st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', 'Segoe UI', Tahoma, sans-serif !important; font-weight: 800 !important;
+        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
                    font-size: 2.5rem !important; text-transform: uppercase !important;
                    color: {ui.COLOR_GREY} !important; letter-spacing: 1px !important;">
             MEIC OPTIMIZER

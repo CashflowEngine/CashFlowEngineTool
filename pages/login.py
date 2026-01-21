@@ -53,7 +53,7 @@ def show_login_page():
         # --- WELCOME TEXT (at the very top) ---
         st.markdown("""
             <div style="text-align: center; margin-bottom: 10px;">
-                <div style="font-family: 'Poppins', sans-serif; font-size: 28px; font-weight: 400; color: #302BFF;">
+                <div style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 600; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
                 </div>
             </div>

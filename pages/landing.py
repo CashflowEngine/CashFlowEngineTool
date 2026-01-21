@@ -22,20 +22,38 @@ def show_landing_page():
     # --- LOGO (Using actual image file) ---
     ui.render_logo(width=350, centered=True)
 
-    # --- TAGLINE (Exo 2 CI Font - UPPERCASE, Bold 800) ---
+    # --- TAGLINE (Exo 2 CI Font - UPPERCASE, Bold 800, LARGER) ---
     st.markdown(f"""
-        <div class="tagline" style="text-align: center; margin-bottom: 40px;">
-            <span style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px;
-                        color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1.5px;
+        <div class="tagline" style="text-align: center; margin-bottom: 20px;">
+            <span style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 26px;
+                        color: {ui.COLOR_BLUE} !important; text-transform: uppercase !important; letter-spacing: 2px;
                         display: block;">
                 Advanced Portfolio Analytics & Risk Simulation for Option Traders
             </span>
         </div>
     """, unsafe_allow_html=True)
 
+    # --- EXPLANATORY TEXT ---
+    st.markdown(f"""
+        <div style="text-align: center; max-width: 800px; margin: 0 auto 40px auto; padding: 0 20px;">
+            <p style="font-family: 'Poppins', sans-serif !important; font-size: 15px; color: #6B7280; line-height: 1.7;">
+                Cashflow Engine is your comprehensive analytics suite for evaluating option trading strategies.
+                To begin, import your backtest data or load a previously saved analysis from the database.
+                Once your data is loaded, you'll have access to all analysis modules.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
     # --- SECTION 1: DATA IMPORT ---
     with st.container(border=True):
-        ui.section_header("1. Data Import")
+        st.markdown(f"""
+            <div style="margin-bottom: 20px;">
+                <span style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px;
+                            color: {ui.COLOR_BLUE} !important; text-transform: uppercase !important; letter-spacing: 1px;">
+                    1. Data Import
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
 
         has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
 
@@ -125,8 +143,9 @@ def show_landing_page():
     # --- SECTION 2: MODULE SELECTION (Feature Tiles with Text Links) ---
     st.markdown(f"""
         <div style='text-align:center; margin-bottom:30px;'>
-            <span style='color:{ui.COLOR_GREY}; font-family: "Exo 2", sans-serif !important;
-                        font-weight: 800 !important; text-transform: uppercase; font-size: 20px;'>
+            <span style='font-family: "Exo 2", sans-serif !important; font-weight: 800 !important;
+                        color: {ui.COLOR_BLUE} !important; text-transform: uppercase !important;
+                        font-size: 18px !important; letter-spacing: 1px;'>
                 2. Select Module
             </span>
         </div>

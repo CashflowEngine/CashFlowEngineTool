@@ -69,25 +69,44 @@ st.markdown("""
     .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
 
     /* --- SIDEBAR TOGGLE FIX --- */
-    /* Hide all text in the toggle button, show only the icon */
-    button[kind="header"] {
+    /* Hide all text in sidebar toggle buttons, show only icons */
+    button[kind="header"],
+    [data-testid="baseButton-header"],
+    [data-testid="stSidebarCollapseButton"] button,
+    .stAppViewBlockContainer button[kind="header"] {
         color: transparent !important;
         overflow: hidden;
+        font-size: 0 !important;
     }
-    button[kind="header"] * {
+    button[kind="header"] *,
+    [data-testid="baseButton-header"] * {
         color: transparent !important;
+        font-size: 0 !important;
     }
-    button[kind="header"] svg {
+    button[kind="header"] svg,
+    [data-testid="baseButton-header"] svg {
         fill: #4B5563 !important;
         color: #4B5563 !important;
+        font-size: 24px !important;
+        width: 24px !important;
+        height: 24px !important;
     }
     /* Ensure the collapse button doesn't show text */
-    [data-testid="collapsedControl"] {
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
         color: transparent !important;
+        font-size: 0 !important;
     }
     [data-testid="collapsedControl"] span,
-    [data-testid="collapsedControl"] p {
+    [data-testid="collapsedControl"] p,
+    [data-testid="stSidebarCollapsedControl"] span,
+    [data-testid="stSidebarCollapsedControl"] p {
         display: none !important;
+    }
+    /* Hide keyboard_double text that appears */
+    [data-testid="collapsedControl"]::before,
+    [data-testid="collapsedControl"]::after {
+        content: none !important;
     }
 
     /* --- NAVIGATION BAR REDESIGN --- */
@@ -127,19 +146,19 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* Active/Selected menu item - improved styling */
+    /* Active/Selected menu item - lighter grey background */
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"],
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] {
-        background-color: #302BFF !important;
-        color: #FFFFFF !important;
+        background-color: #E8E8EF !important;
+        color: #302BFF !important;
         font-weight: 600 !important;
-        border: none !important;
-        box-shadow: 0 4px 6px rgba(48, 43, 255, 0.15) !important;
+        border: 1px solid #D1D5DB !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
     }
 
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] span,
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[aria-checked="true"] span {
-        color: #FFFFFF !important;
+        color: #302BFF !important;
     }
 
     /* Hide the radio button circle */
@@ -496,14 +515,8 @@ elif st.session_state.is_authenticated:
 
         st.write("")
 
-        # Analysis Manager - clean label without emojis
-        st.markdown("""
-            <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 12px;
-                        color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;
-                        margin-bottom: 8px; padding-left: 8px;">
-                Analysis Manager
-            </div>
-        """, unsafe_allow_html=True)
+        # Analysis Manager - use native Streamlit caption
+        st.caption("ANALYSIS MANAGER")
         ui.render_save_load_sidebar(st.session_state.get('full_df'), st.session_state.get('live_df'))
 
         st.markdown("---")

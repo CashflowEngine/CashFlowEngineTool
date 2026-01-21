@@ -27,7 +27,9 @@ def page_meic_optimizer():
     with tab1:
         with st.container(border=True):
             ui.section_header("Generate Option Omega Signals",
-                description="Create a CSV file to force specific entry times in Option Omega backtests.")
+                description="Generate a signal CSV file for use with Option Omega's backtest engine. This allows you to force specific entry times for MEIC (Multiple Entry Iron Condor) strategies.")
+
+            st.info("The generated CSV can be imported into Option Omega to run backtests with predetermined entry times, useful for testing MEIC strategies with specific time windows.")
 
             c1, c2 = st.columns(2)
             with c1:

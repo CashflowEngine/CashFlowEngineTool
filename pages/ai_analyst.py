@@ -55,4 +55,8 @@ def page_ai_analyst(full_df):
             **Improvement Suggestions**
             - Data-driven optimization recommendations
             - Strategy allocation insights
+
+            **Multi-Language Support**
+            - Interact in English, German, and other languages
+            - Responses in your preferred language
             """)

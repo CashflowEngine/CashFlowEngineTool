@@ -132,6 +132,12 @@ def show_login_page():
                     st.session_state['login_error_message'] = "Please enter both email and password."
                     st.rerun()
 
+            # Back to product page link
+            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+            if st.button("Zurück zur Produktübersicht", use_container_width=True, type="tertiary", key="back_to_sales"):
+                st.session_state.show_sales_page = True
+                st.rerun()
+
     with col_right:
         # --- MARKETING IMAGE - Right Panel ---
         marketing_image_b64 = _get_image_base64("login_marketing_panel.png")

@@ -14,6 +14,7 @@ import pages.comparison as comparison
 import pages.meic_analysis as meic_analysis
 import pages.meic_optimizer as meic_optimizer
 import pages.ai_analyst as ai_analyst
+import pages.sales_landing as sales_landing
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
@@ -519,6 +520,10 @@ if 'is_authenticated' not in st.session_state:
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
 
+# Initialize sales landing page state (show by default for non-authenticated users)
+if 'show_sales_page' not in st.session_state:
+    st.session_state.show_sales_page = True
+
 # Define Menu Items with display names
 # Format: {display_name: internal_page_value}
 page_map = {
@@ -592,9 +597,12 @@ elif st.session_state.is_authenticated:
 
 # --- 4. PAGE RENDERING ---
 
-# Check authentication first - show login page if not authenticated
+# Check authentication first - show sales landing or login page if not authenticated
 if not st.session_state.is_authenticated:
-    login.show_login_page()
+    if st.session_state.show_sales_page:
+        sales_landing.show_sales_landing()
+    else:
+        login.show_login_page()
 else:
     # User is authenticated - show main app
     df = st.session_state.get('full_df', pd.DataFrame())

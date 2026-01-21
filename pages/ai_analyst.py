@@ -1,89 +1,58 @@
 import streamlit as st
-import os
-import pandas as pd
-
-GEMINI_AVAILABLE = False
-try:
-    from google import genai
-    from google.genai import types
-    GEMINI_AVAILABLE = True
-except ImportError:
-    pass
+import ui_components as ui
 
 def page_ai_analyst(full_df):
-    st.markdown("<h1>🤖 AI ANALYST</h1>", unsafe_allow_html=True)
-    
-    if not GEMINI_AVAILABLE:
-        st.error("Google GenAI SDK not installed. Please add `google-genai` to requirements.txt.")
-        return
+    """AI Analyst page - Coming Soon."""
 
-    # API Key Handling - Strictly from Environment/Secrets as per guidelines
-    api_key = os.environ.get("API_KEY") or st.secrets.get("API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    
-    if not api_key:
-        st.warning("⚠️ API Key not found. Please set `API_KEY` in your environment variables or secrets.")
-        st.info("The analyst cannot function without a valid API key configured in the server environment.")
-        return
+    # Header with Exo 2 font
+    st.markdown(f"""
+        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
+                   text-transform: uppercase; color: {ui.COLOR_GREY} !important; letter-spacing: 1px;">
+            AI ANALYST
+        </h1>
+    """, unsafe_allow_html=True)
 
-    # Initialize Client
-    try:
-        client = genai.Client(api_key=api_key)
-    except Exception as e:
-        st.error(f"Failed to initialize AI client: {e}")
-        return
+    # Coming Soon message
+    st.markdown(f"""
+        <div style="text-align: center; padding: 80px 40px; background: {ui.COLOR_ICE}; border-radius: 16px; margin: 40px 0;">
+            <div style="font-size: 64px; margin-bottom: 24px;">🤖</div>
+            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 32px;
+                        color: {ui.COLOR_GREY}; text-transform: uppercase; margin-bottom: 16px;">
+                Coming Soon
+            </div>
+            <div style="font-family: 'Poppins', sans-serif; font-size: 16px; color: #6B7280;
+                        max-width: 500px; margin: 0 auto; line-height: 1.6;">
+                The AI Analyst will allow you to interact with your portfolio data using advanced AI.
+                Ask questions about your performance, get insights on risk factors, and receive
+                data-driven suggestions for improvement.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # Chat Interface
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        
-    # Display History
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-            
-    # Input
-    if p := st.chat_input("Ask about your portfolio..."):
-        st.session_state.messages.append({"role": "user", "content": p})
-        with st.chat_message("user"):
-            st.markdown(p)
-            
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            message_placeholder.markdown("Thinking...")
-            
-            try:
-                # Prepare Context
-                context_str = ""
-                if full_df is not None and not full_df.empty:
-                    # Summarize portfolio for context
-                    stats = full_df.groupby('strategy')['pnl'].agg(['sum', 'count', 'mean']).reset_index()
-                    stats.columns = ['Strategy', 'Total P/L', 'Trades', 'Avg P/L']
-                    context_str = stats.to_markdown(index=False)
-                    
-                    total_pnl = full_df['pnl'].sum()
-                    win_rate = (full_df['pnl'] > 0).mean()
-                    context_str = f"Portfolio Summary:\nTotal P/L: ${total_pnl:,.2f}\nWin Rate: {win_rate:.1%}\n\nStrategy Breakdown:\n{context_str}"
-                
-                full_prompt = f"""
-                You are a senior financial analyst reviewing an options trading portfolio.
-                
-                Current Portfolio Data:
-                {context_str}
-                
-                User Question: {p}
-                
-                Provide a concise, professional, and data-driven answer. Use markdown for formatting.
-                """
-                
-                # Generate Response
-                response = client.models.generate_content(
-                    model='gemini-2.0-flash-exp', # Using a capable flash model
-                    contents=full_prompt
-                )
-                
-                response_text = response.text
-                message_placeholder.markdown(response_text)
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
-                
-            except Exception as e:
-                message_placeholder.error(f"Analysis failed: {str(e)}")
+    # Feature preview
+    with st.container(border=True):
+        ui.section_header("Planned Features")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("""
+            **Natural Language Queries**
+            - Ask questions about your portfolio in plain English
+            - Get instant insights without complex analysis
+
+            **Performance Analysis**
+            - Automated identification of strengths and weaknesses
+            - Comparison with historical benchmarks
+            """)
+
+        with col2:
+            st.markdown("""
+            **Risk Assessment**
+            - AI-powered risk factor identification
+            - Correlation and diversification recommendations
+
+            **Improvement Suggestions**
+            - Data-driven optimization recommendations
+            - Strategy allocation insights
+            """)

@@ -8,64 +8,48 @@ def show_landing_page():
     """
     Landing Page: Data Management & Feature Hub.
     """
-    
-    # --- LOGO (Text-based for reliability, styled with CI) ---
+
+    # --- DATA CHECK OVERLAY (Full screen) ---
+    if st.session_state.get('show_data_warning', False):
+        ui.render_data_required_overlay()
+        col_ack = st.columns([1, 2, 1])[1]
+        with col_ack:
+            if st.button("ACKNOWLEDGE & IMPORT DATA", key="ack_btn_overlay", use_container_width=True):
+                st.session_state.show_data_warning = False
+                st.rerun()
+        return
+
+    # --- LOGO (Using actual image file) ---
+    ui.render_logo(width=350, centered=True)
+
+    # --- TAGLINE (Exo 2 CI Font - UPPERCASE, Bold 800) ---
     st.markdown(f"""
-        <div style="text-align: center; padding: 40px 0 20px 0;">
-            <div style="font-family: 'Exo 2', sans-serif; font-weight: 800; font-size: 48px; 
-                        color: {ui.COLOR_BLUE}; letter-spacing: 3px; text-transform: uppercase;
-                        text-shadow: 0 2px 4px rgba(48, 43, 255, 0.1);">
-                ⚡ CASHFLOW ENGINE
-            </div>
+        <div class="tagline" style="text-align: center; margin-bottom: 40px;">
+            <span style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 18px;
+                        color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1.5px;
+                        display: block;">
+                Advanced Portfolio Analytics & Risk Simulation for Option Traders
+            </span>
         </div>
     """, unsafe_allow_html=True)
-    
-    # --- TAGLINE (Exo 2 CI Font - UPPERCASE, Bold 800) ---
-    st.markdown(
-        f"""<div style="text-align: center; margin-bottom: 40px;">
-            <h2 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 20px; 
-                        color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1.5px;
-                        margin: 0; padding: 0;">
-                Advanced Portfolio Analytics & Risk Simulation for Option Traders
-            </h2>
-        </div>""", 
-        unsafe_allow_html=True
-    )
-
-    # --- DATA CHECK OVERLAY ---
-    if st.session_state.get('show_data_warning', False):
-        st.markdown(f"""
-        <div class="data-overlay">
-            <div class="data-overlay-box">
-                <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
-                <h2 style="color: {ui.COLOR_GREY}; font-family: 'Exo 2', sans-serif; text-transform: uppercase;">Data Required</h2>
-                <p style="color: #6B7280; margin-bottom: 30px; font-size: 16px;">
-                    To access the analytics engine, you must first import your trading data.
-                </p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("ACKNOWLEDGE", key="ack_btn_overlay"):
-            st.session_state.show_data_warning = False
-            st.rerun()
 
     # --- SECTION 1: DATA IMPORT ---
     with st.container(border=True):
         ui.section_header("1. Data Import")
-        
+
         has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
-        
+
         if has_data:
             c_stat1, c_stat2 = st.columns([3, 1])
             with c_stat1:
-                st.success(f"✅ ENGINE READY: {len(st.session_state['full_df']):,} trades loaded.")
+                st.success(f"ENGINE READY: {len(st.session_state['full_df']):,} trades loaded.")
             with c_stat2:
-                if st.button("RESET DATA", use_container_width=True):
+                if st.button("RESET DATA", use_container_width=True, type="secondary"):
                     st.session_state.clear()
                     st.rerun()
-        
-        tab_upload, tab_db = st.tabs(["📁 Upload New Files", "💾 Load from Database"])
-        
+
+        tab_upload, tab_db = st.tabs(["Upload New Files", "Load from Database"])
+
         with tab_upload:
             c1, c2 = st.columns(2)
             with c1:
@@ -82,7 +66,7 @@ def show_landing_page():
             if st.button("IMPORT DATA", use_container_width=True, type="primary"):
                 if bt_files:
                     ui.show_loading_overlay("IGNITION SEQUENCE", "Parsing CSVs and normalizing formats...")
-                    
+
                     dfs = []
                     for f in bt_files:
                         d = calc.load_file_with_caching(f)
@@ -119,15 +103,15 @@ def show_landing_page():
                     with c_load2:
                         if st.button("LOAD ANALYSIS", use_container_width=True) and selected_option != "-- Select --":
                             ui.show_loading_overlay("LOADING FROM CLOUD", "Fetching portfolio data...")
-                            
+
                             analysis_id = options[selected_option]
                             bt_df, live_df = db.load_analysis_from_db(analysis_id)
-                            
+
                             if bt_df is not None:
                                 st.session_state['full_df'] = bt_df
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
-                                
+
                                 ui.hide_loading_overlay()
                                 st.rerun()
                 else:
@@ -140,14 +124,16 @@ def show_landing_page():
 
     # --- SECTION 2: MODULE SELECTION (Feature Tiles with Text Links) ---
     st.markdown(f"""
-        <h3 style='text-align:center; margin-bottom:30px; color:{ui.COLOR_GREY}; 
-                   font-family: "Exo 2", sans-serif !important; font-weight: 800 !important; text-transform: uppercase;'>
-            2. Select Module
-        </h3>
+        <div style='text-align:center; margin-bottom:30px;'>
+            <span style='color:{ui.COLOR_GREY}; font-family: "Exo 2", sans-serif !important;
+                        font-weight: 800 !important; text-transform: uppercase; font-size: 20px;'>
+                2. Select Module
+            </span>
+        </div>
     """, unsafe_allow_html=True)
 
-    def render_tile(col, title, desc, target_page):
-        """Render a feature tile with a styled text link (blue, underlined)."""
+    def render_tile(col, title, desc, target_page, coming_soon=False):
+        """Render a feature tile with a styled text link."""
         with col:
             with st.container(border=True):
                 st.markdown(f"""
@@ -156,29 +142,29 @@ def show_landing_page():
                     <div class="feature-desc">{desc}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                if target_page:
+
+                if coming_soon:
+                    st.markdown(f"""
+                        <div style='text-align: center; margin-top: 10px; color: #9CA3AF;
+                                    font-size: 12px; font-style: italic; font-family: Poppins, sans-serif;'>
+                            Coming Soon
+                        </div>
+                    """, unsafe_allow_html=True)
+                elif target_page:
                     # Create a unique key for this link
                     link_key = f"link_{title.replace(' ', '_').replace('-', '_')}"
                     short_title = title.replace(' Deep Dive', '').replace(' Optimizer', '').replace('Portfolio ', '')
-                    
+
                     # Check if data exists
                     has_data = 'full_df' in st.session_state and not st.session_state['full_df'].empty
-                    
-                    # Render as clickable text link (HTML style)
-                    st.markdown(f"""
-                        <div style="text-align: center; margin-top: 10px;">
-                    """, unsafe_allow_html=True)
-                    
+
                     link_clicked = st.button(
-                        f"→ Open {short_title}",
+                        f"LAUNCH {short_title}",
                         key=link_key,
                         type="tertiary",
                         use_container_width=True
                     )
-                    
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    
+
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
@@ -188,40 +174,40 @@ def show_landing_page():
                             st.rerun()
                 else:
                     st.markdown(f"""
-                        <div style='text-align: center; margin-top: 10px; color: #9CA3AF; 
-                                    font-size: 12px; font-style: italic;'>
+                        <div style='text-align: center; margin-top: 10px; color: #9CA3AF;
+                                    font-size: 12px; font-style: italic; font-family: Poppins, sans-serif;'>
                             Coming Soon
                         </div>
                     """, unsafe_allow_html=True)
 
     # Grid Layout - Row 1
     r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-    render_tile(r1c1, "Portfolio Analytics", 
-                "Comprehensive deep dive into your portfolio performance. Analyze backtest and live trade data, key performance indicators, monthly return matrices, and equity growth curves.", 
+    render_tile(r1c1, "Portfolio Analytics",
+                "Comprehensive deep dive into your portfolio performance. Analyze backtest and live trade data, key performance indicators, monthly return matrices, and equity growth curves.",
                 "Portfolio Analytics")
-    render_tile(r1c2, "Portfolio Builder", 
-                "Construct and balance a multi-strategy portfolio. Allocate capital efficiently, simulate margin requirements, and optimize strategy weights using Kelly Criterion or MART ratios.", 
+    render_tile(r1c2, "Portfolio Builder",
+                "Construct and balance a multi-strategy portfolio. Allocate capital efficiently, simulate margin requirements, and optimize strategy weights using Kelly Criterion or MART ratios.",
                 "Portfolio Builder")
-    render_tile(r1c3, "Monte Carlo", 
-                "Stress test your portfolio against thousands of market scenarios. Simulate Black Swan events, analyze drawdown probabilities, and ensure your strategy survives extreme volatility.", 
+    render_tile(r1c3, "Monte Carlo",
+                "Stress test your portfolio against thousands of market scenarios. Simulate Black Swan events, analyze drawdown probabilities, and ensure your strategy survives extreme volatility.",
                 "Monte Carlo")
-    render_tile(r1c4, "Reality Check", 
-                "Compare your actual live trading execution against your theoretical backtest results. Identify slippage, deviation, and performance gaps to refine your execution.", 
+    render_tile(r1c4, "Reality Check",
+                "Compare your actual live trading execution against your theoretical backtest results. Identify slippage, deviation, and performance gaps to refine your execution.",
                 "Live vs. Backtest")
 
     st.write("")
 
     # Grid Layout - Row 2
     r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-    render_tile(r2c1, "MEIC Deep Dive", 
-                "Specialized analysis for Multiple Entry Iron Condors. Visualize performance based on entry times, market conditions, and specific trade parameters to optimize your MEIC strategy.", 
+    render_tile(r2c1, "MEIC Deep Dive",
+                "Specialized analysis for Multiple Entry Iron Condors. Visualize performance based on entry times, market conditions, and specific trade parameters to optimize your MEIC strategy.",
                 "MEIC Deep Dive")
-    render_tile(r2c2, "MEIC Optimizer", 
-                "Generate entry signals for Option Omega based on your optimization criteria. Analyze batch results and find the most robust parameter sets for your strategy.", 
-                "MEIC Optimizer")
-    render_tile(r2c3, "AI Analyst", 
-                "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.", 
-                "AI Analyst")
-    render_tile(r2c4, "Documentation", 
-                "Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.", 
-                None)
+    render_tile(r2c2, "MEIC Optimizer",
+                "Generate entry signals for Option Omega based on your optimization criteria. Analyze batch results and find the most robust parameter sets for your strategy.",
+                None, coming_soon=True)
+    render_tile(r2c3, "AI Analyst",
+                "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.",
+                None, coming_soon=True)
+    render_tile(r2c4, "Documentation",
+                "Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.",
+                None, coming_soon=True)

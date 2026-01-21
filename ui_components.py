@@ -14,7 +14,6 @@ COLOR_ICE = "#F0F4FF"    # Ice Tint (Backgrounds)
 COLOR_AMBER = "#FFAB00"  # Amber Flux (Warning)
 COLOR_PURPLE = "#7B2BFF" # Electric Violet (Hover)
 
-@st.cache_data(show_spinner=False)
 def _get_logo_base64():
     """Load logo as base64 for reliable rendering."""
     logo_file = "CashflowEnginelogo.png"
@@ -22,10 +21,10 @@ def _get_logo_base64():
         try:
             with open(logo_file, "rb") as f:
                 data = f.read()
-                # Verify it's a PNG (check for PNG signature anywhere in first 16 bytes)
-                if b'PNG' in data[:16]:
+                # Verify it's a valid PNG (check signature)
+                if data[:4] == b'\x89PNG':
                     return base64.b64encode(data).decode()
-        except Exception:
+        except Exception as e:
             pass
     return None
 
@@ -292,11 +291,11 @@ def render_save_load_sidebar(bt_df, live_df):
         else:
             strategies = bt_df['strategy'].unique().tolist() if 'strategy' in bt_df.columns else []
             default_name = f"Analysis {len(strategies)} Strat"
-            
+
             save_name = st.text_input("Name", value=default_name, key="save_name_input", label_visibility="collapsed", placeholder="Name")
             save_desc = st.text_area("Desc", height=60, key="save_desc_input", label_visibility="collapsed", placeholder="Notes")
-            
-            if st.button("SAVE", use_container_width=True):
+
+            if st.button("Save Analysis", use_container_width=True, type="tertiary"):
                 if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_desc):
                     st.success("Saved!")
 

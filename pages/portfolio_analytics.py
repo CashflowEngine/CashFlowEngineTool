@@ -86,6 +86,18 @@ def page_portfolio_analytics(full_df, live_df=None):
 
             selected_strats = st.session_state.pa_selected_strats
 
+            # Recalculate button
+            st.write("")
+            if st.button("RECALCULATE", type="primary", use_container_width=True):
+                st.session_state.pa_recalculate = True
+                st.rerun()
+
+            # Check if we should recalculate or use cached results
+            if not st.session_state.get('pa_recalculate', True):
+                placeholder.empty()
+                st.info("Adjust filters above and click RECALCULATE to update analytics.")
+                return
+
             # Apply Filter
             mask = (target_df['timestamp'].dt.date >= dates[0]) & (target_df['timestamp'].dt.date <= dates[1])
             if selected_strats:
@@ -96,6 +108,9 @@ def page_portfolio_analytics(full_df, live_df=None):
                 return
 
             filt = target_df[mask].copy()
+
+            # Reset recalculate flag after running
+            st.session_state.pa_recalculate = False
 
         # === CALCULATIONS ===
         if filt.empty:
@@ -220,8 +235,16 @@ def page_portfolio_analytics(full_df, live_df=None):
                     if not s_df.empty:
                         margin_data[s] = calc.generate_daily_margin_series_optimized(s_df).reindex(full_idx, fill_value=0)
 
+                # Calculate total margin and stats
+                total_margin = margin_data.sum(axis=1)
+                margin_max = total_margin.max()
+                margin_avg = total_margin.mean()
+
                 fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns,
                                   color_discrete_sequence=px.colors.qualitative.Prism)
+                # Add max and avg margin lines
+                fig_mar.add_hline(y=margin_max, line_dash="dash", line_color="red", annotation_text=f"Peak: ${margin_max:,.0f}")
+                fig_mar.add_hline(y=margin_avg, line_dash="dot", line_color="green", annotation_text=f"Avg: ${margin_avg:,.0f}")
                 fig_mar.update_layout(template="plotly_white", xaxis_title=None, yaxis_title="Margin ($)", height=400, legend=dict(orientation="h", y=-0.2))
                 st.plotly_chart(fig_mar, use_container_width=True)
 
@@ -251,9 +274,11 @@ def page_portfolio_analytics(full_df, live_df=None):
                 pnl_matrix.columns = new_cols
 
                 corr = pnl_matrix.corr()
-                fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu", zmin=-1, zmax=1, aspect="auto")
+                # RdBu_r: Red=positive correlation (bad for diversification), Blue=negative correlation (good)
+                fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1, aspect="auto")
                 fig_corr.update_layout(height=500, margin=dict(l=10, r=10, t=30, b=10))
                 st.plotly_chart(fig_corr, use_container_width=True)
+                st.caption("Red = positive correlation (less diversification), Blue = negative correlation (better diversification)")
             else:
                 st.info("Select multiple strategies to view correlation.")
 

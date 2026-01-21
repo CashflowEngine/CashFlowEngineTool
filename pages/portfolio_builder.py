@@ -29,10 +29,10 @@ def page_portfolio_builder(full_df):
 
     # === CONFIGURATION (Card) ===
     with st.container(border=True):
-        ui.section_header("Configuration")
+        ui.section_header("Configuration",
+            description="Set your account parameters and evaluation period for portfolio optimization.")
 
-        # Account & Risk Settings (clean labels, no emojis)
-        st.markdown("**Account & Risk Settings**")
+        # Account & Risk Settings
         config_r1_c1, config_r1_c2, config_r1_c3 = st.columns(3)
         with config_r1_c1:
             account_size = st.number_input("Account Size ($)", value=100000, step=5000, min_value=1000, key="builder_account")
@@ -44,26 +44,12 @@ def page_portfolio_builder(full_df):
 
         st.write("")
 
-        # Strategy Type Allocation (clean labels)
-        st.markdown("**Strategy Type Allocation**")
-        type_c1, type_c2, type_c3, type_c4 = st.columns(4)
-        with type_c1:
-            workhorse_pct = st.slider("Workhorse %", min_value=0, max_value=100, value=60, step=5, key="workhorse_slider")
-        with type_c2:
-            airbag_pct = st.slider("Airbag %", min_value=0, max_value=100, value=25, step=5, key="airbag_slider")
-        with type_c3:
-            opportunist_pct = st.slider("Opportunist %", min_value=0, max_value=100, value=15, step=5, key="opportunist_slider")
-        with type_c4:
-            total_type_pct = workhorse_pct + airbag_pct + opportunist_pct
-            if total_type_pct != 100:
-                st.warning(f"Total: {total_type_pct}%")
-            else:
-                st.success(f"Total: {total_type_pct}%")
-
-        st.write("")
+        # Hidden type allocation (used internally)
+        workhorse_pct = 60
+        airbag_pct = 25
+        opportunist_pct = 15
 
         # Evaluation Period
-        st.markdown("**Evaluation Period**")
         min_d = full_df['timestamp'].min().date()
         max_d = full_df['timestamp'].max().date()
 
@@ -194,18 +180,29 @@ def page_portfolio_builder(full_df):
                 st.session_state.calculate_kpis = True
                 st.rerun()
 
-            if st.button("Reset", use_container_width=True, type="secondary"):
-                st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
-                st.session_state.calculate_kpis = False
-                st.rerun()
+            # Reset and Set to 0 as links
+            col_reset, col_zero = st.columns(2)
+            with col_reset:
+                if st.button("Reset", key="reset_btn", type="tertiary"):
+                    st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
+            with col_zero:
+                if st.button("Set to 0", key="zero_btn", type="tertiary"):
+                    st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
 
             st.write("")
             st.markdown("**Optimization**")
 
-            kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input")
+            # Kelly Optimizer with explanation
+            kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input",
+                help="Kelly Criterion optimizes for maximum growth based on win rate and payoff ratio. Use a fraction (e.g., 20%) to be conservative.")
             st.session_state.kelly_pct = kelly_input
 
-            if st.button("Kelly Opt", use_container_width=True):
+            if st.button("Kelly Opt", use_container_width=True,
+                help="Allocates based on Kelly Criterion - maximizes long-term growth while limiting risk."):
                 with placeholder:
                     ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
                 optimized = calc.kelly_optimize_allocation(
@@ -219,15 +216,18 @@ def page_portfolio_builder(full_df):
                 st.rerun()
 
             # MART Optimizer with min P/L parameter
-            mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input")
+            mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input",
+                help="Minimum total P/L constraint for the MART optimizer. Set to 0 for no constraint.")
             st.session_state.mart_min_pnl = mart_min_pnl
 
-            if st.button("MART Opt", use_container_width=True):
+            if st.button("MART Opt", use_container_width=True,
+                help="MART = CAGR / (Max DD $ / Account). Optimizes for best risk-adjusted returns relative to drawdown."):
                 with placeholder:
                     ui.show_loading_overlay("Optimizing", "Running MART optimization...")
                 optimized = calc.mart_optimize_allocation(
                     strategy_base_stats, target_margin, account_size,
-                    st.session_state.category_overrides, full_date_range, filtered_df
+                    st.session_state.category_overrides, full_date_range, filtered_df,
+                    min_pnl=mart_min_pnl
                 )
                 st.session_state.portfolio_allocation = optimized
                 st.session_state.calculate_kpis = True

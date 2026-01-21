@@ -56,53 +56,63 @@ def page_monte_carlo(full_df):
             description="Configure the number of simulations, time period, and initial capital for the Monte Carlo analysis.")
         c1, c2, c3 = st.columns(3)
         with c1:
-            n_sims = st.number_input("Number of Simulations", value=5000, step=500, min_value=100, max_value=10000)
+            n_sims = st.number_input("Number of Simulations", value=1000, step=500, min_value=100, max_value=10000,
+                help="More simulations = more accurate results, but slower. 1000 is usually sufficient.")
         with c2:
-            sim_months = st.number_input("Simulation Period (Months)", value=60, step=6, min_value=1, max_value=120)
+            sim_months = st.number_input("Simulation Period (Months)", value=36, step=6, min_value=1, max_value=120,
+                help="How far into the future to simulate. 36 months (3 years) is a good baseline.")
         with c3:
             if from_builder and portfolio_daily_pnl is not None:
                 start_cap = st.number_input("Initial Capital ($)",
                                             value=st.session_state.get('mc_portfolio_account_size', 100000),
-                                            step=1000, min_value=1000)
+                                            step=1000, min_value=1000,
+                                            help="Starting account balance for simulations.")
             else:
-                start_cap = st.number_input("Initial Capital ($)", value=100000, step=1000, min_value=1000)
+                start_cap = st.number_input("Initial Capital ($)", value=100000, step=1000, min_value=1000,
+                    help="Starting account balance for simulations.")
 
     available_strategies = []
     if full_df is not None and not full_df.empty and 'strategy' in full_df.columns:
         available_strategies = sorted(full_df['strategy'].dropna().unique().tolist())
 
-    # === STRESS TEST (Card) - Fixed text overlap issue ===
+    # === STRESS TEST (Collapsible) ===
     with st.container(border=True):
-        ui.section_header("Stress Test",
-            description="Configure worst-case scenario injection to stress test your portfolio.")
+        with st.expander("Stress Test Configuration (optional)", expanded=False):
+            st.markdown("""
+            <div style='color: #6B7280; font-size: 13px; line-height: 1.5; margin-bottom: 16px; font-family: Poppins, sans-serif;'>
+                Inject worst-case scenarios to stress test your portfolio against market crashes.
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown("**Configure Worst-Case Injection**")
-        stress_mode = st.radio(
-            "Stress Test Mode:",
-            ["Historical Max Loss (Real)", "Theoretical Max Risk (Black Swan)"],
-            index=1,
-            key="stress_mode_radio"
-        )
+            stress_mode = st.radio(
+                "Stress Test Mode:",
+                ["Historical Max Loss (Real)", "Theoretical Max Risk (Black Swan)"],
+                index=1,
+                key="stress_mode_radio",
+                help="Historical uses actual worst days from your data. Theoretical simulates a simultaneous crash."
+            )
 
-        if "Historical" in stress_mode:
-            st.info("Injects each strategy's actual worst day P&L from backtest data.")
-            stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, key="hist_stress_slider")
-            stress_strategies = available_strategies
-        else:
-            st.info("Simulates a market crash hitting ALL selected strategies at once.")
-            if len(available_strategies) > 0:
-                stress_strategies = st.multiselect(
-                    "Strategies at risk during crash:",
-                    options=available_strategies,
-                    default=available_strategies,
-                    key="stress_strategies_select"
-                )
+            if "Historical" in stress_mode:
+                st.caption("Injects each strategy's actual worst day P&L from backtest data.")
+                stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, key="hist_stress_slider",
+                    help="How many stress events to inject per simulated year. 0 = no stress test.")
+                stress_strategies = available_strategies
             else:
-                stress_strategies = []
+                st.caption("Simulates a market crash hitting ALL selected strategies at once.")
+                if len(available_strategies) > 0:
+                    stress_strategies = st.multiselect(
+                        "Strategies at risk during crash:",
+                        options=available_strategies,
+                        default=available_strategies,
+                        key="stress_strategies_select"
+                    )
+                else:
+                    stress_strategies = []
 
-            stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, key="theo_stress_slider")
+                stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, key="theo_stress_slider",
+                    help="How many crash events to inject per simulated year. 0 = no stress test.")
 
-        st.session_state.stress_test_selected_strategies = stress_strategies
+            st.session_state.stress_test_selected_strategies = stress_strategies
 
     st.write("")
 
@@ -222,12 +232,25 @@ def page_monte_carlo(full_df):
         with st.container(border=True):
             ui.section_header("Simulation Results",
                 description=f"Summary statistics from {r['n_sims']:,} Monte Carlo simulations.")
-            k1, k2, k3, k4, k5 = st.columns(5)
-            with k1: ui.render_hero_metric("Avg Net Profit", f"${r['profit']:,.0f}", "", "hero-teal")
-            with k2: ui.render_hero_metric("CAGR", f"{r['cagr']:.1%}", "", "hero-teal")
-            with k3: ui.render_hero_metric("Avg MaxDD", f"{r['dd_mean']:.1%}", "", "hero-coral")
-            with k4: ui.render_hero_metric("MAR", f"{r['mar']:.2f}", "", "hero-teal" if r['mar'] > 1 else "hero-neutral")
-            with k5: ui.render_hero_metric("Prob. Profit", f"{r['prob_profit']:.1%}", "", "hero-neutral")
+
+            # Row 1: Primary metrics
+            k1, k2, k3, k4, k5, k6 = st.columns(6)
+            with k1: ui.render_hero_metric("Avg Net Profit", f"${r['profit']:,.0f}", "", "hero-teal",
+                tooltip="Average ending equity minus starting capital across all simulations")
+            with k2: ui.render_hero_metric("CAGR", f"{r['cagr']:.1%}", "", "hero-teal",
+                tooltip="Compound Annual Growth Rate")
+            with k3: ui.render_hero_metric("Avg MaxDD", f"{r['dd_mean']:.1%}", "", "hero-coral",
+                tooltip="Average maximum drawdown across all simulations")
+            with k4: ui.render_hero_metric("MAR", f"{r['mar']:.2f}", "", "hero-teal" if r['mar'] > 1 else "hero-neutral",
+                tooltip="MAR Ratio = CAGR / Max Drawdown. Higher is better.")
+            with k5: ui.render_hero_metric("Prob. Profit", f"{r['prob_profit']:.1%}", "", "hero-neutral",
+                tooltip="Percentage of simulations ending with profit")
+            with k6:
+                # Calculate Sharpe-like metric
+                returns_std = np.std(r['end_vals'] - start_cap)
+                sharpe_like = r['profit'] / returns_std if returns_std > 0 else 0
+                ui.render_hero_metric("Return/Risk", f"{sharpe_like:.2f}", "", "hero-neutral",
+                    tooltip="Average return divided by return standard deviation")
 
         # === SCENARIOS (Card) ===
         with st.container(border=True):

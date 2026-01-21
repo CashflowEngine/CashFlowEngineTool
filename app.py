@@ -477,15 +477,12 @@ else:
             st.session_state.navigate_to_page = target_val
             st.rerun()
 
+        # Spacer to push Analysis Manager to bottom
+        st.markdown("<div style='flex-grow: 1; min-height: 50px;'></div>", unsafe_allow_html=True)
+
         st.markdown("---")
 
-        if st.button("RESET APP", use_container_width=True, type="secondary"):
-            st.session_state.clear()
-            st.rerun()
-
-        st.write("")
-
-        # Analysis Manager - clean label without emojis
+        # Analysis Manager at bottom
         st.markdown("""
             <div style="font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 12px;
                         color: #6B7280; text-transform: uppercase; letter-spacing: 0.5px;

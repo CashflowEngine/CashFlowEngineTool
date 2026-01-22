@@ -71,7 +71,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                     st.session_state.pa_recalculate = True
                     st.rerun()
             with filter_col3:
-                if st.button("Recalculate", type="primary", key="recalc_btn"):
+                if st.button("Recalculate", type="tertiary", key="recalc_btn"):
                     st.session_state.pa_recalculate = True
                     st.rerun()
 

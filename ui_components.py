@@ -51,11 +51,12 @@ def inject_fonts():
     """, unsafe_allow_html=True)
 
 def render_page_header(title, subtitle=None):
-    """Render a consistent page header with Exo 2 font."""
+    """Render a consistent page header with Exo 2 font. Large 3x size for emphasis."""
     inject_fonts()
 
     # Use div instead of h1 to avoid Streamlit's CSS overrides
-    header_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 2.5rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 1px !important; margin-bottom: 0.5rem !important; line-height: 1.2 !important;"
+    # 3x larger heading: 4.5rem (~72px) for strong visual impact
+    header_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 4.5rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 2px !important; margin-bottom: 1rem !important; line-height: 1.1 !important;"
 
     header_html = f'<div class="exo2-heading" style="{header_style}">{title}</div>'
 
@@ -95,8 +96,8 @@ def render_logo(width=200, centered=True, logo_file="CashflowEnginelogo.png"):
         _render_text_fallback(centered)
 
 def render_logo_sidebar():
-    """Render grey logo for sidebar (matches gray background)."""
-    render_logo(width=216, centered=False, logo_file="CashflowEnginelogogrey.png")
+    """Render grey logo for sidebar (matches gray background). 20% larger for better visibility."""
+    render_logo(width=260, centered=False, logo_file="CashflowEnginelogogrey.png")
 
 def _render_text_fallback(centered=True):
     align = "center" if centered else "left"
@@ -184,8 +185,8 @@ def section_header(title, description=None):
         desc_style = "font-family: 'Poppins', sans-serif !important; font-size: 14px !important; color: #6B7280 !important; margin-bottom: 16px; line-height: 1.6 !important;"
         st.markdown(f'<p style="{desc_style}">{description}</p>', unsafe_allow_html=True)
 
-def show_loading_overlay(message="Processing", submessage="The engine is running..."):
-    """Display a full-screen loading overlay."""
+def show_loading_overlay(message="Processing", submessage="The engine is running...", placeholder=None):
+    """Display a full-screen loading overlay. Optionally use a placeholder for easier cleanup."""
     loading_html = f"""
     <style>
         .loading-overlay {{
@@ -267,6 +268,9 @@ def show_loading_overlay(message="Processing", submessage="The engine is running
         </div>
     </div>
     """
+    if placeholder is not None:
+        placeholder.markdown(loading_html, unsafe_allow_html=True)
+        return placeholder
     return st.markdown(loading_html, unsafe_allow_html=True)
 
 def hide_loading_overlay():

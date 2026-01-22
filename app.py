@@ -36,6 +36,17 @@ st.markdown("""
     /* IMPORT FONTS - FULL WEIGHTS (backup) */
     @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Poppins:wght@300;400;500;600;700&display=swap');
 
+    /* --- SIDEBAR FLASH PREVENTION (loaded first) --- */
+    /* This prevents the sidebar flash during page transitions by hiding toggle buttons */
+    button[kind="header"],
+    [data-testid="baseButton-header"],
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
     /* --- TYPOGRAPHY --- */
 
     /* Force Poppins for All Body Text */
@@ -627,11 +638,11 @@ else:
 current_page_val = st.session_state.navigate_to_page
 
 # --- SIDEBAR LOGIC ---
-# Hide sidebar on login page and landing page - use aggressive CSS to prevent flicker
-if not st.session_state.is_authenticated or current_page_val == "Start & Data":
+# Hide sidebar ONLY on login page (not authenticated) - show on landing and all other pages
+if not st.session_state.is_authenticated:
     st.markdown("""
     <style>
-        /* Aggressively hide sidebar during login/landing - prevent flash of unstyled content */
+        /* Aggressively hide sidebar during login - prevent flash of unstyled content */
         [data-testid="stSidebar"],
         section[data-testid="stSidebar"],
         [data-testid="stSidebarNav"],
@@ -656,7 +667,8 @@ if not st.session_state.is_authenticated or current_page_val == "Start & Data":
         }
     </style>
     """, unsafe_allow_html=True)
-elif st.session_state.is_authenticated:
+else:
+    # Show sidebar when authenticated (including landing page)
     with st.sidebar:
         # Logo in sidebar - at the top
         ui.render_logo_sidebar()

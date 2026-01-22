@@ -51,18 +51,16 @@ def inject_fonts():
     """, unsafe_allow_html=True)
 
 def render_page_header(title, subtitle=None):
-    """Render a consistent page header with Exo 2 font. Large 3x size for emphasis."""
+    """Render a consistent page header with Exo 2 font - uses h1 tag like original."""
     inject_fonts()
 
-    # Use div instead of h1 to avoid Streamlit's CSS overrides
-    # 3x larger heading: 6rem (~96px) for strong visual impact
-    header_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 6rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 3px !important; margin-bottom: 1.5rem !important; line-height: 1.0 !important;"
-
-    header_html = f'<div class="exo2-heading" style="{header_style}">{title}</div>'
+    # Use h1 tag exactly like the original - browser renders it large automatically
+    # No explicit font-size - let browser/Streamlit handle the sizing
+    header_html = f"""<h1 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800;
+        text-transform: uppercase; margin-bottom: 0;'>{title}</h1>"""
 
     if subtitle:
-        sub_style = "font-family: 'Poppins', sans-serif !important; color: #6B7280; font-size: 14px; line-height: 1.5; margin-bottom: 20px;"
-        header_html += f'<p style="{sub_style}">{subtitle}</p>'
+        header_html += f'<p style="font-family: Poppins, sans-serif; color: #6B7280; font-size: 14px; margin-top: 8px;">{subtitle}</p>'
 
     st.markdown(header_html, unsafe_allow_html=True)
 

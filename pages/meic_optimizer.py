@@ -52,10 +52,16 @@ def parse_meic_filename(filename):
     if sl_match:
         result['SL'] = int(sl_match.group(1))
 
-    # Try to extract Premium (P2.5, P3, etc.)
-    p_match = re.search(r'P(\d+\.?\d*)', filename, re.IGNORECASE)
+    # Try to extract Premium (P2-5 means 2.5, P3 means 3, etc.)
+    # Format uses hyphen instead of dot for decimal: P2-5 = $2.50, P3 = $3.00
+    p_match = re.search(r'P(\d+)(?:-(\d+))?', filename, re.IGNORECASE)
     if p_match:
-        result['Premium'] = float(p_match.group(1))
+        whole_part = p_match.group(1)
+        decimal_part = p_match.group(2)
+        if decimal_part:
+            result['Premium'] = float(f"{whole_part}.{decimal_part}")
+        else:
+            result['Premium'] = float(whole_part)
 
     return result
 
@@ -194,7 +200,8 @@ def page_meic_optimizer():
         **Workflow:**
         1. Run backtests in Option Omega (use the signal CSV from Tab 1).
         2. Name the result files strictly following this schema: `MEIC_W{Width}_SL{StopLoss}_P{Premium}.csv`
-           *(Example: MEIC_W50_SL100_P2.5.csv)*
+           *(Example: MEIC_W50_SL100_P2-5.csv for $2.50 premium, MEIC_W50_SL100_P3.csv for $3.00)*
+           **Note:** Use hyphen for decimals in Premium (P2-5 = $2.50, P2-75 = $2.75)
         3. Upload all results here.
 
         **Supported CSV formats:** Option Omega exports with columns like Date Opened, Time Opened, P/L, etc.

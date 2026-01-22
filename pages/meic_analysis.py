@@ -27,13 +27,16 @@ def page_meic_analysis(bt_df, live_df=None):
     with st.container(border=True):
         ui.section_header("Configuration")
 
-        # Date range
+        # Date range and Account Size in first row
         min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
 
-        config_c1, config_c2, config_c3 = st.columns([1, 1, 1])
+        config_c1, config_c2 = st.columns([1, 1])
         with config_c1:
             sel_dates = st.date_input("Period", [min_ts.date(), max_ts.date()],
                                       min_value=min_ts.date(), max_value=max_ts.date(), key="meic_dates")
+
+        with config_c2:
+            account_size = st.number_input("Account Size ($)", value=100000, step=5000, min_value=1000, key="meic_account")
 
         if len(sel_dates) != 2:
             return
@@ -44,15 +47,18 @@ def page_meic_analysis(bt_df, live_df=None):
             (target_df['timestamp'].dt.date <= sel_dates[1])
         ].copy()
 
-        # Strategy selector
+        # Strategy selector - FULL WIDTH below Period and Account Size
         all_strats = sorted(list(target_df['strategy'].unique()))
         default_meics = [s for s in all_strats if "MEIC" in s.upper()]
 
-        with config_c2:
-            selected_meics = st.multiselect("Select Strategies:", options=all_strats, default=default_meics, key="meic_strats")
-
-        with config_c3:
-            account_size = st.number_input("Account Size ($)", value=100000, step=5000, min_value=1000, key="meic_account")
+        st.write("")
+        selected_meics = st.multiselect(
+            "Select Strategies (full width):",
+            options=all_strats,
+            default=default_meics,
+            key="meic_strats",
+            help="Select the MEIC strategies you want to analyze"
+        )
 
         if not selected_meics:
             st.error("Please select at least one strategy.")
@@ -313,180 +319,184 @@ def page_meic_analysis(bt_df, live_df=None):
 
     st.write("")
 
-    # === SECTION 5: EQUITY CURVES BY STRATEGY ===
-    ui.section_header("Equity Curve by Strategy")
+    # === SECTION 5: EQUITY CURVES BY STRATEGY (Card) ===
+    with st.container(border=True):
+        ui.section_header("Equity Curve by Strategy", description="Compare equity curves across selected strategies. Add individual strategies to see their performance overlay.")
 
-    # Strategy selector for equity curves
-    eq_strat_col1, eq_strat_col2 = st.columns([1, 5])
-    with eq_strat_col1:
-        if st.button("Select All", key="meic_eq_select_all", use_container_width=True):
-            st.session_state.meic_equity_strategies = selected_meics
-            st.rerun()
+        # Strategy selector for equity curves
+        eq_strat_col1, eq_strat_col2 = st.columns([1, 5])
+        with eq_strat_col1:
+            if st.button("Select All", key="meic_eq_select_all", use_container_width=True):
+                st.session_state.meic_equity_strategies = selected_meics
+                st.rerun()
 
-    default_eq_strats = st.session_state.get('meic_equity_strategies', None)
-    if default_eq_strats is None:
-        default_eq_strats = []
-    else:
-        default_eq_strats = [s for s in default_eq_strats if s in selected_meics]
+        default_eq_strats = st.session_state.get('meic_equity_strategies', None)
+        if default_eq_strats is None:
+            default_eq_strats = []
+        else:
+            default_eq_strats = [s for s in default_eq_strats if s in selected_meics]
 
-    selected_eq_strategies = st.multiselect(
-        "Add strategy lines to chart:",
-        options=selected_meics,
-        default=default_eq_strats,
-        key="meic_equity_strats_select",
-        placeholder="Select strategies to compare..."
-    )
-    st.session_state.meic_equity_strategies = selected_eq_strategies
+        selected_eq_strategies = st.multiselect(
+            "Add strategy lines to chart:",
+            options=selected_meics,
+            default=default_eq_strats,
+            key="meic_equity_strats_select",
+            placeholder="Select strategies to compare..."
+        )
+        st.session_state.meic_equity_strategies = selected_eq_strategies
 
-    # Create equity curve figure
-    fig_eq = go.Figure()
+        # Create equity curve figure
+        fig_eq = go.Figure()
 
-    # Total portfolio equity (for filtered data)
-    fig_eq.add_trace(go.Scatter(
-        x=port_equity.index,
-        y=port_equity,
-        mode='lines',
-        name='📊 Combined Portfolio',
-        line=dict(color=ui.COLOR_BLUE, width=3)
-    ))
+        # Total portfolio equity (for filtered data)
+        fig_eq.add_trace(go.Scatter(
+            x=port_equity.index,
+            y=port_equity,
+            mode='lines',
+            name='Combined Portfolio',
+            line=dict(color=ui.COLOR_BLUE, width=3)
+        ))
 
-    # Add starting line
-    fig_eq.add_hline(y=account_size, line_dash="dash", line_color="lightgray")
+        # Add starting line
+        fig_eq.add_hline(y=account_size, line_dash="dash", line_color="lightgray")
 
-    # Color palette for strategies
-    strategy_colors = px.colors.qualitative.Set2 + px.colors.qualitative.Pastel1 + px.colors.qualitative.Dark2
+        # Color palette for strategies
+        strategy_colors = px.colors.qualitative.Set2 + px.colors.qualitative.Pastel1 + px.colors.qualitative.Dark2
 
-    # Add individual strategy equity curves
-    for i, strat in enumerate(selected_eq_strategies):
-        strat_data = meic_df_filtered[meic_df_filtered['strategy'] == strat]
-        if not strat_data.empty:
-            s_daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
-            s_daily_pnl = s_daily_pnl.reindex(full_date_range, fill_value=0)
-            s_equity = account_size + s_daily_pnl.cumsum()
-            color = strategy_colors[i % len(strategy_colors)]
-            fig_eq.add_trace(go.Scatter(
-                x=s_equity.index,
-                y=s_equity,
-                mode='lines',
-                name=f'🔹 {strat}',
-                line=dict(color=color, width=2)
-            ))
-
-    # Calculate dynamic height based on legend items
-    num_legend_items = 1 + len(selected_eq_strategies)
-    legend_rows = (num_legend_items + 2) // 3
-    extra_height = max(0, (legend_rows - 2) * 25)
-
-    fig_eq.update_layout(
-        template="plotly_white",
-        height=500 + extra_height,
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.12,
-            xanchor="center",
-            x=0.5,
-            bgcolor="rgba(255,255,255,0.95)",
-            bordercolor="rgba(0,0,0,0.1)",
-            borderwidth=1,
-            font=dict(size=9)
-        ),
-        margin=dict(l=20, r=20, t=40, b=20 + (legend_rows * 30)),
-        hovermode='x unified',
-        yaxis_title="Portfolio Value ($)"
-    )
-
-    st.plotly_chart(fig_eq, use_container_width=True)
-
-    # Strategy performance table below equity curve
-    if selected_eq_strategies:
-        st.markdown("##### Strategy Performance Comparison")
-        strat_perf = []
-        for strat in selected_eq_strategies:
+        # Add individual strategy equity curves
+        for i, strat in enumerate(selected_eq_strategies):
             strat_data = meic_df_filtered[meic_df_filtered['strategy'] == strat]
             if not strat_data.empty:
-                s_pnl = strat_data['pnl'].sum()
-                s_trades = len(strat_data)
-                s_win_rate = (strat_data['pnl'] > 0).mean()
-                s_avg_pnl = strat_data['pnl'].mean()
-                strat_perf.append({
-                    'Strategy': strat,
-                    'Total P/L': s_pnl,
-                    'Trades': s_trades,
-                    'Win Rate': s_win_rate,
-                    'Avg Trade': s_avg_pnl
-                })
+                s_daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
+                s_daily_pnl = s_daily_pnl.reindex(full_date_range, fill_value=0)
+                s_equity = account_size + s_daily_pnl.cumsum()
+                color = strategy_colors[i % len(strategy_colors)]
+                fig_eq.add_trace(go.Scatter(
+                    x=s_equity.index,
+                    y=s_equity,
+                    mode='lines',
+                    name=strat,
+                    line=dict(color=color, width=2)
+                ))
 
-        if strat_perf:
-            perf_df = pd.DataFrame(strat_perf)
-            st.dataframe(
-                perf_df.style.format({
-                    'Total P/L': '${:,.0f}',
-                    'Win Rate': '{:.1%}',
-                    'Avg Trade': '${:,.0f}'
-                }),
-                use_container_width=True,
-                hide_index=True
-            )
+        # Calculate dynamic height based on legend items
+        num_legend_items = 1 + len(selected_eq_strategies)
+        legend_rows = (num_legend_items + 2) // 3
+        extra_height = max(0, (legend_rows - 2) * 25)
+
+        fig_eq.update_layout(
+            template="plotly_white",
+            height=500 + extra_height,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.12,
+                xanchor="center",
+                x=0.5,
+                bgcolor="rgba(255,255,255,0.95)",
+                bordercolor="rgba(0,0,0,0.1)",
+                borderwidth=1,
+                font=dict(size=9)
+            ),
+            margin=dict(l=20, r=20, t=40, b=20 + (legend_rows * 30)),
+            hovermode='x unified',
+            yaxis_title="Portfolio Value ($)"
+        )
+
+        st.plotly_chart(fig_eq, use_container_width=True)
+
+    # === Strategy Performance Comparison (Card) ===
+    if selected_eq_strategies:
+        with st.container(border=True):
+            ui.section_header("Strategy Performance Comparison", description="Side-by-side comparison of selected strategies' key metrics.")
+
+            strat_perf = []
+            for strat in selected_eq_strategies:
+                strat_data = meic_df_filtered[meic_df_filtered['strategy'] == strat]
+                if not strat_data.empty:
+                    s_pnl = strat_data['pnl'].sum()
+                    s_trades = len(strat_data)
+                    s_win_rate = (strat_data['pnl'] > 0).mean()
+                    s_avg_pnl = strat_data['pnl'].mean()
+                    strat_perf.append({
+                        'Strategy': strat,
+                        'Total P/L': s_pnl,
+                        'Trades': s_trades,
+                        'Win Rate': s_win_rate,
+                        'Avg Trade': s_avg_pnl
+                    })
+
+            if strat_perf:
+                perf_df = pd.DataFrame(strat_perf)
+                st.dataframe(
+                    perf_df.style.format({
+                        'Total P/L': '${:,.0f}',
+                        'Win Rate': '{:.1%}',
+                        'Avg Trade': '${:,.0f}'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
 
     st.write("")
 
-    # === SECTION 6: ENTRY TIME HEATMAP (Day × Time) ===
-    ui.section_header("Entry Time × Day of Week Heatmap")
+    # === SECTION 6: ENTRY TIME HEATMAP (Day × Time) (Card) ===
+    with st.container(border=True):
+        ui.section_header("Entry Time × Day of Week Heatmap", description="Analyze performance patterns by entry time and day of week. Green indicates profitable cells, red indicates losses.")
 
-    meic_df_filtered['DayOfWeek'] = meic_df_filtered['timestamp_open'].dt.day_name()
+        meic_df_filtered['DayOfWeek'] = meic_df_filtered['timestamp_open'].dt.day_name()
 
-    heatmap_metric = st.radio("Heatmap Metric:", ["Total P/L", "Avg P/L", "Win Rate", "Trade Count"], horizontal=True, key="meic_heatmap_metric")
+        heatmap_metric = st.radio("Heatmap Metric:", ["Total P/L", "Avg P/L", "Win Rate", "Trade Count"], horizontal=True, key="meic_heatmap_metric")
 
-    # Create pivot table
-    if heatmap_metric == "Total P/L":
-        heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc='sum').fillna(0)
-        colorscale = 'RdYlGn'
-    elif heatmap_metric == "Avg P/L":
-        heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc='mean').fillna(0)
-        colorscale = 'RdYlGn'
-    elif heatmap_metric == "Win Rate":
-        heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc=lambda x: (x > 0).mean()).fillna(0)
-        colorscale = 'RdYlGn'
-    else:
-        heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc='count').fillna(0)
-        colorscale = 'Blues'
-
-    # Reorder days
-    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    heat_pivot = heat_pivot.reindex(columns=[d for d in day_order if d in heat_pivot.columns])
-
-    # Only show times with data
-    heat_pivot = heat_pivot[heat_pivot.sum(axis=1) != 0]
-
-    if not heat_pivot.empty:
-        # Determine text format based on metric
-        if heatmap_metric in ["Total P/L", "Avg P/L"]:
-            text_template = "%{text:.0f}"
+        # Create pivot table
+        if heatmap_metric == "Total P/L":
+            heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc='sum').fillna(0)
+            colorscale = 'RdYlGn'
+        elif heatmap_metric == "Avg P/L":
+            heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc='mean').fillna(0)
+            colorscale = 'RdYlGn'
         elif heatmap_metric == "Win Rate":
-            text_template = "%{text:.1%}"
+            heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc=lambda x: (x > 0).mean()).fillna(0)
+            colorscale = 'RdYlGn'
         else:
-            text_template = "%{text:.0f}"
+            heat_pivot = meic_df_filtered.pivot_table(index='EntryTimeStr', columns='DayOfWeek', values='pnl', aggfunc='count').fillna(0)
+            colorscale = 'Blues'
 
-        fig_heat = go.Figure(data=go.Heatmap(
-            z=heat_pivot.values,
-            x=heat_pivot.columns,
-            y=heat_pivot.index,
-            colorscale=colorscale,
-            text=heat_pivot.values,
-            texttemplate=text_template,
-            textfont={"size": 8},
-            hovertemplate="Time: %{y}<br>Day: %{x}<br>Value: %{z:.2f}<extra></extra>"
-        ))
+        # Reorder days
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+        heat_pivot = heat_pivot.reindex(columns=[d for d in day_order if d in heat_pivot.columns])
 
-        fig_heat.update_layout(
-            template="plotly_white",
-            height=max(400, len(heat_pivot) * 18),
-            xaxis_title="Day of Week",
-            yaxis_title="Entry Time",
-            margin=dict(l=80, r=20, t=40, b=60)
-        )
+        # Only show times with data
+        heat_pivot = heat_pivot[heat_pivot.sum(axis=1) != 0]
 
-        st.plotly_chart(fig_heat, use_container_width=True)
-    else:
-        st.warning("Not enough data to generate heatmap.")
+        if not heat_pivot.empty:
+            # Determine text format based on metric
+            if heatmap_metric in ["Total P/L", "Avg P/L"]:
+                text_template = "%{text:.0f}"
+            elif heatmap_metric == "Win Rate":
+                text_template = "%{text:.1%}"
+            else:
+                text_template = "%{text:.0f}"
+
+            fig_heat = go.Figure(data=go.Heatmap(
+                z=heat_pivot.values,
+                x=heat_pivot.columns,
+                y=heat_pivot.index,
+                colorscale=colorscale,
+                text=heat_pivot.values,
+                texttemplate=text_template,
+                textfont={"size": 14},
+                hovertemplate="Time: %{y}<br>Day: %{x}<br>Value: %{z:.2f}<extra></extra>"
+            ))
+
+            fig_heat.update_layout(
+                template="plotly_white",
+                height=max(500, len(heat_pivot) * 28),
+                xaxis_title="Day of Week",
+                yaxis_title="Entry Time",
+                margin=dict(l=80, r=20, t=40, b=60)
+            )
+
+            st.plotly_chart(fig_heat, use_container_width=True)
+        else:
+            st.warning("Not enough data to generate heatmap.")

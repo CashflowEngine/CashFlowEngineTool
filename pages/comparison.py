@@ -1,12 +1,13 @@
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.express as px
 import pandas as pd
 import numpy as np
 import ui_components as ui
 
 def page_comparison(bt_df_arg=None, live_df_arg=None):
     """Live vs Backtest comparison page - COMPLETE."""
-    ui.render_page_header("⚖️ REALITY CHECK")
+    ui.render_page_header("REALITY CHECK")
 
     # Use arguments if provided, otherwise fall back to session state
     if bt_df_arg is not None:
@@ -14,7 +15,7 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
     elif 'full_df' in st.session_state:
         bt_df = st.session_state['full_df'].copy()
     else:
-        st.warning("⚠️ Please upload Backtest data.")
+        st.warning("Please upload Backtest data.")
         return
 
     if live_df_arg is not None:
@@ -25,7 +26,7 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
         live_df = pd.DataFrame()
 
     if live_df is None or live_df.empty:
-        st.warning("⚠️ Live data is empty.")
+        st.warning("Live data is empty. Please upload live trading data to compare.")
         return
 
     # Ensure timestamps are datetime
@@ -38,152 +39,305 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
     live_min_ts = live_df['timestamp'].min()
     live_max_ts = live_df['timestamp'].max()
 
-    # Evaluation period selector
-    st.markdown("### 📅 Evaluation Period")
-    col_preset, col_dates = st.columns(2)
+    # === SECTION 1: CONFIGURATION (Card) ===
+    with st.container(border=True):
+        ui.section_header("Configuration", description="Set the evaluation period and map strategies between live and backtest data.")
 
-    with col_preset:
-        data_start = live_min_ts.date() if pd.notna(live_min_ts) else pd.Timestamp.now().date()
-        data_end = live_max_ts.date() if pd.notna(live_max_ts) else pd.Timestamp.now().date()
+        # Date range
+        config_c1, config_c2, config_c3 = st.columns([1, 1, 2])
 
-        # Use data_end as reference point for presets, not today
-        comp_presets = {
-            "Full Period": (data_start, data_end),
-            "Last Month": (max((pd.Timestamp(data_end) - pd.DateOffset(months=1)).date(), data_start), data_end),
-            "Last Quarter": (max((pd.Timestamp(data_end) - pd.DateOffset(months=3)).date(), data_start), data_end),
-            "Last 6 Months": (max((pd.Timestamp(data_end) - pd.DateOffset(months=6)).date(), data_start), data_end),
-            "Year to Date": (max(pd.Timestamp(data_end.year, 1, 1).date(), data_start), data_end),
-            "Custom": None
-        }
+        with config_c1:
+            data_start = live_min_ts.date() if pd.notna(live_min_ts) else pd.Timestamp.now().date()
+            data_end = live_max_ts.date() if pd.notna(live_max_ts) else pd.Timestamp.now().date()
 
-        comp_preset = st.selectbox("Quick Select:", list(comp_presets.keys()), key="comp_date_preset")
+            comp_presets = {
+                "Full Period": (data_start, data_end),
+                "Last Month": (max((pd.Timestamp(data_end) - pd.DateOffset(months=1)).date(), data_start), data_end),
+                "Last Quarter": (max((pd.Timestamp(data_end) - pd.DateOffset(months=3)).date(), data_start), data_end),
+                "Last 6 Months": (max((pd.Timestamp(data_end) - pd.DateOffset(months=6)).date(), data_start), data_end),
+                "Year to Date": (max(pd.Timestamp(data_end.year, 1, 1).date(), data_start), data_end),
+                "Custom": None
+            }
 
-    with col_dates:
-        if comp_preset != "Custom" and comp_presets[comp_preset] is not None:
-            preset_start, preset_end = comp_presets[comp_preset]
-            default_comp_dates = [preset_start, preset_end]
-        else:
-            default_comp_dates = [data_start, data_end]
+            comp_preset = st.selectbox("Quick Select:", list(comp_presets.keys()), key="comp_date_preset")
 
-        selected_comp_dates = st.date_input("Analysis Period", default_comp_dates,
-                                            min_value=data_start, max_value=data_end, key="comp_dates_input")
+        with config_c2:
+            if comp_preset != "Custom" and comp_presets[comp_preset] is not None:
+                preset_start, preset_end = comp_presets[comp_preset]
+                default_comp_dates = [preset_start, preset_end]
+            else:
+                default_comp_dates = [data_start, data_end]
 
-    st.divider()
+            selected_comp_dates = st.date_input("Analysis Period", default_comp_dates,
+                                                min_value=data_start, max_value=data_end, key="comp_dates_input")
 
-    # Filter data by selected dates
-    if len(selected_comp_dates) == 2:
-        live_df = live_df[
-            (live_df['timestamp'].dt.date >= selected_comp_dates[0]) &
-            (live_df['timestamp'].dt.date <= selected_comp_dates[1])
-        ].copy()
-        if bt_df is not None and not bt_df.empty:
-            bt_df = bt_df[
-                (bt_df['timestamp'].dt.date >= selected_comp_dates[0]) &
-                (bt_df['timestamp'].dt.date <= selected_comp_dates[1])
+        # Filter data by selected dates
+        if len(selected_comp_dates) == 2:
+            live_df = live_df[
+                (live_df['timestamp'].dt.date >= selected_comp_dates[0]) &
+                (live_df['timestamp'].dt.date <= selected_comp_dates[1])
             ].copy()
+            if bt_df is not None and not bt_df.empty:
+                bt_df = bt_df[
+                    (bt_df['timestamp'].dt.date >= selected_comp_dates[0]) &
+                    (bt_df['timestamp'].dt.date <= selected_comp_dates[1])
+                ].copy()
 
-    bt_strategies = sorted(bt_df['strategy'].unique()) if bt_df is not None and not bt_df.empty else []
-    live_strategies = sorted(live_df['strategy'].unique())
+        bt_strategies = sorted(bt_df['strategy'].unique()) if bt_df is not None and not bt_df.empty else []
+        live_strategies = sorted(live_df['strategy'].unique())
 
-    st.markdown("### 1. Strategy Mapping")
-    with st.expander("🔗 Configuration", expanded=True):
-        c1, c2 = st.columns(2)
-        mapping = {}
+        with config_c3:
+            st.markdown("**Strategy Mapping**")
+            # Single dropdown for strategy selection
+            selected_strategy = st.selectbox(
+                "Select Live Strategy to Analyze:",
+                options=live_strategies,
+                key="comp_live_strategy"
+            )
 
-        for i, live_s in enumerate(live_strategies):
-            default_ix = 0
+            # Find best matching backtest strategy
+            default_bt_ix = 0
             for k, bt_s in enumerate(bt_strategies):
-                if bt_s in live_s or live_s in bt_s:
-                    default_ix = k + 1
+                if bt_s in selected_strategy or selected_strategy in bt_s:
+                    default_bt_ix = k
                     break
 
-            col = c1 if i % 2 == 0 else c2
-            with col:
-                options = ["-- Ignore --"] + list(bt_strategies)
-                selection = st.selectbox(f"Live: **{live_s}**", options=options, index=default_ix, key=f"map_{i}")
-                if selection != "-- Ignore --":
-                    mapping[live_s] = selection
+            mapped_bt_strategy = st.selectbox(
+                "Map to Backtest Strategy:",
+                options=bt_strategies,
+                index=default_bt_ix,
+                key="comp_bt_strategy"
+            )
 
-    if not mapping:
-        st.warning("Please map at least one strategy.")
-        return
+    # Create mapping for selected strategy
+    mapping = {selected_strategy: mapped_bt_strategy}
 
-    st.divider()
-    st.markdown("### 2. Detailed Breakdown")
+    # === SECTION 2: PORTFOLIO OVERVIEW (Card) ===
+    with st.container(border=True):
+        ui.section_header("Portfolio Overview", description="Comparison of live trading vs backtest performance for the selected strategy.")
 
-    tabs = st.tabs(["📊 TOTAL PORTFOLIO"] + [f"🔎 {live} vs {bt}" for live, bt in mapping.items()])
+        # Get mapped data
+        s_live = live_df[live_df['strategy'] == selected_strategy].copy().sort_values('timestamp')
+        s_bt = bt_df[bt_df['strategy'] == mapped_bt_strategy].copy() if bt_df is not None and not bt_df.empty else pd.DataFrame()
 
-    with tabs[0]:
-        mapped_live = live_df[live_df['strategy'].isin(mapping.keys())].copy()
-        mapped_bt_list = []
-        global_start_date = mapped_live['timestamp'].min()
+        if s_live.empty:
+            st.warning("No live trades for selected strategy.")
+            return
 
-        for live_s, bt_s in mapping.items():
-            temp = bt_df[bt_df['strategy'] == bt_s].copy()
-            temp['strategy'] = live_s
-            mapped_bt_list.append(temp)
+        s_start = s_live['timestamp'].min()
+        if not s_bt.empty and pd.notna(s_start):
+            s_bt = s_bt[s_bt['timestamp'] >= s_start].sort_values('timestamp')
 
-        mapped_bt = pd.concat(mapped_bt_list, ignore_index=True) if mapped_bt_list else pd.DataFrame()
-        if not mapped_bt.empty and pd.notna(global_start_date):
-            mapped_bt = mapped_bt[mapped_bt['timestamp'] >= global_start_date]
+        if s_bt.empty:
+            st.warning("Backtest has no data from the live start date.")
+            return
 
-        daily_live = mapped_live.set_index('timestamp').resample('D')['pnl'].sum().fillna(0).cumsum()
-        daily_bt = mapped_bt.set_index('timestamp').resample('D')['pnl'].sum().fillna(0).cumsum() if not mapped_bt.empty else pd.Series([0])
+        # Calculate metrics
+        pl_live = s_live['pnl'].sum()
+        pl_bt = s_bt['pnl'].sum()
+        diff = pl_live - pl_bt
+        real_rate = (pl_live / pl_bt * 100) if pl_bt != 0 else 0
 
-        tot_live = daily_live.iloc[-1] if not daily_live.empty else 0
-        tot_bt = daily_bt.iloc[-1] if not daily_bt.empty and len(daily_bt) > 0 else 0
-        diff = tot_live - tot_bt
-        real_rate = (tot_live / tot_bt * 100) if tot_bt != 0 else 0
+        # Trade counts
+        live_trades = len(s_live)
+        bt_trades = len(s_bt)
 
-        m1, m2, m3, m4 = st.columns(4)
+        # Win rates
+        live_wins = (s_live['pnl'] > 0).sum()
+        bt_wins = (s_bt['pnl'] > 0).sum()
+        live_wr = live_wins / live_trades if live_trades > 0 else 0
+        bt_wr = bt_wins / bt_trades if bt_trades > 0 else 0
+
+        # KPI Row
+        m1, m2, m3, m4, m5 = st.columns(5)
         with m1:
-            st.metric("Live Net Profit", f"${tot_live:,.0f}")
+            ui.render_hero_metric("Live P/L", f"${pl_live:,.0f}", f"{live_trades} trades", "hero-teal" if pl_live > 0 else "hero-coral")
         with m2:
-            st.metric("Backtest Net Profit", f"${tot_bt:,.0f}")
+            ui.render_hero_metric("Backtest P/L", f"${pl_bt:,.0f}", f"{bt_trades} trades", "hero-neutral")
         with m3:
-            st.metric("Net Slippage", f"${diff:,.0f}", delta_color="normal" if diff >= 0 else "inverse")
+            ui.render_hero_metric("Net Slippage", f"${diff:,.0f}", "Live - Backtest", "hero-teal" if diff >= 0 else "hero-coral")
         with m4:
-            st.metric("Realization Rate", f"{real_rate:.1f}%")
+            ui.render_hero_metric("Realization Rate", f"{real_rate:.1f}%", "% of backtest captured", "hero-teal" if real_rate >= 80 else "hero-coral")
+        with m5:
+            wr_diff = (live_wr - bt_wr) * 100
+            ui.render_hero_metric("Win Rate Diff", f"{wr_diff:+.1f}%", f"Live: {live_wr:.1%} vs BT: {bt_wr:.1%}", "hero-neutral")
+
+        # Equity curves
+        st.write("")
+        cum_l = s_live.set_index('timestamp').resample('D')['pnl'].sum().fillna(0).cumsum()
+        cum_b = s_bt.set_index('timestamp').resample('D')['pnl'].sum().fillna(0).cumsum()
 
         fig = go.Figure()
-        if not daily_bt.empty:
-            fig.add_trace(go.Scatter(x=daily_bt.index, y=daily_bt, name="Backtest (Ideal)",
-                                     line=dict(color='gray', dash='dot')))
-        fig.add_trace(go.Scatter(x=daily_live.index, y=daily_live, name="Live (Real)",
+        fig.add_trace(go.Scatter(x=cum_b.index, y=cum_b, name=f"Backtest: {mapped_bt_strategy}",
+                                 line=dict(color='gray', dash='dot', width=2)))
+        fig.add_trace(go.Scatter(x=cum_l.index, y=cum_l, name=f"Live: {selected_strategy}",
                                  line=dict(color=ui.COLOR_BLUE, width=3)))
-        fig.update_layout(template="plotly_white", height=500)
+        fig.update_layout(
+            template="plotly_white",
+            height=450,
+            xaxis_title=None,
+            yaxis_title="Cumulative P/L ($)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
         st.plotly_chart(fig, use_container_width=True)
 
-    for i, (live_s, bt_s) in enumerate(mapping.items()):
-        with tabs[i + 1]:
-            s_live = live_df[live_df['strategy'] == live_s].copy().sort_values('timestamp')
-            if s_live.empty:
-                st.write("No live trades.")
-                continue
+    # === SECTION 3: TRADE-BY-TRADE ANALYSIS (Card) ===
+    with st.container(border=True):
+        ui.section_header("Trade-by-Trade Deviation Analysis",
+            description="Individual trade comparison showing the largest deviations between live and backtest results.")
 
-            s_start = s_live['timestamp'].min()
-            s_bt = bt_df[bt_df['strategy'] == bt_s].copy() if bt_df is not None and not bt_df.empty else pd.DataFrame()
-            if not s_bt.empty and pd.notna(s_start):
-                s_bt = s_bt[s_bt['timestamp'] >= s_start].sort_values('timestamp')
+        # Try to match trades by date
+        s_live['trade_date'] = s_live['timestamp'].dt.date
+        s_bt['trade_date'] = s_bt['timestamp'].dt.date
 
-            if s_bt.empty:
-                st.warning("Backtest has no data from start date.")
-                continue
+        # Daily P/L comparison
+        live_daily = s_live.groupby('trade_date')['pnl'].sum().reset_index()
+        live_daily.columns = ['Date', 'Live P/L']
 
-            pl_live = s_live['pnl'].sum()
-            pl_bt = s_bt['pnl'].sum()
-            s_diff = pl_live - pl_bt
-            s_real = (pl_live / pl_bt * 100) if pl_bt != 0 else 0
+        bt_daily = s_bt.groupby('trade_date')['pnl'].sum().reset_index()
+        bt_daily.columns = ['Date', 'Backtest P/L']
 
-            st.metric("P/L Difference", f"${s_diff:,.0f}", f"{s_real:.1f}% Realization")
+        # Merge on date
+        comparison_df = pd.merge(live_daily, bt_daily, on='Date', how='outer').fillna(0)
+        comparison_df['Deviation'] = comparison_df['Live P/L'] - comparison_df['Backtest P/L']
+        comparison_df['Deviation %'] = np.where(
+            comparison_df['Backtest P/L'] != 0,
+            (comparison_df['Deviation'] / abs(comparison_df['Backtest P/L'])) * 100,
+            0
+        )
+        comparison_df = comparison_df.sort_values('Deviation')
 
-            cum_l = s_live.set_index('timestamp').resample('D')['pnl'].sum().cumsum()
-            cum_b = s_bt.set_index('timestamp').resample('D')['pnl'].sum().cumsum()
+        # Statistics
+        stat_c1, stat_c2, stat_c3, stat_c4 = st.columns(4)
+        with stat_c1:
+            worst_dev = comparison_df['Deviation'].min()
+            st.metric("Worst Deviation", f"${worst_dev:,.0f}")
+        with stat_c2:
+            best_dev = comparison_df['Deviation'].max()
+            st.metric("Best Deviation", f"${best_dev:,.0f}")
+        with stat_c3:
+            avg_dev = comparison_df['Deviation'].mean()
+            st.metric("Avg Daily Deviation", f"${avg_dev:,.0f}")
+        with stat_c4:
+            negative_days = (comparison_df['Deviation'] < 0).sum()
+            total_days = len(comparison_df)
+            st.metric("Underperform Days", f"{negative_days} / {total_days}", f"{negative_days/total_days*100:.0f}%")
 
-            fig_s = go.Figure()
-            fig_s.add_trace(go.Scatter(x=cum_b.index, y=cum_b, name=f"Backtest: {bt_s}",
-                                       line=dict(color='gray', dash='dot')))
-            fig_s.add_trace(go.Scatter(x=cum_l.index, y=cum_l, name=f"Live: {live_s}",
-                                       line=dict(color=ui.COLOR_TEAL, width=3)))
-            fig_s.update_layout(template="plotly_white", height=450)
-            st.plotly_chart(fig_s, use_container_width=True, key=f"chart_{i}")
+        st.write("")
+
+        # Show table with worst deviations
+        st.markdown("**Days with Largest Negative Deviations (Underperformance)**")
+        worst_10 = comparison_df.nsmallest(10, 'Deviation').copy()
+        worst_10['Date'] = pd.to_datetime(worst_10['Date']).dt.strftime('%Y-%m-%d')
+
+        def color_deviation(val):
+            if val < 0:
+                return f'background-color: rgba(255, 46, 77, {min(abs(val)/1000, 0.5)}); color: #991B1B'
+            elif val > 0:
+                return f'background-color: rgba(0, 210, 190, {min(abs(val)/1000, 0.5)}); color: #065F46'
+            return ''
+
+        st.dataframe(
+            worst_10.style.format({
+                'Live P/L': '${:,.0f}',
+                'Backtest P/L': '${:,.0f}',
+                'Deviation': '${:,.0f}',
+                'Deviation %': '{:.1f}%'
+            }).map(color_deviation, subset=['Deviation']),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.write("")
+        st.markdown("**Days with Largest Positive Deviations (Outperformance)**")
+        best_10 = comparison_df.nlargest(10, 'Deviation').copy()
+        best_10['Date'] = pd.to_datetime(best_10['Date']).dt.strftime('%Y-%m-%d')
+
+        st.dataframe(
+            best_10.style.format({
+                'Live P/L': '${:,.0f}',
+                'Backtest P/L': '${:,.0f}',
+                'Deviation': '${:,.0f}',
+                'Deviation %': '{:.1f}%'
+            }).map(color_deviation, subset=['Deviation']),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # Deviation distribution chart
+        st.write("")
+        st.markdown("**Deviation Distribution Over Time**")
+
+        # Sort by date for chart
+        comparison_sorted = comparison_df.sort_values('Date')
+
+        fig_dev = go.Figure()
+        fig_dev.add_trace(go.Bar(
+            x=comparison_sorted['Date'],
+            y=comparison_sorted['Deviation'],
+            marker_color=[ui.COLOR_TEAL if d >= 0 else ui.COLOR_CORAL for d in comparison_sorted['Deviation']],
+            name='Daily Deviation'
+        ))
+        fig_dev.add_hline(y=0, line_dash="solid", line_color="gray")
+        fig_dev.add_hline(y=avg_dev, line_dash="dash", line_color="blue", annotation_text=f"Avg: ${avg_dev:,.0f}")
+        fig_dev.update_layout(
+            template="plotly_white",
+            height=400,
+            xaxis_title="Date",
+            yaxis_title="Deviation ($)",
+            showlegend=False
+        )
+        st.plotly_chart(fig_dev, use_container_width=True)
+
+    # === SECTION 4: ALL STRATEGIES COMPARISON (Card) ===
+    with st.container(border=True):
+        ui.section_header("All Strategies Quick Comparison",
+            description="Overview of all available strategy mappings and their performance.")
+
+        # Build comparison table for all strategies
+        all_comparisons = []
+
+        for live_s in live_strategies:
+            # Find best matching backtest strategy
+            matched_bt = None
+            for bt_s in bt_strategies:
+                if bt_s in live_s or live_s in bt_s:
+                    matched_bt = bt_s
+                    break
+
+            if matched_bt:
+                s_live_temp = live_df[live_df['strategy'] == live_s]
+                s_bt_temp = bt_df[bt_df['strategy'] == matched_bt]
+
+                if not s_live_temp.empty:
+                    s_start = s_live_temp['timestamp'].min()
+                    s_bt_temp = s_bt_temp[s_bt_temp['timestamp'] >= s_start] if not s_bt_temp.empty else s_bt_temp
+
+                    live_pnl = s_live_temp['pnl'].sum()
+                    bt_pnl = s_bt_temp['pnl'].sum() if not s_bt_temp.empty else 0
+                    deviation = live_pnl - bt_pnl
+                    realization = (live_pnl / bt_pnl * 100) if bt_pnl != 0 else 0
+
+                    all_comparisons.append({
+                        'Live Strategy': live_s,
+                        'Backtest Strategy': matched_bt,
+                        'Live P/L': live_pnl,
+                        'Backtest P/L': bt_pnl,
+                        'Deviation': deviation,
+                        'Realization %': realization
+                    })
+
+        if all_comparisons:
+            comp_df = pd.DataFrame(all_comparisons)
+            st.dataframe(
+                comp_df.style.format({
+                    'Live P/L': '${:,.0f}',
+                    'Backtest P/L': '${:,.0f}',
+                    'Deviation': '${:,.0f}',
+                    'Realization %': '{:.1f}%'
+                }).map(color_deviation, subset=['Deviation']),
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No matching strategies found. Please manually map strategies above.")

@@ -55,8 +55,8 @@ def render_page_header(title, subtitle=None):
     inject_fonts()
 
     # Use div instead of h1 to avoid Streamlit's CSS overrides
-    # 3x larger heading: 4.5rem (~72px) for strong visual impact
-    header_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 4.5rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 2px !important; margin-bottom: 1rem !important; line-height: 1.1 !important;"
+    # 3x larger heading: 6rem (~96px) for strong visual impact
+    header_style = "font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 6rem !important; text-transform: uppercase !important; color: #4B5563 !important; letter-spacing: 3px !important; margin-bottom: 1.5rem !important; line-height: 1.0 !important;"
 
     header_html = f'<div class="exo2-heading" style="{header_style}">{title}</div>'
 

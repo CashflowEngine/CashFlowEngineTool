@@ -272,8 +272,11 @@ def show_login_page():
 
         # --- WELCOME TEXT (at the very top) ---
         st.markdown("""
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
             <div style="text-align: center; margin-bottom: 30px;">
-                <div style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 700 !important; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
+                <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 700 !important; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
                 </div>
             </div>

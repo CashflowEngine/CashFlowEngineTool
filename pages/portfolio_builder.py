@@ -383,11 +383,34 @@ def page_portfolio_builder(full_df):
     ])
 
     with viz_tab1:
+        # Strategy selection for charts
+        active_strats = [s for s, mult in st.session_state.portfolio_allocation.items() if mult > 0 and s in strategy_base_stats]
+        chart_strats = st.multiselect(
+            "Select strategies to display:",
+            options=["Total Portfolio"] + active_strats,
+            default=["Total Portfolio"],
+            key="eq_chart_strat_select"
+        )
+
         with st.container(border=True):
             ui.section_header("Equity Growth",
                 description="Cumulative equity growth over the evaluation period.")
-            fig_eq = px.line(x=port_equity.index, y=port_equity.values)
-            fig_eq.update_layout(xaxis_title=None, yaxis_title="Equity ($)", template="plotly_white", height=400)
+
+            fig_eq = go.Figure()
+
+            # Add total portfolio line if selected
+            if "Total Portfolio" in chart_strats:
+                fig_eq.add_trace(go.Scatter(x=port_equity.index, y=port_equity.values, name="Total Portfolio", line=dict(width=3)))
+
+            # Add individual strategy lines if selected
+            for strat in chart_strats:
+                if strat != "Total Portfolio" and strat in strategy_base_stats:
+                    mult = st.session_state.portfolio_allocation.get(strat, 1.0)
+                    strat_pnl = strategy_base_stats[strat]['daily_pnl_series'] * mult
+                    strat_equity = account_size + strat_pnl.cumsum()
+                    fig_eq.add_trace(go.Scatter(x=strat_equity.index, y=strat_equity.values, name=strat[:20]))
+
+            fig_eq.update_layout(xaxis_title=None, yaxis_title="Equity ($)", template="plotly_white", height=400, legend=dict(orientation="h", y=-0.15))
             fig_eq.add_hline(y=account_size, line_dash="dash", line_color="gray", annotation_text="Starting Capital")
             st.plotly_chart(fig_eq, use_container_width=True)
 
@@ -398,17 +421,42 @@ def page_portfolio_builder(full_df):
             if dd_mode == "Dollar ($)":
                 ui.section_header("Drawdown ($)",
                     description="Dollar drawdown from peak equity over time.")
-                dd_series = port_equity - port_equity.cummax()
-                fig_dd = px.area(x=dd_series.index, y=dd_series.values)
-                fig_dd.update_layout(xaxis_title=None, yaxis_title="Drawdown ($)", template="plotly_white", height=350)
+
+                fig_dd = go.Figure()
+
+                if "Total Portfolio" in chart_strats:
+                    dd_series = port_equity - port_equity.cummax()
+                    fig_dd.add_trace(go.Scatter(x=dd_series.index, y=dd_series.values, fill='tozeroy', name="Total Portfolio", line=dict(color=ui.COLOR_CORAL)))
+
+                for strat in chart_strats:
+                    if strat != "Total Portfolio" and strat in strategy_base_stats:
+                        mult = st.session_state.portfolio_allocation.get(strat, 1.0)
+                        strat_pnl = strategy_base_stats[strat]['daily_pnl_series'] * mult
+                        strat_equity = account_size + strat_pnl.cumsum()
+                        strat_dd = strat_equity - strat_equity.cummax()
+                        fig_dd.add_trace(go.Scatter(x=strat_dd.index, y=strat_dd.values, name=strat[:20]))
+
+                fig_dd.update_layout(xaxis_title=None, yaxis_title="Drawdown ($)", template="plotly_white", height=350, legend=dict(orientation="h", y=-0.2))
             else:
                 ui.section_header("Drawdown (%)",
                     description="Percentage drawdown from peak equity over time.")
-                dd_series_pct = (port_equity - port_equity.cummax()) / port_equity.cummax() * 100
-                fig_dd = px.area(x=dd_series_pct.index, y=dd_series_pct.values)
-                fig_dd.update_layout(xaxis_title=None, yaxis_title="Drawdown (%)", template="plotly_white", height=350)
 
-            fig_dd.update_traces(line_color=ui.COLOR_CORAL, fillcolor='rgba(255, 46, 77, 0.3)')
+                fig_dd = go.Figure()
+
+                if "Total Portfolio" in chart_strats:
+                    dd_series_pct = (port_equity - port_equity.cummax()) / port_equity.cummax() * 100
+                    fig_dd.add_trace(go.Scatter(x=dd_series_pct.index, y=dd_series_pct.values, fill='tozeroy', name="Total Portfolio", line=dict(color=ui.COLOR_CORAL)))
+
+                for strat in chart_strats:
+                    if strat != "Total Portfolio" and strat in strategy_base_stats:
+                        mult = st.session_state.portfolio_allocation.get(strat, 1.0)
+                        strat_pnl = strategy_base_stats[strat]['daily_pnl_series'] * mult
+                        strat_equity = account_size + strat_pnl.cumsum()
+                        strat_dd_pct = (strat_equity - strat_equity.cummax()) / strat_equity.cummax() * 100
+                        fig_dd.add_trace(go.Scatter(x=strat_dd_pct.index, y=strat_dd_pct.values, name=strat[:20]))
+
+                fig_dd.update_layout(xaxis_title=None, yaxis_title="Drawdown (%)", template="plotly_white", height=350, legend=dict(orientation="h", y=-0.2))
+
             st.plotly_chart(fig_dd, use_container_width=True)
 
     with viz_tab2:

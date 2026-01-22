@@ -23,15 +23,32 @@ def show_landing_page():
                 st.rerun()
         return
 
+    # --- RED TAB UNDERLINE CSS ---
+    st.markdown("""
+        <style>
+            /* Change tab underline/highlight from blue to red */
+            .stTabs [data-baseweb="tab-highlight"] {
+                background-color: #FF2E4D !important;
+            }
+            .stTabs [data-baseweb="tab-border"] {
+                background-color: transparent !important;
+            }
+            /* Also style the active tab text if needed */
+            .stTabs [aria-selected="true"] {
+                color: #FF2E4D !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     # --- LOGO (Using actual image file) ---
     ui.render_logo(width=350, centered=True)
 
     # --- MAIN HEADLINE ---
     st.markdown(f"""
         <div style="text-align: center; margin: 30px 0 20px 0;">
-            <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 32px !important;
-                        color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 2px !important;
-                        margin-bottom: 15px !important; line-height: 1.3 !important;">
+            <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 52px !important;
+                        color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 3px !important;
+                        margin-bottom: 20px !important; line-height: 1.2 !important;">
                 Advanced Portfolio Analytics &<br>Risk Simulation for Option Traders
             </div>
             <p style="font-family: 'Poppins', sans-serif; font-size: 15px; color: #6B7280; max-width: 700px;
@@ -56,9 +73,9 @@ def show_landing_page():
     # --- SECTION 1: DATA IMPORT ---
     with st.container(border=True):
         st.markdown(f"""
-            <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 22px !important;
-                       color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1px !important;
-                       margin-bottom: 10px !important;">
+            <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 44px !important;
+                       color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 2px !important;
+                       margin-bottom: 15px !important;">
                 1. Data Import
             </div>
             <p style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #6B7280; margin-bottom: 20px;">
@@ -154,9 +171,9 @@ def show_landing_page():
 
     # --- SECTION 2: MODULE SELECTION (Feature Tiles with Text Links) ---
     st.markdown(f"""
-        <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 22px !important;
-                   color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 1px !important;
-                   margin-bottom: 10px !important;">
+        <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 44px !important;
+                   color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 2px !important;
+                   margin-bottom: 15px !important;">
             2. Select Module
         </div>
         <p style="font-family: 'Poppins', sans-serif !important; font-size: 13px; color: #6B7280; margin-bottom: 20px;">

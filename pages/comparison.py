@@ -4,16 +4,25 @@ import pandas as pd
 import numpy as np
 import ui_components as ui
 
-def page_comparison():
+def page_comparison(bt_df_arg=None, live_df_arg=None):
     """Live vs Backtest comparison page - COMPLETE."""
     ui.render_page_header("⚖️ REALITY CHECK")
 
-    if 'full_df' not in st.session_state or 'live_df' not in st.session_state:
-        st.warning("⚠️ Please upload both Backtest and Live data.")
+    # Use arguments if provided, otherwise fall back to session state
+    if bt_df_arg is not None:
+        bt_df = bt_df_arg.copy()
+    elif 'full_df' in st.session_state:
+        bt_df = st.session_state['full_df'].copy()
+    else:
+        st.warning("⚠️ Please upload Backtest data.")
         return
 
-    bt_df = st.session_state['full_df'].copy()
-    live_df = st.session_state['live_df'].copy()
+    if live_df_arg is not None:
+        live_df = live_df_arg.copy() if not live_df_arg.empty else pd.DataFrame()
+    elif 'live_df' in st.session_state:
+        live_df = st.session_state['live_df'].copy()
+    else:
+        live_df = pd.DataFrame()
 
     if live_df is None or live_df.empty:
         st.warning("⚠️ Live data is empty.")

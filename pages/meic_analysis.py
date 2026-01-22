@@ -23,39 +23,40 @@ def page_meic_analysis(bt_df, live_df=None):
         st.warning("No data available.")
         return
 
-    # === SECTION 1: CONFIGURATION ===
-    st.markdown("### ⚙️ Configuration")
+    # === SECTION 1: CONFIGURATION (Card) ===
+    with st.container(border=True):
+        ui.section_header("Configuration")
 
-    # Date range
-    min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
+        # Date range
+        min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
 
-    config_c1, config_c2, config_c3 = st.columns([1, 1, 1])
-    with config_c1:
-        sel_dates = st.date_input("📅 Period", [min_ts.date(), max_ts.date()],
-                                  min_value=min_ts.date(), max_value=max_ts.date(), key="meic_dates")
+        config_c1, config_c2, config_c3 = st.columns([1, 1, 1])
+        with config_c1:
+            sel_dates = st.date_input("Period", [min_ts.date(), max_ts.date()],
+                                      min_value=min_ts.date(), max_value=max_ts.date(), key="meic_dates")
 
-    if len(sel_dates) != 2:
-        return
+        if len(sel_dates) != 2:
+            return
 
-    # Filter by date first
-    target_df = target_df[
-        (target_df['timestamp'].dt.date >= sel_dates[0]) &
-        (target_df['timestamp'].dt.date <= sel_dates[1])
-    ].copy()
+        # Filter by date first
+        target_df = target_df[
+            (target_df['timestamp'].dt.date >= sel_dates[0]) &
+            (target_df['timestamp'].dt.date <= sel_dates[1])
+        ].copy()
 
-    # Strategy selector
-    all_strats = sorted(list(target_df['strategy'].unique()))
-    default_meics = [s for s in all_strats if "MEIC" in s.upper()]
+        # Strategy selector
+        all_strats = sorted(list(target_df['strategy'].unique()))
+        default_meics = [s for s in all_strats if "MEIC" in s.upper()]
 
-    with config_c2:
-        selected_meics = st.multiselect("📊 Select Strategies:", options=all_strats, default=default_meics, key="meic_strats")
+        with config_c2:
+            selected_meics = st.multiselect("Select Strategies:", options=all_strats, default=default_meics, key="meic_strats")
 
-    with config_c3:
-        account_size = st.number_input("💰 Account Size ($)", value=100000, step=5000, min_value=1000, key="meic_account")
+        with config_c3:
+            account_size = st.number_input("Account Size ($)", value=100000, step=5000, min_value=1000, key="meic_account")
 
-    if not selected_meics:
-        st.error("Please select at least one strategy.")
-        return
+        if not selected_meics:
+            st.error("Please select at least one strategy.")
+            return
 
     # Filter by strategy
     meic_df = target_df[target_df['strategy'].isin(selected_meics)].copy()
@@ -68,73 +69,69 @@ def page_meic_analysis(bt_df, live_df=None):
     # Create entry time string
     meic_df['EntryTimeStr'] = meic_df['timestamp_open'].dt.strftime('%H:%M')
 
-    # === ENTRY TIME FILTER (NEW FEATURE) ===
-    st.divider()
-    st.markdown("### 🎯 Entry Time Filter")
+    # === ENTRY TIME FILTER (Card) ===
+    with st.container(border=True):
+        ui.section_header("Entry Time Filter")
 
-    # Get all available entry times
-    all_entry_times = sorted(meic_df['EntryTimeStr'].unique().tolist())
+        # Get all available entry times
+        all_entry_times = sorted(meic_df['EntryTimeStr'].unique().tolist())
 
-    # Calculate stats for each entry time to help user decide
-    time_quick_stats = meic_df.groupby('EntryTimeStr')['pnl'].agg(['count', 'sum', 'mean'])
-    time_quick_stats.columns = ['trades', 'total_pnl', 'avg_pnl']
+        # Calculate stats for each entry time to help user decide
+        time_quick_stats = meic_df.groupby('EntryTimeStr')['pnl'].agg(['count', 'sum', 'mean'])
+        time_quick_stats.columns = ['trades', 'total_pnl', 'avg_pnl']
 
-    # Get times with positive P/L as default suggestion
-    positive_times = time_quick_stats[time_quick_stats['total_pnl'] > 0].index.tolist()
+        # Get times with positive P/L as default suggestion
+        positive_times = time_quick_stats[time_quick_stats['total_pnl'] > 0].index.tolist()
 
-    filter_col1, filter_col2 = st.columns([3, 1])
+        filter_col1, filter_col2 = st.columns([3, 1])
 
-    with filter_col1:
-        # Entry time multi-select
-        selected_entry_times = st.multiselect(
-            "Select Entry Times to Analyze:",
-            options=all_entry_times,
-            default=all_entry_times,  # Default: all times selected
-            key="meic_entry_time_filter",
-            help="Filter trades by entry time. Only selected times will be included in analysis."
-        )
+        with filter_col1:
+            # Entry time multi-select
+            selected_entry_times = st.multiselect(
+                "Select Entry Times to Analyze:",
+                options=all_entry_times,
+                default=all_entry_times,  # Default: all times selected
+                key="meic_entry_time_filter",
+                help="Filter trades by entry time. Only selected times will be included in analysis."
+            )
 
-    with filter_col2:
-        st.markdown("##### Quick Actions")
-        qa_col1, qa_col2 = st.columns(2)
-        with qa_col1:
-            if st.button("✅ All", key="meic_select_all", use_container_width=True, help="Select all entry times"):
-                st.session_state.meic_entry_time_filter = all_entry_times
+        with filter_col2:
+            st.markdown("**Quick Actions**")
+            qa_col1, qa_col2 = st.columns(2)
+            with qa_col1:
+                if st.button("All", key="meic_select_all", use_container_width=True, help="Select all entry times"):
+                    st.session_state.meic_entry_time_filter = all_entry_times
+                    st.rerun()
+            with qa_col2:
+                if st.button("None", key="meic_select_none", use_container_width=True, help="Clear all selections"):
+                    st.session_state.meic_entry_time_filter = []
+                    st.rerun()
+
+            if st.button("Profitable Only", key="meic_select_profitable", use_container_width=True,
+                         help="Select only entry times with positive total P/L"):
+                st.session_state.meic_entry_time_filter = positive_times
                 st.rerun()
-        with qa_col2:
-            if st.button("❌ None", key="meic_select_none", use_container_width=True, help="Clear all selections"):
-                st.session_state.meic_entry_time_filter = []
-                st.rerun()
 
-        if st.button("💚 Profitable Only", key="meic_select_profitable", use_container_width=True,
-                     help="Select only entry times with positive total P/L"):
-            st.session_state.meic_entry_time_filter = positive_times
-            st.rerun()
+        if not selected_entry_times:
+            st.warning("Please select at least one entry time.")
+            return
 
-    if not selected_entry_times:
-        st.warning("Please select at least one entry time.")
-        return
+        # Apply entry time filter
+        meic_df_filtered = meic_df[meic_df['EntryTimeStr'].isin(selected_entry_times)].copy()
 
-    # Apply entry time filter
-    meic_df_filtered = meic_df[meic_df['EntryTimeStr'].isin(selected_entry_times)].copy()
-
-    # Show filter summary
-    filter_summary_col1, filter_summary_col2, filter_summary_col3 = st.columns(3)
-    with filter_summary_col1:
-        st.metric("Selected Times", f"{len(selected_entry_times)} / {len(all_entry_times)}")
-    with filter_summary_col2:
-        st.metric("Filtered Trades", f"{len(meic_df_filtered):,}")
-    with filter_summary_col3:
-        filtered_pnl = meic_df_filtered['pnl'].sum()
-        unfiltered_pnl = meic_df['pnl'].sum()
-        pnl_retained = (filtered_pnl / unfiltered_pnl * 100) if unfiltered_pnl != 0 else 0
-        st.metric("P/L Retained", f"{pnl_retained:.1f}%", delta=f"${filtered_pnl:,.0f}")
-
-    st.divider()
+        # Show filter summary
+        filter_summary_col1, filter_summary_col2, filter_summary_col3 = st.columns(3)
+        with filter_summary_col1:
+            st.metric("Selected Times", f"{len(selected_entry_times)} / {len(all_entry_times)}")
+        with filter_summary_col2:
+            st.metric("Filtered Trades", f"{len(meic_df_filtered):,}")
+        with filter_summary_col3:
+            filtered_pnl = meic_df_filtered['pnl'].sum()
+            unfiltered_pnl = meic_df['pnl'].sum()
+            pnl_retained = (filtered_pnl / unfiltered_pnl * 100) if unfiltered_pnl != 0 else 0
+            st.metric("P/L Retained", f"{pnl_retained:.1f}%", delta=f"${filtered_pnl:,.0f}")
 
     # === SECTION 2: KPI SUMMARY (for filtered data) ===
-    st.markdown("### 📈 Performance Summary")
-
     # Calculate metrics for filtered data
     full_date_range = pd.date_range(start=sel_dates[0], end=sel_dates[1], freq='D')
     daily_pnl = meic_df_filtered.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_date_range, fill_value=0)
@@ -176,12 +173,9 @@ def page_meic_analysis(bt_df, live_df=None):
     with kpi_c5:
         ui.render_hero_metric("Win Rate", f"{win_rate:.1%}", f"{num_trades} trades", "hero-neutral")
 
-    st.divider()
+    st.write("")
 
     # === SECTION 3: ENTRY TIME PERFORMANCE TABLE ===
-    st.markdown("### ⏰ Performance by Entry Time")
-    st.caption("Analysis based on filtered entry times. Times with < 10 trades are hidden.")
-
     # Calculate stats for filtered times only
     time_stats = meic_df_filtered.groupby('EntryTimeStr').agg({
         'pnl': ['count', 'sum', 'mean'],
@@ -209,112 +203,118 @@ def page_meic_analysis(bt_df, live_df=None):
 
     filtered_stats = time_stats[time_stats['Trades'] >= 10].sort_values('MAR', ascending=False)
 
-    if filtered_stats.empty:
-        st.warning("No entry times found with >= 10 trades.")
-    else:
-        tbl_col, chart_col = st.columns([1, 1])
+    # Entry Time Performance Card
+    with st.container(border=True):
+        ui.section_header("Performance by Entry Time",
+            description="Analysis based on filtered entry times. Times with < 10 trades are hidden.")
 
-        with tbl_col:
-            # Style the dataframe
-            def color_mar(val):
-                try:
-                    if val >= 2:
-                        return 'background-color: rgba(0, 210, 190, 0.3)'
-                    elif val >= 1:
-                        return 'background-color: rgba(255, 193, 7, 0.3)'
-                    else:
-                        return 'background-color: rgba(255, 46, 77, 0.3)'
-                except:
-                    return ''
+        if filtered_stats.empty:
+            st.warning("No entry times found with >= 10 trades.")
+        else:
+            tbl_col, chart_col = st.columns([1, 1])
 
-            styled_stats = filtered_stats.style.format({
-                'Total P/L': '${:,.0f}',
-                'Avg P/L': '${:,.0f}',
-                'Win Rate': '{:.1%}',
-                'MAR': '{:.2f}'
-            }).map(color_mar, subset=['MAR'])
+            with tbl_col:
+                # Style the dataframe
+                def color_mar(val):
+                    try:
+                        if val >= 2:
+                            return 'background-color: rgba(0, 210, 190, 0.3)'
+                        elif val >= 1:
+                            return 'background-color: rgba(255, 193, 7, 0.3)'
+                        else:
+                            return 'background-color: rgba(255, 46, 77, 0.3)'
+                    except:
+                        return ''
 
-            st.dataframe(styled_stats, use_container_width=True, height=450)
+                styled_stats = filtered_stats.style.format({
+                    'Total P/L': '${:,.0f}',
+                    'Avg P/L': '${:,.0f}',
+                    'Win Rate': '{:.1%}',
+                    'MAR': '{:.2f}'
+                }).map(color_mar, subset=['MAR'])
 
-        with chart_col:
-            chart_metric = st.radio("Chart Metric:", ["MAR", "Total P/L", "Avg P/L", "Win Rate"], horizontal=True, key="meic_chart_metric")
+                st.dataframe(styled_stats, use_container_width=True, height=450)
 
-            # Create bar chart with color based on value
-            if chart_metric == "MAR":
-                colors = [ui.COLOR_TEAL if v >= 2 else (ui.COLOR_CORAL if v < 1 else '#FFC107') for v in filtered_stats['MAR']]
-            elif chart_metric == "Total P/L":
-                colors = [ui.COLOR_TEAL if v > 0 else ui.COLOR_CORAL for v in filtered_stats['Total P/L']]
-            elif chart_metric == "Avg P/L":
-                colors = [ui.COLOR_TEAL if v > 0 else ui.COLOR_CORAL for v in filtered_stats['Avg P/L']]
-            else:
-                colors = [ui.COLOR_TEAL if v >= 0.5 else ui.COLOR_CORAL for v in filtered_stats['Win Rate']]
+            with chart_col:
+                chart_metric = st.radio("Chart Metric:", ["MAR", "Total P/L", "Avg P/L", "Win Rate"], horizontal=True, key="meic_chart_metric")
 
-            fig_bar = go.Figure(data=[go.Bar(
-                x=filtered_stats.index,
-                y=filtered_stats[chart_metric],
-                marker_color=colors
-            )])
-            fig_bar.update_layout(
-                title=f"{chart_metric} by Entry Time",
-                template="plotly_white",
-                height=400,
-                xaxis_title="Entry Time",
-                yaxis_title=chart_metric
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
+                # Create bar chart with color based on value
+                if chart_metric == "MAR":
+                    colors = [ui.COLOR_TEAL if v >= 2 else (ui.COLOR_CORAL if v < 1 else '#FFC107') for v in filtered_stats['MAR']]
+                elif chart_metric == "Total P/L":
+                    colors = [ui.COLOR_TEAL if v > 0 else ui.COLOR_CORAL for v in filtered_stats['Total P/L']]
+                elif chart_metric == "Avg P/L":
+                    colors = [ui.COLOR_TEAL if v > 0 else ui.COLOR_CORAL for v in filtered_stats['Avg P/L']]
+                else:
+                    colors = [ui.COLOR_TEAL if v >= 0.5 else ui.COLOR_CORAL for v in filtered_stats['Win Rate']]
 
-    st.divider()
+                fig_bar = go.Figure(data=[go.Bar(
+                    x=filtered_stats.index,
+                    y=filtered_stats[chart_metric],
+                    marker_color=colors
+                )])
+                fig_bar.update_layout(
+                    title=f"{chart_metric} by Entry Time",
+                    template="plotly_white",
+                    height=400,
+                    xaxis_title="Entry Time",
+                    yaxis_title=chart_metric
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
 
-    # === SECTION 4: MONTHLY PERFORMANCE ===
-    st.markdown("### 📅 Monthly Performance")
+    st.write("")
 
-    meic_df_filtered['Year'] = meic_df_filtered['timestamp'].dt.year
-    meic_df_filtered['Month'] = meic_df_filtered['timestamp'].dt.month
+    # === SECTION 4: MONTHLY PERFORMANCE (Card) ===
+    with st.container(border=True):
+        ui.section_header("Monthly Performance")
 
-    monthly_mode = st.radio("Display:", ["Dollar P/L", "Percent Return"], horizontal=True, key="meic_monthly_mode", label_visibility="collapsed")
+        meic_df_filtered['Year'] = meic_df_filtered['timestamp'].dt.year
+        meic_df_filtered['Month'] = meic_df_filtered['timestamp'].dt.month
 
-    month_names = {1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
-                   7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'}
+        monthly_mode = st.radio("Display:", ["Dollar P/L", "Percent Return"], horizontal=True, key="meic_monthly_mode", label_visibility="collapsed")
 
-    # Helper function for styling
-    def _color_monthly(val):
-        try:
-            if isinstance(val, str):
-                clean_val = val.replace('$', '').replace(',', '').replace('%', '').strip()
-                num_val = float(clean_val)
-            else:
-                num_val = float(val)
+        month_names = {1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+                       7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'}
 
-            if num_val > 0:
-                intensity = min(abs(num_val) / 5000, 1) if abs(num_val) > 100 else min(abs(num_val) / 10, 1)
-                return f'background-color: rgba(0, 210, 190, {0.1 + intensity * 0.4}); color: #065F46'
-            elif num_val < 0:
-                intensity = min(abs(num_val) / 5000, 1) if abs(num_val) > 100 else min(abs(num_val) / 10, 1)
-                return f'background-color: rgba(255, 46, 77, {0.1 + intensity * 0.4}); color: #991B1B'
-            else:
+        # Helper function for styling
+        def _color_monthly(val):
+            try:
+                if isinstance(val, str):
+                    clean_val = val.replace('$', '').replace(',', '').replace('%', '').strip()
+                    num_val = float(clean_val)
+                else:
+                    num_val = float(val)
+
+                if num_val > 0:
+                    intensity = min(abs(num_val) / 5000, 1) if abs(num_val) > 100 else min(abs(num_val) / 10, 1)
+                    return f'background-color: rgba(0, 210, 190, {0.1 + intensity * 0.4}); color: #065F46'
+                elif num_val < 0:
+                    intensity = min(abs(num_val) / 5000, 1) if abs(num_val) > 100 else min(abs(num_val) / 10, 1)
+                    return f'background-color: rgba(255, 46, 77, {0.1 + intensity * 0.4}); color: #991B1B'
+                else:
+                    return 'background-color: white; color: #374151'
+            except (ValueError, TypeError):
                 return 'background-color: white; color: #374151'
-        except (ValueError, TypeError):
-            return 'background-color: white; color: #374151'
 
-    if "Dollar" in monthly_mode:
-        pivot = meic_df_filtered.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0)
-        pivot['Total'] = pivot.sum(axis=1)
-        pivot.loc['Average'] = pivot.mean()
-        pivot.columns = [month_names.get(c, c) for c in pivot.columns]
-        styled_pivot = pivot.style.map(_color_monthly).format("${:,.0f}")
-    else:
-        pivot = (meic_df_filtered.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0) / account_size) * 100
-        pivot['Total'] = pivot.sum(axis=1)
-        pivot.loc['Average'] = pivot.mean()
-        pivot.columns = [month_names.get(c, c) for c in pivot.columns]
-        styled_pivot = pivot.style.map(_color_monthly).format("{:.1f}%")
+        if "Dollar" in monthly_mode:
+            pivot = meic_df_filtered.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0)
+            pivot['Total'] = pivot.sum(axis=1)
+            pivot.loc['Average'] = pivot.mean()
+            pivot.columns = [month_names.get(c, c) for c in pivot.columns]
+            styled_pivot = pivot.style.map(_color_monthly).format("${:,.0f}")
+        else:
+            pivot = (meic_df_filtered.pivot_table(index='Year', columns='Month', values='pnl', aggfunc='sum').fillna(0) / account_size) * 100
+            pivot['Total'] = pivot.sum(axis=1)
+            pivot.loc['Average'] = pivot.mean()
+            pivot.columns = [month_names.get(c, c) for c in pivot.columns]
+            styled_pivot = pivot.style.map(_color_monthly).format("{:.1f}%")
 
-    st.dataframe(styled_pivot, use_container_width=True)
+        st.dataframe(styled_pivot, use_container_width=True)
 
-    st.divider()
+    st.write("")
 
     # === SECTION 5: EQUITY CURVES BY STRATEGY ===
-    st.markdown("### 📈 Equity Curve by Strategy")
+    ui.section_header("Equity Curve by Strategy")
 
     # Strategy selector for equity curves
     eq_strat_col1, eq_strat_col2 = st.columns([1, 5])
@@ -429,10 +429,10 @@ def page_meic_analysis(bt_df, live_df=None):
                 hide_index=True
             )
 
-    st.divider()
+    st.write("")
 
     # === SECTION 6: ENTRY TIME HEATMAP (Day × Time) ===
-    st.markdown("### 🗓️ Entry Time × Day of Week Heatmap")
+    ui.section_header("Entry Time × Day of Week Heatmap")
 
     meic_df_filtered['DayOfWeek'] = meic_df_filtered['timestamp_open'].dt.day_name()
 

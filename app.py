@@ -412,16 +412,33 @@ st.markdown("""
         font-family: 'Poppins', sans-serif !important;
     }
 
-    /* Multiselect styling - less overwhelming */
+    /* Multiselect styling - less overwhelming, gray background */
     div[data-baseweb="select"] {
         max-height: 150px;
     }
 
-    /* Make multiselect chips smaller */
+    /* Gray background for all dropdowns and selects */
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="popover"] > div,
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div,
+    [data-baseweb="select"] [data-baseweb="input"] {
+        background-color: #F3F4F6 !important;
+        border-color: #D1D5DB !important;
+    }
+
+    /* Gray background for dropdown menu items */
+    [data-baseweb="menu"] {
+        background-color: #F9FAFB !important;
+    }
+
+    /* Make multiselect chips smaller with gray tones */
     span[data-baseweb="tag"] {
         font-size: 11px !important;
         padding: 2px 6px !important;
         margin: 2px !important;
+        background-color: #E5E7EB !important;
+        color: #374151 !important;
     }
 
     /* Footer */
@@ -610,12 +627,33 @@ else:
 current_page_val = st.session_state.navigate_to_page
 
 # --- SIDEBAR LOGIC ---
-# Hide sidebar on login page and landing page
+# Hide sidebar on login page and landing page - use aggressive CSS to prevent flicker
 if not st.session_state.is_authenticated or current_page_val == "Start & Data":
     st.markdown("""
     <style>
-        [data-testid="stSidebar"] { display: none !important; }
-        section[data-testid="stSidebar"] { display: none !important; }
+        /* Aggressively hide sidebar during login/landing - prevent flash of unstyled content */
+        [data-testid="stSidebar"],
+        section[data-testid="stSidebar"],
+        [data-testid="stSidebarNav"],
+        [data-testid="stSidebarContent"],
+        .css-1d391kg,
+        .css-163ttbj {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            opacity: 0 !important;
+            transform: translateX(-100%) !important;
+            position: absolute !important;
+            left: -9999px !important;
+        }
+        /* Remove any sidebar margin/padding from main content */
+        .main .block-container {
+            margin-left: 0 !important;
+            padding-left: 1rem !important;
+            max-width: 100% !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 elif st.session_state.is_authenticated:

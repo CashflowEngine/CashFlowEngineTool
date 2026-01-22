@@ -42,9 +42,9 @@ def page_monte_carlo(full_df):
     st.subheader("Simulation Parameters")
     c1, c2, c3 = st.columns(3)
     with c1:
-        n_sims = st.number_input("Number of Simulations", value=5000, step=500, min_value=100, max_value=10000)
+        n_sims = st.number_input("Number of Simulations", value=1000, step=500, min_value=100, max_value=10000)
     with c2:
-        sim_months = st.number_input("Simulation Period (Months)", value=60, step=6, min_value=1, max_value=120)
+        sim_months = st.number_input("Simulation Period (Months)", value=36, step=6, min_value=1, max_value=120)
     with c3:
         if from_builder and portfolio_daily_pnl is not None:
             start_cap = st.number_input("Initial Capital ($)",

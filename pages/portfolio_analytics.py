@@ -54,6 +54,12 @@ def page_portfolio_analytics(full_df, live_df=None):
             # Initialize session state for selected strategies
             if 'pa_selected_strats' not in st.session_state:
                 st.session_state.pa_selected_strats = all_strategies.copy()
+            else:
+                # Validate: remove any strategies that no longer exist in the data
+                st.session_state.pa_selected_strats = [s for s in st.session_state.pa_selected_strats if s in all_strategies]
+                # If all strategies were removed, reset to all available
+                if not st.session_state.pa_selected_strats:
+                    st.session_state.pa_selected_strats = all_strategies.copy()
 
             # Filter header row: Label, Select All, Recalculate - all inline
             filter_col1, filter_col2, filter_col3 = st.columns([2, 1, 1])

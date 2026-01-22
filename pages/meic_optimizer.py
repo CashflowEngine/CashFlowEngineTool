@@ -9,16 +9,16 @@ def page_meic_optimizer():
     # Header with consistent font and Beta badge
     ui.inject_fonts()
     st.markdown(f"""
-        <h1 style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
+        <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important;
                    font-size: 2.5rem !important; text-transform: uppercase !important;
-                   color: {ui.COLOR_GREY} !important; letter-spacing: 1px !important;">
+                   color: {ui.COLOR_GREY} !important; letter-spacing: 1px !important; margin-bottom: 0.5rem !important;">
             MEIC OPTIMIZER
             <span style="display: inline-block; background-color: #FEF3C7; color: #D97706;
                         font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 4px;
                         margin-left: 12px; vertical-align: middle; text-transform: uppercase;">
                 Beta
             </span>
-        </h1>
+        </div>
     """, unsafe_allow_html=True)
 
     # Beta notice

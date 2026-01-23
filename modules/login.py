@@ -276,25 +276,28 @@ def show_login_page():
     col_left, col_right = st.columns([1, 2], gap="small")
 
     with col_left:
-        # --- WELCOME TEXT (no extra spacing - starts at top) ---
+        # --- WELCOME TEXT (Exo 2 font, blue color, positioned higher) ---
         st.markdown("""
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-            <div style="text-align: center; margin-bottom: 50px; margin-top: 0;">
-                <span style="font-family: 'Exo 2', sans-serif; font-size: 36px; font-weight: 700; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap');
+            </style>
+            <div style="text-align: center; margin-bottom: 25px; margin-top: 0; padding-top: 0;">
+                <span style="font-family: 'Exo 2', sans-serif !important; font-size: 32px; font-weight: 600 !important; color: #302BFF !important; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
                 </span>
             </div>
         """, unsafe_allow_html=True)
 
-        # --- LOGO (10% smaller: 384px -> 345px) ---
+        # --- LOGO (another 10% smaller: 345px -> 310px) ---
         logo_b64 = _get_image_base64("CashflowEnginelogo.png")
         if logo_b64:
             st.markdown(f"""
-                <div style="text-align: center; margin-bottom: 40px;">
+                <div style="text-align: center; margin-bottom: 20px;">
                     <img src="data:image/png;base64,{logo_b64}"
-                         style="width: 345px; height: auto; max-width: 100%;"
+                         style="width: 310px; height: auto; max-width: 100%;"
                          alt="Cashflow Engine Logo" />
                 </div>
             """, unsafe_allow_html=True)
@@ -327,17 +330,15 @@ def show_login_page():
             # Clear error after displaying
             st.session_state['auth_error'] = None
 
-        # --- INTRO TEXT ---
+        # --- INTRO TEXT (minimal spacing to login form) ---
         if not st.session_state.get('magic_link_sent'):
             st.markdown("""
-                <div style="text-align: center; margin-bottom: 25px;">
+                <div style="text-align: center; margin-bottom: 8px;">
                     <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
                         Sign in to access your portfolio analytics
                     </span>
                 </div>
             """, unsafe_allow_html=True)
-
-        st.write("")
 
         # --- LOGIN FORM ---
         form_col1, form_col2, form_col3 = st.columns([0.3, 3, 0.3])

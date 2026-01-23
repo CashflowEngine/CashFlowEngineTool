@@ -329,7 +329,6 @@ def page_portfolio_analytics(full_df, live_df=None):
 
                 s_margin_series = calc.generate_daily_margin_series_optimized(s_df)
                 s_peak_margin = s_margin_series.max() if not s_margin_series.empty else 0
-                s_avg_margin = s_margin_series.mean() if not s_margin_series.empty else 0
 
                 strat_metrics.append({
                     "Strategy": s,
@@ -339,8 +338,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Max DD ($)": s_dd_usd,
                     "MAR": s_mar,
                     "MART": s_mart,
-                    "Peak Margin": s_peak_margin,
-                    "Avg Margin": s_avg_margin
+                    "Peak Margin": s_peak_margin
                 })
 
             perf_df = pd.DataFrame(strat_metrics)
@@ -354,8 +352,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Max DD ($)": m['MaxDD_USD'],
                     "MAR": m['MAR'],
                     "MART": m['MART'],
-                    "Peak Margin": perf_df["Peak Margin"].max(),
-                    "Avg Margin": perf_df["Avg Margin"].mean()
+                    "Peak Margin": perf_df["Peak Margin"].max()
                 }
                 perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
                 perf_df['CAGR'] = perf_df['CAGR'] * 100
@@ -370,8 +367,7 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
                     "MART": st.column_config.NumberColumn(format="%.2f"),
-                    "Peak Margin": st.column_config.NumberColumn(format="$%.0f"),
-                    "Avg Margin": st.column_config.NumberColumn(format="$%.0f")
+                    "Peak Margin": st.column_config.NumberColumn(format="$%.0f")
                 },
                 use_container_width=True,
                 hide_index=True

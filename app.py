@@ -694,11 +694,11 @@ else:
 
         st.markdown("---")
 
-        # Analysis Manager - simple section without expander
+        # Analysis Manager - simple section without expander (same size as menu items)
         st.markdown("""
-            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
-                        font-size: 12px; color: #4B5563; text-transform: uppercase;
-                        letter-spacing: 1px; margin-bottom: 10px;">
+            <div style="font-family: 'Poppins', sans-serif !important; font-weight: 600 !important;
+                        font-size: 13px; color: #4B5563; text-transform: none;
+                        letter-spacing: 0.3px; margin-bottom: 10px; padding: 10px 12px;">
                 Analysis Manager
             </div>
         """, unsafe_allow_html=True)
@@ -729,8 +729,14 @@ else:
         landing.show_landing_page()
 
     elif df.empty and current_page_val != "Start & Data":
-        st.session_state.navigate_to_page = "Start & Data"
-        st.rerun()
+        # Show data required overlay instead of redirecting (prevents hanging)
+        ui.render_data_required_overlay()
+        col_space, col_btn, col_space2 = st.columns([1, 2, 1])
+        with col_btn:
+            if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
+                st.session_state.navigate_to_page = "Start & Data"
+                st.rerun()
+        return
 
     else:
         if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)

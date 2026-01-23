@@ -160,23 +160,42 @@ def page_portfolio_builder(full_df):
                 'StrategyFull': strat,
                 'Hist': stats['contracts_per_day'],
                 'P&L': stats['total_pnl'],
+                'P&L*M': stats['total_pnl'] * mult,
+                'DD': stats['max_dd'],
+                'DD*M': stats['max_dd'] * mult,
                 'Margin/Lot': stats['margin_per_contract'],
-                'Margin After': stats['margin_per_contract'] * stats['contracts_per_day'] * mult,
+                'Margin*M': stats['margin_per_contract'] * stats['contracts_per_day'] * mult,
                 'Multiplier': mult
             })
 
         alloc_df = pd.DataFrame(allocation_data)
 
-        # Data editor with styled Multiplier column
+        # Calculate totals for display
+        total_row = pd.DataFrame([{
+            'Category': '',
+            'Strategy': 'TOTAL',
+            'StrategyFull': '',
+            'Hist': alloc_df['Hist'].sum(),
+            'P&L': alloc_df['P&L'].sum(),
+            'P&L*M': alloc_df['P&L*M'].sum(),
+            'DD': alloc_df['DD'].max(),
+            'DD*M': alloc_df['DD*M'].max(),
+            'Margin/Lot': 0,
+            'Margin*M': alloc_df['Margin*M'].sum(),
+            'Multiplier': 0
+        }])
+
+        # Data editor (excluding total row - that's shown separately below)
         edited_alloc = st.data_editor(
-            alloc_df[['Category', 'Strategy', 'Hist', 'P&L', 'Margin/Lot', 'Margin After', 'Multiplier']],
+            alloc_df[['Category', 'Strategy', 'Hist', 'P&L', 'P&L*M', 'DD*M', 'Margin*M', 'Multiplier']],
             column_config={
                 "Category": st.column_config.SelectboxColumn("Type", options=["Workhorse", "Airbag", "Opportunist"], width="small"),
                 "Strategy": st.column_config.TextColumn(width="medium"),
                 "Hist": st.column_config.NumberColumn("Hist C/D", format="%.1f", width="small"),
-                "P&L": st.column_config.NumberColumn(format="$%.0f", width="small"),
-                "Margin/Lot": st.column_config.NumberColumn("Marg/Lot", format="$%.0f", width="small"),
-                "Margin After": st.column_config.NumberColumn("Total Marg", format="$%.0f", width="small"),
+                "P&L": st.column_config.NumberColumn("P&L (1x)", format="$%.0f", width="small"),
+                "P&L*M": st.column_config.NumberColumn("P&L*M", format="$%.0f", width="small"),
+                "DD*M": st.column_config.NumberColumn("DD*M", format="$%.0f", width="small"),
+                "Margin*M": st.column_config.NumberColumn("Margin*M", format="$%.0f", width="small"),
                 "Multiplier": st.column_config.NumberColumn(
                     "MULT ✏️",
                     min_value=0.0,
@@ -186,9 +205,20 @@ def page_portfolio_builder(full_df):
                 )
             },
             use_container_width=True,
-            key="allocation_editor_v19",
+            key="allocation_editor_v20",
             hide_index=True
         )
+
+        # Show totals row
+        st.markdown(f"""
+            <div style="background-color: #F3F4F6; padding: 10px 15px; border-radius: 6px; margin-top: -10px;
+                        display: flex; justify-content: space-between; font-family: Poppins, sans-serif; font-size: 13px;">
+                <span><strong>TOTAL</strong></span>
+                <span>P&L*M: <strong>${alloc_df['P&L*M'].sum():,.0f}</strong></span>
+                <span>Max DD*M: <strong>${alloc_df['DD*M'].max():,.0f}</strong></span>
+                <span>Margin*M: <strong>${alloc_df['Margin*M'].sum():,.0f}</strong></span>
+            </div>
+        """, unsafe_allow_html=True)
 
         # Update state using full strategy name
         for idx, row in edited_alloc.iterrows():
@@ -196,44 +226,64 @@ def page_portfolio_builder(full_df):
             st.session_state.portfolio_allocation[full_strat] = float(row['Multiplier'])
             st.session_state.category_overrides[full_strat] = row['Category']
 
-        # Action buttons row
-        btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
-        with btn_col1:
+        # Action buttons row - Calculate button
+        calc_col, spacer = st.columns([1, 4])
+        with calc_col:
             if st.button("CALCULATE", use_container_width=True, type="primary"):
                 st.session_state.calculate_kpis = True
                 st.rerun()
-        with btn_col2:
-            kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input", label_visibility="collapsed")
-            st.session_state.kelly_pct = kelly_input
-        with btn_col3:
-            if st.button("Kelly Opt", use_container_width=True, type="secondary"):
-                with placeholder:
-                    ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
-                optimized = calc.kelly_optimize_allocation(
-                    strategy_base_stats, target_margin, kelly_input/100,
-                    workhorse_pct/100, airbag_pct/100, opportunist_pct/100,
-                    st.session_state.category_overrides
-                )
-                st.session_state.portfolio_allocation = optimized
-                st.session_state.calculate_kpis = True
-                placeholder.empty()
-                st.rerun()
-        with btn_col4:
-            mart_min_pnl = st.number_input("Min P/L", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input", label_visibility="collapsed")
-            st.session_state.mart_min_pnl = mart_min_pnl
-        with btn_col5:
-            if st.button("MART Opt", use_container_width=True, type="secondary"):
-                with placeholder:
-                    ui.show_loading_overlay("Optimizing", "Running MART optimization...")
-                optimized = calc.mart_optimize_allocation(
-                    strategy_base_stats, target_margin, account_size,
-                    st.session_state.category_overrides, full_date_range, filtered_df,
-                    min_pnl=mart_min_pnl
-                )
-                st.session_state.portfolio_allocation = optimized
-                st.session_state.calculate_kpis = True
-                placeholder.empty()
-                st.rerun()
+
+        # Optimizers - clear grouping with labels
+        st.markdown("")
+        opt_col1, opt_col2 = st.columns(2)
+
+        with opt_col1:
+            st.markdown("""
+                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px;">
+                    KELLY OPTIMIZER
+                </div>
+            """, unsafe_allow_html=True)
+            kelly_c1, kelly_c2 = st.columns([1, 1])
+            with kelly_c1:
+                kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input")
+                st.session_state.kelly_pct = kelly_input
+            with kelly_c2:
+                if st.button("Run Kelly", use_container_width=True, type="secondary"):
+                    with placeholder:
+                        ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
+                    optimized = calc.kelly_optimize_allocation(
+                        strategy_base_stats, target_margin, kelly_input/100,
+                        workhorse_pct/100, airbag_pct/100, opportunist_pct/100,
+                        st.session_state.category_overrides
+                    )
+                    st.session_state.portfolio_allocation = optimized
+                    st.session_state.calculate_kpis = True
+                    placeholder.empty()
+                    st.rerun()
+
+        with opt_col2:
+            st.markdown("""
+                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px;">
+                    MART OPTIMIZER
+                </div>
+            """, unsafe_allow_html=True)
+            mart_c1, mart_c2 = st.columns([1, 1])
+            with mart_c1:
+                mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input")
+                st.session_state.mart_min_pnl = mart_min_pnl
+            with mart_c2:
+                if st.button("Run MART", use_container_width=True, type="secondary"):
+                    with placeholder:
+                        ui.show_loading_overlay("Optimizing", "Running MART optimization...")
+                    optimized = calc.mart_optimize_allocation(
+                        strategy_base_stats, target_margin, account_size,
+                        st.session_state.category_overrides, full_date_range, filtered_df,
+                        min_pnl=mart_min_pnl
+                    )
+                    st.session_state.portfolio_allocation = optimized
+                    st.session_state.calculate_kpis = True
+                    placeholder.empty()
+                    st.rerun()
 
         # Reset links centered below
         st.markdown("<div style='text-align: center; margin-top: 8px;'>", unsafe_allow_html=True)

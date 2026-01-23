@@ -40,17 +40,13 @@ def show_landing_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # --- LOGO (Using actual image file) ---
-    ui.render_logo(width=350, centered=True)
-
-    # --- MAIN HEADLINE ---
+    # --- MAIN HEADLINE (using h1 tag like original) ---
     st.markdown(f"""
         <div style="text-align: center; margin: 30px 0 20px 0;">
-            <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 80px !important;
-                        color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 4px !important;
-                        margin-bottom: 25px !important; line-height: 1.1 !important;">
+            <h1 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800;
+                        text-transform: uppercase; margin-bottom: 25px; letter-spacing: 4px;'>
                 Advanced Portfolio Analytics &<br>Risk Simulation for Option Traders
-            </div>
+            </h1>
             <p style="font-family: 'Poppins', sans-serif; font-size: 15px; color: #6B7280; max-width: 700px;
                       margin: 0 auto; line-height: 1.6;">
                 Analyze your options trading performance with professional-grade tools. Import your backtest
@@ -73,11 +69,10 @@ def show_landing_page():
     # --- SECTION 1: DATA IMPORT ---
     with st.container(border=True):
         st.markdown(f"""
-            <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 56px !important;
-                       color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 2px !important;
-                       margin-bottom: 20px !important;">
+            <h2 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800;
+                       text-transform: uppercase; margin-bottom: 20px; letter-spacing: 2px;'>
                 1. Data Import
-            </div>
+            </h2>
             <p style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #6B7280; margin-bottom: 20px;">
                 Start by importing your trading data. You can upload new CSV files from Option Omega or load
                 a previously saved analysis from the cloud database.
@@ -171,11 +166,10 @@ def show_landing_page():
 
     # --- SECTION 2: MODULE SELECTION (Feature Tiles with Text Links) ---
     st.markdown(f"""
-        <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-weight: 800 !important; font-size: 56px !important;
-                   color: {ui.COLOR_GREY} !important; text-transform: uppercase !important; letter-spacing: 2px !important;
-                   margin-bottom: 20px !important;">
+        <h2 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800;
+                   text-transform: uppercase; margin-bottom: 20px; letter-spacing: 2px;'>
             2. Select Module
-        </div>
+        </h2>
         <p style="font-family: 'Poppins', sans-serif !important; font-size: 13px; color: #6B7280; margin-bottom: 20px;">
             Choose an analysis module below. Data must be imported first to access most features.
         </p>

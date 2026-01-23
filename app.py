@@ -628,27 +628,35 @@ if 'navigate_to_page' not in st.session_state:
 # Use components.html for reliable JS execution
 import streamlit.components.v1 as components
 
+# This JavaScript runs in an iframe and redirects the parent window
+# It handles both #access_token (Magic Link) and converts to query params
 components.html("""
 <script>
     (function() {
-        // Check if there's a hash fragment with tokens
-        if (window.parent.location.hash && window.parent.location.hash.includes('access_token')) {
-            // Parse the fragment
-            const fragment = window.parent.location.hash.substring(1);
-            const params = new URLSearchParams(fragment);
+        try {
+            var parentHash = window.parent.location.hash;
+            var parentSearch = window.parent.location.search;
 
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
+            // Check if there's a hash fragment with access_token
+            if (parentHash && parentHash.includes('access_token')) {
+                var fragment = parentHash.substring(1);
+                var params = new URLSearchParams(fragment);
+                var accessToken = params.get('access_token');
+                var refreshToken = params.get('refresh_token');
 
-            if (accessToken && refreshToken) {
-                // Convert fragment to query string and redirect parent window
-                const newUrl = window.parent.location.pathname + '?access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken);
-                window.parent.location.replace(newUrl);
+                if (accessToken && refreshToken) {
+                    var newUrl = window.parent.location.origin + window.parent.location.pathname +
+                                 '?access_token=' + encodeURIComponent(accessToken) +
+                                 '&refresh_token=' + encodeURIComponent(refreshToken);
+                    window.parent.location.href = newUrl;
+                }
             }
+        } catch(e) {
+            console.log('Auth redirect error:', e);
         }
     })();
 </script>
-""", height=0)
+""", height=0, width=0)
 
 # Check for auth tokens in query params (after JS redirect from fragment)
 _query_params = st.query_params

@@ -117,11 +117,15 @@ def show_login_page():
         /* Remove top padding/margin from Streamlit main container */
         .stApp > header { display: none !important; }
         .stMainBlockContainer, .block-container {
-            padding-top: 1rem !important;
+            padding-top: 0 !important;
             margin-top: 0 !important;
         }
         .stApp {
             margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        [data-testid="stAppViewBlockContainer"] {
+            padding-top: 0.5rem !important;
         }
 
         /* Login page container */
@@ -303,20 +307,20 @@ def show_login_page():
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-            <div style="text-align: center; margin-bottom: 30px; margin-top: 0;">
-                <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 700 !important; color: #302BFF !important; text-transform: uppercase; letter-spacing: 2px;">
+            <div style="text-align: center; margin-bottom: 50px; margin-top: 0;">
+                <span style="font-family: 'Exo 2', sans-serif; font-size: 36px; font-weight: 700; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
-                </div>
+                </span>
             </div>
         """, unsafe_allow_html=True)
 
-        # --- LOGO ---
+        # --- LOGO (10% smaller: 384px -> 345px) ---
         logo_b64 = _get_image_base64("CashflowEnginelogo.png")
         if logo_b64:
             st.markdown(f"""
                 <div style="text-align: center; margin-bottom: 40px;">
                     <img src="data:image/png;base64,{logo_b64}"
-                         style="width: 384px; height: auto; max-width: 100%;"
+                         style="width: 345px; height: auto; max-width: 100%;"
                          alt="Cashflow Engine Logo" />
                 </div>
             """, unsafe_allow_html=True)

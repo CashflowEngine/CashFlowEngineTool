@@ -87,6 +87,7 @@ st.markdown("""
 
     /* Force Exo 2 for ALL Headings - More specific selectors */
     /* Force Exo 2 for ALL Headings and custom classes */
+    h1, h2, h3, h4, h5, h6,
     .exo2-heading,
     .card-title,
     .stHeading,
@@ -478,12 +479,13 @@ st.markdown("""
         color: #374151 !important;
     }
 
-    /* Footer */
+    /* Footer - only span main content area, not sidebar */
     .footer {
         position: fixed;
         bottom: 0;
-        left: 0;
-        width: 100%;
+        left: 310px; /* Sidebar width */
+        right: 0;
+        width: calc(100% - 310px);
         background-color: #F9FAFB;
         border-top: 1px solid #E5E7EB;
         padding: 8px;
@@ -495,6 +497,12 @@ st.markdown("""
     }
     .block-container {
         padding-bottom: 50px;
+        padding-top: 1rem !important;
+    }
+
+    /* Remove top padding from main content area */
+    .stMainBlockContainer, [data-testid="stAppViewBlockContainer"] {
+        padding-top: 1rem !important;
     }
 
     /* --- TOOLTIP STYLING --- */

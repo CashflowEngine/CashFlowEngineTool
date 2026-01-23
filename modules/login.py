@@ -276,26 +276,49 @@ def show_login_page():
     col_left, col_right = st.columns([1, 2], gap="small")
 
     with col_left:
-        # --- WELCOME TEXT (Exo 2 font, blue color, positioned higher) ---
+        # --- WELCOME TEXT (Exo 2 font with JS enforcement, blue color) ---
         st.markdown("""
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap');
+
+                .welcome-text-exo2 {
+                    font-family: 'Exo 2', sans-serif !important;
+                    font-size: 28px !important;
+                    font-weight: 600 !important;
+                    color: #302BFF !important;
+                    text-transform: uppercase !important;
+                    letter-spacing: 2px !important;
+                    text-align: center;
+                    margin-bottom: 20px;
+                }
             </style>
-            <div style="text-align: center; margin-bottom: 25px; margin-top: 0; padding-top: 0;">
-                <span style="font-family: 'Exo 2', sans-serif !important; font-size: 32px; font-weight: 600 !important; color: #302BFF !important; text-transform: uppercase; letter-spacing: 2px;">
-                    Welcome to
-                </span>
-            </div>
+            <div class="welcome-text-exo2">Welcome to</div>
+            <script>
+                // Force Exo 2 font after load
+                function applyExo2ToWelcome() {
+                    var el = document.querySelector('.welcome-text-exo2');
+                    if (el) {
+                        el.style.setProperty('font-family', "'Exo 2', sans-serif", 'important');
+                        el.style.setProperty('font-weight', '600', 'important');
+                    }
+                }
+                if (document.fonts && document.fonts.ready) {
+                    document.fonts.ready.then(applyExo2ToWelcome);
+                }
+                setTimeout(applyExo2ToWelcome, 100);
+                setTimeout(applyExo2ToWelcome, 500);
+                setTimeout(applyExo2ToWelcome, 1000);
+            </script>
         """, unsafe_allow_html=True)
 
-        # --- LOGO (another 10% smaller: 345px -> 310px) ---
+        # --- LOGO (310px) ---
         logo_b64 = _get_image_base64("CashflowEnginelogo.png")
         if logo_b64:
             st.markdown(f"""
-                <div style="text-align: center; margin-bottom: 20px;">
+                <div style="text-align: center; margin-bottom: 15px;">
                     <img src="data:image/png;base64,{logo_b64}"
                          style="width: 310px; height: auto; max-width: 100%;"
                          alt="Cashflow Engine Logo" />
@@ -303,9 +326,8 @@ def show_login_page():
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
-                <div style="text-align: center; margin-bottom: 40px;">
-                    <div style="font-family: 'Exo 2', sans-serif !important; font-size: 32px; font-weight: 800 !important;
-                                color: #302BFF; text-transform: uppercase; letter-spacing: 1px;">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <div class="welcome-text-exo2" style="font-size: 28px !important;">
                         CASHFLOW ENGINE
                     </div>
                 </div>
@@ -330,127 +352,114 @@ def show_login_page():
             # Clear error after displaying
             st.session_state['auth_error'] = None
 
-        # --- INTRO TEXT (minimal spacing to login form) ---
+        # --- INTRO TEXT + LOGIN FORM (no extra spacing) ---
         if not st.session_state.get('magic_link_sent'):
             st.markdown("""
-                <div style="text-align: center; margin-bottom: 8px;">
+                <div style="text-align: center; margin-bottom: 5px; margin-top: 0;">
                     <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
                         Sign in to access your portfolio analytics
                     </span>
                 </div>
             """, unsafe_allow_html=True)
 
-        # --- LOGIN FORM ---
-        form_col1, form_col2, form_col3 = st.columns([0.3, 3, 0.3])
-
-        with form_col2:
-            # --- GOOGLE SIGN-IN BUTTON ---
-            google_url = get_google_oauth_url()
-            if google_url:
-                st.markdown(f"""
-                    <a href="{google_url}" class="google-btn" target="_self">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                        Continue with Google
-                    </a>
-                """, unsafe_allow_html=True)
-            else:
-                # Google OAuth URL generation failed - use Magic Link instead
-                st.markdown("""
-                    <div style="text-align: center; padding: 14px; background-color: #F3F4F6;
-                                border-radius: 8px; margin-bottom: 10px;">
-                        <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
-                            Use Magic Link below to sign in
-                        </span>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            # --- DIVIDER ---
+        # --- GOOGLE SIGN-IN BUTTON (directly below, no columns) ---
+        google_url = get_google_oauth_url()
+        if google_url:
+            st.markdown(f"""
+                <a href="{google_url}" class="google-btn" target="_self">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Continue with Google
+                </a>
+            """, unsafe_allow_html=True)
+        else:
             st.markdown("""
-                <div class="divider">
-                    <div class="divider-line"></div>
-                    <span class="divider-text">or</span>
-                    <div class="divider-line"></div>
+                <div style="text-align: center; padding: 14px; background-color: #F3F4F6;
+                            border-radius: 8px;">
+                    <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
+                        Use Magic Link below to sign in
+                    </span>
                 </div>
             """, unsafe_allow_html=True)
 
-            # --- MAGIC LINK FORM ---
-            if not st.session_state.get('magic_link_sent'):
-                email = st.text_input(
-                    "Email Address",
-                    placeholder="Enter your email address",
-                    key="login_email",
-                    label_visibility="collapsed"
-                )
+        # --- DIVIDER ---
+        st.markdown("""
+            <div class="divider">
+                <div class="divider-line"></div>
+                <span class="divider-text">or</span>
+                <div class="divider-line"></div>
+            </div>
+        """, unsafe_allow_html=True)
 
-                st.write("")
+        # --- MAGIC LINK FORM ---
+        if not st.session_state.get('magic_link_sent'):
+            email = st.text_input(
+                "Email Address",
+                placeholder="Enter your email address",
+                key="login_email",
+                label_visibility="collapsed"
+            )
 
-                # Privacy checkbox
-                privacy_accepted = st.checkbox(
-                    "I accept the [Privacy Policy](/privacy)",
-                    key="privacy_checkbox",
-                    value=st.session_state.get('privacy_accepted', False)
-                )
+            # Privacy checkbox
+            privacy_accepted = st.checkbox(
+                "I accept the [Privacy Policy](/privacy)",
+                key="privacy_checkbox",
+                value=st.session_state.get('privacy_accepted', False)
+            )
 
-                st.write("")
-
-                # Send Magic Link Button
-                if st.button("Send Magic Link", use_container_width=True, type="primary", key="magic_link_button"):
-                    if not email:
-                        st.session_state['auth_error'] = "Please enter your email address."
-                        st.rerun()
-                    elif not privacy_accepted:
-                        st.session_state['auth_error'] = "Please accept the Privacy Policy to continue."
-                        st.rerun()
-                    elif '@' not in email or '.' not in email:
-                        st.session_state['auth_error'] = "Please enter a valid email address."
-                        st.rerun()
+            # Send Magic Link Button
+            if st.button("Send Magic Link", use_container_width=True, type="primary", key="magic_link_button"):
+                if not email:
+                    st.session_state['auth_error'] = "Please enter your email address."
+                    st.rerun()
+                elif not privacy_accepted:
+                    st.session_state['auth_error'] = "Please accept the Privacy Policy to continue."
+                    st.rerun()
+                elif '@' not in email or '.' not in email:
+                    st.session_state['auth_error'] = "Please enter a valid email address."
+                    st.rerun()
+                else:
+                    # Send magic link
+                    result = sign_in_with_magic_link(email)
+                    if result['success']:
+                        st.session_state['magic_link_sent'] = True
+                        st.session_state['user_email'] = email
+                        st.session_state['privacy_accepted'] = True
                     else:
-                        # Send magic link
-                        result = sign_in_with_magic_link(email)
-                        if result['success']:
-                            st.session_state['magic_link_sent'] = True
-                            st.session_state['user_email'] = email
-                            st.session_state['privacy_accepted'] = True
-                        else:
-                            st.session_state['auth_error'] = result['message']
-                        st.rerun()
+                        st.session_state['auth_error'] = result['message']
+                    st.rerun()
 
-                # Privacy notice
-                st.markdown("""
-                    <div class="privacy-notice">
-                        By signing in, you agree to our <a href="/privacy">Privacy Policy</a>.
-                        We use your email only for authentication and will never share it with third parties.
-                    </div>
-                """, unsafe_allow_html=True)
+            # Privacy notice
+            st.markdown("""
+                <div class="privacy-notice">
+                    By signing in, you agree to our <a href="/privacy">Privacy Policy</a>.
+                    We use your email only for authentication and will never share it with third parties.
+                </div>
+            """, unsafe_allow_html=True)
 
-            else:
-                # Magic link was sent - show confirmation
-                st.markdown(f"""
-                    <div style="text-align: center; padding: 20px 0;">
-                        <p style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
-                            Sent to: <strong>{st.session_state.get('user_email', '')}</strong>
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
+        else:
+            # Magic link was sent - show confirmation
+            st.markdown(f"""
+                <div style="text-align: center; padding: 20px 0;">
+                    <p style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
+                        Sent to: <strong>{st.session_state.get('user_email', '')}</strong>
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
 
-                # Resend button
-                col_a, col_b, col_c = st.columns([1, 2, 1])
-                with col_b:
-                    if st.button("Send New Link", use_container_width=True, type="secondary"):
-                        st.session_state['magic_link_sent'] = False
-                        st.rerun()
+            # Resend button
+            if st.button("Send New Link", use_container_width=True, type="secondary"):
+                st.session_state['magic_link_sent'] = False
+                st.rerun()
 
-                    st.write("")
-
-                    if st.button("Use Different Email", use_container_width=True, type="tertiary"):
-                        st.session_state['magic_link_sent'] = False
-                        st.session_state['user_email'] = None
-                        st.rerun()
+            if st.button("Use Different Email", use_container_width=True, type="tertiary"):
+                st.session_state['magic_link_sent'] = False
+                st.session_state['user_email'] = None
+                st.rerun()
 
     # --- RIGHT PANEL: FULL-HEIGHT MARKETING IMAGE ---
     with col_right:

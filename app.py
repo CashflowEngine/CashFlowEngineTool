@@ -4,6 +4,15 @@ import ui_components as ui
 import database as db
 import calculations as calc
 
+# Import auth module
+from core.auth import (
+    init_auth_session_state,
+    sign_out,
+    is_authenticated,
+    verify_and_refresh_session,
+    get_current_user
+)
+
 # Import page modules
 import modules.login as login
 import modules.landing as landing
@@ -14,6 +23,7 @@ import modules.comparison as comparison
 import modules.meic_analysis as meic_analysis
 import modules.meic_optimizer as meic_optimizer
 import modules.ai_analyst as ai_analyst
+import modules.privacy as privacy
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
@@ -607,12 +617,19 @@ st.markdown("""
 
 # --- 3. ROUTING & NAVIGATION ---
 
-# Initialize authentication state
-if 'is_authenticated' not in st.session_state:
-    st.session_state.is_authenticated = False
+# Initialize authentication state (using new auth module)
+init_auth_session_state()
 
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
+
+# Verify session on page load (refresh tokens if needed)
+if st.session_state.get('is_authenticated') and st.session_state.get('access_token'):
+    if not verify_and_refresh_session():
+        # Session expired, clear auth state
+        st.session_state['is_authenticated'] = False
+        st.session_state['access_token'] = None
+        st.session_state['refresh_token'] = None
 
 # Define Menu Items with display names
 # Format: {display_name: internal_page_value}
@@ -712,13 +729,18 @@ else:
 
         # Logout button at the very bottom
         if st.button("LOG OUT", use_container_width=True, type="secondary"):
+            sign_out()
             st.session_state.clear()
             st.rerun()
 
 # --- 4. PAGE RENDERING ---
 
+# Check for privacy page request (accessible without auth)
+query_params = st.query_params
+if query_params.get('page') == 'privacy' or st.session_state.get('show_privacy'):
+    privacy.show_privacy_page()
 # Check authentication first - show login page if not authenticated
-if not st.session_state.is_authenticated:
+elif not st.session_state.is_authenticated:
     login.show_login_page()
 else:
     # User is authenticated - show main app

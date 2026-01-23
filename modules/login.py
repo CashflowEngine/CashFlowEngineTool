@@ -107,78 +107,69 @@ def show_login_page():
     if _handle_oauth_callback():
         st.rerun()
 
-    # --- CUSTOM LOGIN PAGE STYLES ---
+    # --- CUSTOM LOGIN PAGE STYLES (Full-height right panel layout) ---
     st.markdown("""
     <style>
         /* Hide default Streamlit elements on login page */
         [data-testid="stSidebar"] { display: none !important; }
         section[data-testid="stSidebar"] { display: none !important; }
 
-        /* Remove top padding/margin from Streamlit main container */
+        /* Remove ALL padding/margin from Streamlit containers for full-height layout */
         .stApp > header { display: none !important; }
-        .stMainBlockContainer, .block-container {
-            padding-top: 0 !important;
-            margin-top: 0 !important;
-        }
         .stApp {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
-        [data-testid="stAppViewBlockContainer"] {
-            padding-top: 0.5rem !important;
+        .stMainBlockContainer, .block-container, [data-testid="stAppViewBlockContainer"] {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
         }
-
-        /* Login page container */
-        .login-container {
-            display: flex;
-            min-height: 85vh;
-            margin: -1rem -1rem 0 -1rem;
+        .stMain {
+            padding: 0 !important;
         }
 
-        /* Left panel - Login form */
-        .login-left {
-            flex: 1;
+        /* Full viewport height for columns */
+        [data-testid="stHorizontalBlock"] {
+            min-height: 100vh !important;
+            gap: 0 !important;
+        }
+
+        /* Left column - Login form (1/3 width) */
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+            padding: 60px 50px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            background-color: #FFFFFF !important;
+        }
+
+        /* Right column - Marketing image (2/3 width, full height) */
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+        }
+
+        /* Marketing panel - full height image container */
+        .marketing-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 66.67%;
+            height: 100vh;
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 50%, #C7D2FE 100%);
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 60px 80px;
-            background-color: #FFFFFF;
+            overflow: hidden;
         }
 
-        .login-form-wrapper {
+        .marketing-panel img {
             width: 100%;
-            max-width: 380px;
-        }
-
-        .login-logo {
-            margin-bottom: 40px;
-            text-align: center;
-        }
-
-        .login-logo img {
-            max-width: 220px;
-            height: auto;
-        }
-
-        .welcome-text {
-            font-family: 'Exo 2', sans-serif !important;
-            font-size: 28px;
-            font-weight: 600 !important;
-            color: #302BFF;
-            margin-bottom: 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .brand-title {
-            font-family: 'Exo 2', sans-serif;
-            font-size: 32px;
-            font-weight: 800;
-            color: #4B5563;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
         }
 
         /* Google button styling */
@@ -205,11 +196,6 @@ def show_login_page():
             border-color: #302BFF;
             background-color: #F9FAFB;
             box-shadow: 0 2px 8px rgba(48, 43, 255, 0.1);
-        }
-
-        .google-btn img {
-            width: 20px;
-            height: 20px;
         }
 
         /* Divider */
@@ -283,23 +269,11 @@ def show_login_page():
         .privacy-notice a:hover {
             text-decoration: underline;
         }
-
-        /* Right panel - Marketing content */
-        .login-right {
-            flex: 1.2;
-            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 50%, #C7D2FE 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 60px;
-            position: relative;
-            overflow: hidden;
-        }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- TWO COLUMN LAYOUT ---
-    col_left, col_right = st.columns([1, 1.3], gap="small")
+    # --- TWO COLUMN LAYOUT (1/3 login, 2/3 image) ---
+    col_left, col_right = st.columns([1, 2], gap="small")
 
     with col_left:
         # --- WELCOME TEXT (no extra spacing - starts at top) ---
@@ -477,73 +451,56 @@ def show_login_page():
                         st.session_state['user_email'] = None
                         st.rerun()
 
-    # --- RIGHT PANEL: MARKETING ---
+    # --- RIGHT PANEL: FULL-HEIGHT MARKETING IMAGE ---
     with col_right:
         marketing_image_b64 = _get_image_base64("login_marketing_panel.png")
 
         if marketing_image_b64:
+            # Full-height image panel (like PowerX Optimizer)
             st.markdown(f"""
-                <div style="display: flex; justify-content: center; align-items: center;
-                            min-height: 650px; padding: 20px;">
+                <div class="marketing-panel">
                     <img src="data:image/png;base64,{marketing_image_b64}"
-                         style="max-width: 100%; height: auto; border-radius: 16px;
-                                box-shadow: 0 10px 40px rgba(48, 43, 255, 0.1);"
                          alt="Cashflow Engine Features" />
                 </div>
             """, unsafe_allow_html=True)
         else:
-            # Fallback marketing content
+            # Fallback - gradient background with features
             st.markdown("""
-                <div style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 50%, #C7D2FE 100%);
-                            border-radius: 20px; padding: 60px 40px; min-height: 600px;
-                            display: flex; flex-direction: column; justify-content: center; align-items: center;
-                            text-align: center;">
-
-                    <div style="font-family: 'Exo 2', sans-serif; font-size: 42px; font-weight: 800;
-                                color: #302BFF; margin-bottom: 20px;">
-                        8+
-                    </div>
-                    <div style="font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 600;
-                                color: #4B5563; margin-bottom: 40px;">
-                        Analysis Modules
-                    </div>
-
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; max-width: 400px;">
-                        <div style="background: white; padding: 12px 20px; border-radius: 10px;
-                                    box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-                            <span style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #4B5563;">
-                                Portfolio Analytics
-                            </span>
+                <div class="marketing-panel">
+                    <div style="text-align: center; padding: 40px;">
+                        <div style="font-family: 'Exo 2', sans-serif; font-size: 48px; font-weight: 800;
+                                    color: #302BFF; margin-bottom: 20px;">
+                            8+
                         </div>
-                        <div style="background: white; padding: 12px 20px; border-radius: 10px;
-                                    box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-                            <span style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #4B5563;">
-                                Monte Carlo
-                            </span>
+                        <div style="font-family: 'Poppins', sans-serif; font-size: 20px; font-weight: 600;
+                                    color: #4B5563; margin-bottom: 40px;">
+                            Analysis Modules
                         </div>
-                        <div style="background: white; padding: 12px 20px; border-radius: 10px;
-                                    box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-                            <span style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #4B5563;">
-                                AI Analyst
-                            </span>
-                        </div>
-                        <div style="background: white; padding: 12px 20px; border-radius: 10px;
-                                    box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-                            <span style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #4B5563;">
-                                Portfolio Builder
-                            </span>
-                        </div>
-                        <div style="background: white; padding: 12px 20px; border-radius: 10px;
-                                    box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-                            <span style="font-family: 'Poppins', sans-serif; font-size: 13px; color: #4B5563;">
-                                MEIC Optimizer
-                            </span>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 50px;">
-                        <div style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
-                            Advanced Portfolio Analytics for Option Traders
+                        <div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; max-width: 450px; margin: 0 auto;">
+                            <div style="background: white; padding: 14px 24px; border-radius: 12px;
+                                        box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                                <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
+                                    Portfolio Analytics
+                                </span>
+                            </div>
+                            <div style="background: white; padding: 14px 24px; border-radius: 12px;
+                                        box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                                <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
+                                    Monte Carlo
+                                </span>
+                            </div>
+                            <div style="background: white; padding: 14px 24px; border-radius: 12px;
+                                        box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                                <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
+                                    Portfolio Builder
+                                </span>
+                            </div>
+                            <div style="background: white; padding: 14px 24px; border-radius: 12px;
+                                        box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                                <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
+                                    MEIC Optimizer
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>

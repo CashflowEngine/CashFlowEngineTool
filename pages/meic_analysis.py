@@ -89,6 +89,20 @@ def page_meic_analysis(bt_df, live_df=None):
         # Get times with positive P/L as default suggestion
         positive_times = time_quick_stats[time_quick_stats['total_pnl'] > 0].index.tolist()
 
+        # Handle pending quick action (must be BEFORE widget creation)
+        pending_action = st.session_state.pop('_meic_pending_filter_action', None)
+        if pending_action == 'all':
+            default_times = all_entry_times
+        elif pending_action == 'none':
+            default_times = []
+        elif pending_action == 'profitable':
+            default_times = positive_times
+        else:
+            # Use stored value or default to all times
+            default_times = st.session_state.get('meic_entry_time_filter', all_entry_times)
+            # Filter to only valid options
+            default_times = [t for t in default_times if t in all_entry_times]
+
         filter_col1, filter_col2 = st.columns([3, 1])
 
         with filter_col1:
@@ -96,7 +110,7 @@ def page_meic_analysis(bt_df, live_df=None):
             selected_entry_times = st.multiselect(
                 "Select Entry Times to Analyze:",
                 options=all_entry_times,
-                default=all_entry_times,  # Default: all times selected
+                default=default_times,
                 key="meic_entry_time_filter",
                 help="Filter trades by entry time. Only selected times will be included in analysis."
             )
@@ -106,16 +120,16 @@ def page_meic_analysis(bt_df, live_df=None):
             qa_col1, qa_col2 = st.columns(2)
             with qa_col1:
                 if st.button("All", key="meic_select_all", use_container_width=True, help="Select all entry times"):
-                    st.session_state.meic_entry_time_filter = all_entry_times
+                    st.session_state['_meic_pending_filter_action'] = 'all'
                     st.rerun()
             with qa_col2:
                 if st.button("None", key="meic_select_none", use_container_width=True, help="Clear all selections"):
-                    st.session_state.meic_entry_time_filter = []
+                    st.session_state['_meic_pending_filter_action'] = 'none'
                     st.rerun()
 
             if st.button("Profitable Only", key="meic_select_profitable", use_container_width=True,
                          help="Select only entry times with positive total P/L"):
-                st.session_state.meic_entry_time_filter = positive_times
+                st.session_state['_meic_pending_filter_action'] = 'profitable'
                 st.rerun()
 
         if not selected_entry_times:

@@ -396,6 +396,63 @@ def page_meic_optimizer():
                                        fillcolor="rgba(0,255,0,0.1)")
                     st.plotly_chart(fig_scat, use_container_width=True)
 
+            # --- HEATMAP: Entry Time × Strategy Parameter ---
+            st.divider()
+            ui.section_header("Entry Time × Strategy Heatmap")
+
+            if not filtered_res.empty and len(filtered_res) > 5:
+                heatmap_col1, heatmap_col2 = st.columns([1, 3])
+
+                with heatmap_col1:
+                    heatmap_x = st.selectbox("X-Axis (Strategy Param):", ["Width", "SL", "Premium"], key="heatmap_x_axis")
+                    heatmap_metric = st.selectbox("Metric:", ["MAR (6M)", "MAR (Total)", "P/L (6M)", "Win Rate (6M)"], key="heatmap_metric")
+
+                with heatmap_col2:
+                    # Create pivot table for heatmap
+                    try:
+                        heat_pivot = filtered_res.pivot_table(
+                            index='EntryTime',
+                            columns=heatmap_x,
+                            values=heatmap_metric,
+                            aggfunc='mean'
+                        ).fillna(0)
+
+                        if not heat_pivot.empty:
+                            # Color scale based on metric
+                            if "MAR" in heatmap_metric:
+                                colorscale = 'RdYlGn'
+                            elif "P/L" in heatmap_metric:
+                                colorscale = 'RdYlGn'
+                            else:
+                                colorscale = 'Blues'
+
+                            fig_heat = go.Figure(data=go.Heatmap(
+                                z=heat_pivot.values,
+                                x=[str(c) for c in heat_pivot.columns],
+                                y=heat_pivot.index,
+                                colorscale=colorscale,
+                                text=heat_pivot.values,
+                                texttemplate="%.2f",
+                                textfont={"size": 11},
+                                hovertemplate=f"Entry Time: %{{y}}<br>{heatmap_x}: %{{x}}<br>{heatmap_metric}: %{{z:.2f}}<extra></extra>"
+                            ))
+
+                            fig_heat.update_layout(
+                                template="plotly_white",
+                                height=max(400, len(heat_pivot) * 25),
+                                xaxis_title=heatmap_x,
+                                yaxis_title="Entry Time",
+                                margin=dict(l=80, r=20, t=40, b=60)
+                            )
+
+                            st.plotly_chart(fig_heat, use_container_width=True)
+                        else:
+                            st.info("Not enough data for heatmap with current filters.")
+                    except Exception as e:
+                        st.warning(f"Could not generate heatmap: {e}")
+            else:
+                st.info("Need more filtered results to generate heatmap.")
+
             # --- DOWNLOAD RESULTS ---
             ui.section_header("Export")
             if not filtered_res.empty:

@@ -184,7 +184,7 @@ def section_header(title, description=None):
         st.markdown(f'<p style="{desc_style}">{description}</p>', unsafe_allow_html=True)
 
 def show_loading_overlay(message="Processing", submessage="The engine is running...", placeholder=None):
-    """Display a full-screen loading overlay. Optionally use a placeholder for easier cleanup."""
+    """Display a full-screen loading overlay with animated gears (like original design)."""
     loading_html = f"""
     <style>
         .loading-overlay {{
@@ -193,35 +193,48 @@ def show_loading_overlay(message="Processing", submessage="The engine is running
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(255, 255, 255, 0.95);
-            z-index: 10000;
+            background: rgba(255, 255, 255, 0.95);
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
+            z-index: 9999;
         }}
         .engine-container {{
             text-align: center;
-            padding: 40px;
+            animation: pulse 2s ease-in-out infinite;
         }}
         .gear-system {{
-            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 20px;
         }}
         .gear {{
-            display: inline-block;
-            font-size: 48px;
-            animation: spin 2s linear infinite;
+            font-size: 40px;
+            color: {COLOR_BLUE};
         }}
-        .gear-1 {{ animation-duration: 3s; }}
-        .gear-2 {{ animation-duration: 2s; animation-direction: reverse; margin: 0 -10px; }}
-        .gear-3 {{ animation-duration: 2.5s; }}
+        .gear-1 {{ animation: spin 2s linear infinite; }}
+        .gear-2 {{ animation: spin-reverse 1.5s linear infinite; font-size: 50px; }}
+        .gear-3 {{ animation: spin 2s linear infinite; }}
         @keyframes spin {{
             from {{ transform: rotate(0deg); }}
             to {{ transform: rotate(360deg); }}
         }}
+        @keyframes spin-reverse {{
+            from {{ transform: rotate(360deg); }}
+            to {{ transform: rotate(0deg); }}
+        }}
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.7; }}
+        }}
         .loading-text {{
             font-family: 'Exo 2', sans-serif;
-            font-weight: 800;
-            font-size: 28px;
+            font-size: 24px;
+            font-weight: 700;
+            color: {COLOR_BLUE};
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-bottom: 10px;
@@ -232,33 +245,33 @@ def show_loading_overlay(message="Processing", submessage="The engine is running
             color: #6B7280;
         }}
         .progress-bar-container {{
-            width: 200px;
-            height: 4px;
+            width: 300px;
+            height: 6px;
             background: #E5E7EB;
-            border-radius: 2px;
-            margin: 20px auto 0;
+            border-radius: 3px;
             overflow: hidden;
+            margin-top: 20px;
         }}
         .progress-bar {{
-            width: 40%;
             height: 100%;
-            background: {COLOR_BLUE};
-            border-radius: 2px;
-            animation: progress 1.5s ease-in-out infinite;
+            background: linear-gradient(90deg, {COLOR_BLUE}, {COLOR_TEAL}, {COLOR_BLUE});
+            background-size: 200% 100%;
+            animation: progress-flow 1.5s linear infinite;
+            width: 100%;
         }}
-        @keyframes progress {{
-            0% {{ transform: translateX(-100%); }}
-            100% {{ transform: translateX(350%); }}
+        @keyframes progress-flow {{
+            0% {{ background-position: 100% 0; }}
+            100% {{ background-position: -100% 0; }}
         }}
     </style>
     <div class="loading-overlay" id="loadingOverlay">
         <div class="engine-container">
             <div class="gear-system">
-                <span class="gear gear-1">&#9881;</span>
-                <span class="gear gear-2">&#9881;</span>
-                <span class="gear gear-3">&#9881;</span>
+                <span class="gear gear-1">⚙️</span>
+                <span class="gear gear-2">⚙️</span>
+                <span class="gear gear-3">⚙️</span>
             </div>
-            <div class="loading-text" style="color: {COLOR_BLUE};">{message}</div>
+            <div class="loading-text">{message}</div>
             <div class="loading-subtext">{submessage}</div>
             <div class="progress-bar-container">
                 <div class="progress-bar"></div>
@@ -354,12 +367,15 @@ def render_save_load_sidebar(bt_df, live_df):
             
             if sel_name:
                 aid = opts[sel_name]
-                if st.button("LOAD", key=f"load_btn_sb", use_container_width=True):
-                    _load_with_feedback(aid, sel_name)
-                    
-                if st.button("DELETE", key=f"del_btn_sb", use_container_width=True):
-                    if db.delete_analysis_from_db(aid):
-                        st.rerun()
+                # Use text links (tertiary buttons) for Load and Delete
+                link_col1, link_col2 = st.columns(2)
+                with link_col1:
+                    if st.button("Load", key=f"load_btn_sb", use_container_width=True, type="tertiary"):
+                        _load_with_feedback(aid, sel_name)
+                with link_col2:
+                    if st.button("Delete", key=f"del_btn_sb", use_container_width=True, type="tertiary"):
+                        if db.delete_analysis_from_db(aid):
+                            st.rerun()
 
 def _load_with_feedback(analysis_id, name):
     loading = st.empty()

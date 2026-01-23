@@ -33,6 +33,38 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- 1.5. MAGIC LINK FRAGMENT HANDLER (must be early!) ---
+# Supabase Magic Link returns tokens as URL fragment (#access_token=...)
+# This JavaScript runs immediately to convert fragment to query params
+st.markdown("""
+<script>
+(function() {
+    // Only run once per page load
+    if (window.__authFragmentHandled) return;
+    window.__authFragmentHandled = true;
+
+    var hash = window.location.hash;
+
+    // Check if there's a hash fragment with access_token (from Magic Link)
+    if (hash && hash.includes('access_token')) {
+        var fragment = hash.substring(1);
+        var params = new URLSearchParams(fragment);
+        var accessToken = params.get('access_token');
+        var refreshToken = params.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+            // Build new URL with tokens as query params instead of fragment
+            var newUrl = window.location.origin + window.location.pathname +
+                         '?access_token=' + encodeURIComponent(accessToken) +
+                         '&refresh_token=' + encodeURIComponent(refreshToken);
+            // Replace current URL to avoid back-button issues
+            window.location.replace(newUrl);
+        }
+    }
+})();
+</script>
+""", unsafe_allow_html=True)
+
 # --- 2. CORPORATE IDENTITY CSS ---
 # Preload fonts for faster loading
 st.markdown("""
@@ -646,41 +678,6 @@ init_auth_session_state()
 
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
-
-# Handle OAuth/Magic Link callback - check URL for tokens
-# Supabase sends tokens as URL fragment (#access_token=...) which needs JS to convert
-# Use components.html for reliable JS execution
-import streamlit.components.v1 as components
-
-# This JavaScript runs in an iframe and redirects the parent window
-# It handles both #access_token (Magic Link) and converts to query params
-components.html("""
-<script>
-    (function() {
-        try {
-            var parentHash = window.parent.location.hash;
-            var parentSearch = window.parent.location.search;
-
-            // Check if there's a hash fragment with access_token
-            if (parentHash && parentHash.includes('access_token')) {
-                var fragment = parentHash.substring(1);
-                var params = new URLSearchParams(fragment);
-                var accessToken = params.get('access_token');
-                var refreshToken = params.get('refresh_token');
-
-                if (accessToken && refreshToken) {
-                    var newUrl = window.parent.location.origin + window.parent.location.pathname +
-                                 '?access_token=' + encodeURIComponent(accessToken) +
-                                 '&refresh_token=' + encodeURIComponent(refreshToken);
-                    window.parent.location.href = newUrl;
-                }
-            }
-        } catch(e) {
-            console.log('Auth redirect error:', e);
-        }
-    })();
-</script>
-""", height=0, width=0)
 
 # Check for auth tokens in query params (after JS redirect from fragment)
 _query_params = st.query_params

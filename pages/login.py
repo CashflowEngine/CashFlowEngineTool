@@ -340,10 +340,15 @@ def show_login_page():
                     </a>
                 """, unsafe_allow_html=True)
             else:
-                # Fallback if Google OAuth not configured
-                if st.button("Continue with Google", use_container_width=True, type="secondary", disabled=True):
-                    pass
-                st.caption("Google Sign-In not configured")
+                # Google OAuth URL generation failed - use Magic Link instead
+                st.markdown("""
+                    <div style="text-align: center; padding: 14px; background-color: #F3F4F6;
+                                border-radius: 8px; margin-bottom: 10px;">
+                        <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
+                            Use Magic Link below to sign in
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
 
             # --- DIVIDER ---
             st.markdown("""

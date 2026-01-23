@@ -736,7 +736,7 @@ else:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
                 st.rerun()
-        return
+        st.stop()  # Stop execution here - don't render page content
 
     else:
         if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)

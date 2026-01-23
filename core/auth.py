@@ -23,15 +23,26 @@ def get_supabase_client() -> Optional[Client]:
         return _auth_client
 
     try:
-        url = os.environ.get("SUPABASE_URL") or st.secrets.get("supabase", {}).get("url")
-        key = os.environ.get("SUPABASE_KEY") or st.secrets.get("supabase", {}).get("key")
+        # First try environment variables (Railway), then Streamlit secrets (local)
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+
+        # Fallback to Streamlit secrets if env vars not set
+        if not url or not key:
+            try:
+                secrets = st.secrets.get("supabase", {})
+                url = url or secrets.get("url")
+                key = key or secrets.get("key")
+            except Exception:
+                # No secrets file exists, continue with env vars only
+                pass
 
         if url and key:
             _auth_client = create_client(url, key)
             logger.info("Supabase auth client initialized")
             return _auth_client
         else:
-            logger.warning("Supabase credentials not found")
+            logger.warning("Supabase credentials not found in env vars or secrets")
             return None
     except Exception as e:
         logger.error(f"Failed to initialize Supabase client: {e}")
@@ -112,8 +123,13 @@ def get_google_oauth_url() -> Optional[str]:
         return None
 
     try:
-        redirect_url = os.environ.get("AUTH_REDIRECT_URL",
-                                       st.secrets.get("auth", {}).get("redirect_url", ""))
+        # First try environment variable, then Streamlit secrets
+        redirect_url = os.environ.get("AUTH_REDIRECT_URL", "")
+        if not redirect_url:
+            try:
+                redirect_url = st.secrets.get("auth", {}).get("redirect_url", "")
+            except Exception:
+                pass
 
         # Supabase Python SDK v2 syntax
         options = {}

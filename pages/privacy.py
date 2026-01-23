@@ -101,12 +101,11 @@ def show_privacy_page():
         <h2>1. Data Controller</h2>
         <p>
             The data controller responsible for your personal data is:<br><br>
-            <strong>CashFlow Engine</strong><br>
-            [Your Company Name]<br>
-            [Your Address]<br>
-            [Your City, Postal Code]<br>
-            Germany<br><br>
-            Email: privacy@cashflowengine.com
+            <strong>Mango Tree Haven LLC</strong><br>
+            30 N Gould St Ste R<br>
+            Sheridan, WY 82801<br>
+            USA<br><br>
+            Email: privacy@cashflowengine.io
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -193,7 +192,7 @@ def show_privacy_page():
             <li><strong>Right to Withdraw Consent:</strong> Withdraw consent at any time</li>
         </ul>
         <p>
-            To exercise any of these rights, please contact us at <strong>privacy@cashflowengine.com</strong>.
+            To exercise any of these rights, please contact us at <strong>privacy@cashflowengine.io</strong>.
             We will respond within 30 days.
         </p>
     </div>
@@ -255,12 +254,15 @@ def show_privacy_page():
         <div class="contact-box">
             <p>
                 <strong>For privacy-related inquiries:</strong><br>
-                Email: privacy@cashflowengine.com<br><br>
+                Mango Tree Haven LLC<br>
+                30 N Gould St Ste R<br>
+                Sheridan, WY 82801, USA<br>
+                Email: privacy@cashflowengine.io<br><br>
 
-                <strong>Supervisory Authority:</strong><br>
-                If you believe we have not adequately addressed your concerns, you have the right to lodge a complaint
-                with a data protection supervisory authority. In Germany, this is typically the data protection authority
-                of your federal state (Landesdatenschutzbeauftragter).
+                <strong>Supervisory Authority (EU Users):</strong><br>
+                If you are located in the EU and believe we have not adequately addressed your concerns,
+                you have the right to lodge a complaint with a data protection supervisory authority
+                in your country of residence.
             </p>
         </div>
     </div>

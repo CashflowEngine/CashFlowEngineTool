@@ -114,6 +114,16 @@ def show_login_page():
         [data-testid="stSidebar"] { display: none !important; }
         section[data-testid="stSidebar"] { display: none !important; }
 
+        /* Remove top padding/margin from Streamlit main container */
+        .stApp > header { display: none !important; }
+        .stMainBlockContainer, .block-container {
+            padding-top: 1rem !important;
+            margin-top: 0 !important;
+        }
+        .stApp {
+            margin-top: 0 !important;
+        }
+
         /* Login page container */
         .login-container {
             display: flex;
@@ -288,16 +298,13 @@ def show_login_page():
     col_left, col_right = st.columns([1, 1.3], gap="small")
 
     with col_left:
-        st.write("")
-        st.write("")
-
-        # --- WELCOME TEXT ---
+        # --- WELCOME TEXT (no extra spacing - starts at top) ---
         st.markdown("""
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 700 !important; color: #302BFF; text-transform: uppercase; letter-spacing: 2px;">
+            <div style="text-align: center; margin-bottom: 30px; margin-top: 0;">
+                <div class="exo2-heading" style="font-family: 'Exo 2', sans-serif !important; font-size: 36px; font-weight: 700 !important; color: #302BFF !important; text-transform: uppercase; letter-spacing: 2px;">
                     Welcome to
                 </div>
             </div>

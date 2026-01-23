@@ -27,10 +27,10 @@ import modules.privacy as privacy
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Cashflow Engine", 
-    page_icon="⚡", 
+    page_title="Cashflow Engine",
+    page_icon="CashflowEngine_favicon.png",
     layout="wide",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state="expanded"
 )
 
 # --- 2. CORPORATE IDENTITY CSS ---

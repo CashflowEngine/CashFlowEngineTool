@@ -625,28 +625,30 @@ if 'navigate_to_page' not in st.session_state:
 
 # Handle OAuth/Magic Link callback - check URL for tokens
 # Supabase sends tokens as URL fragment (#access_token=...) which needs JS to convert
-# First inject JS to handle fragments, then check query params
-st.markdown("""
+# Use components.html for reliable JS execution
+import streamlit.components.v1 as components
+
+components.html("""
 <script>
     (function() {
         // Check if there's a hash fragment with tokens
-        if (window.location.hash && window.location.hash.includes('access_token')) {
+        if (window.parent.location.hash && window.parent.location.hash.includes('access_token')) {
             // Parse the fragment
-            const fragment = window.location.hash.substring(1);
+            const fragment = window.parent.location.hash.substring(1);
             const params = new URLSearchParams(fragment);
 
             const accessToken = params.get('access_token');
             const refreshToken = params.get('refresh_token');
 
             if (accessToken && refreshToken) {
-                // Convert fragment to query string and redirect
-                const newUrl = window.location.pathname + '?access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken);
-                window.location.replace(newUrl);
+                // Convert fragment to query string and redirect parent window
+                const newUrl = window.parent.location.pathname + '?access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken);
+                window.parent.location.replace(newUrl);
             }
         }
     })();
 </script>
-""", unsafe_allow_html=True)
+""", height=0)
 
 # Check for auth tokens in query params (after JS redirect from fragment)
 _query_params = st.query_params

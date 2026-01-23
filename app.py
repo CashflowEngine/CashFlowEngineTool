@@ -5,15 +5,15 @@ import database as db
 import calculations as calc
 
 # Import page modules
-import pages.login as login
-import pages.landing as landing
-import pages.portfolio_analytics as portfolio_analytics
-import pages.portfolio_builder as portfolio_builder
-import pages.monte_carlo as monte_carlo
-import pages.comparison as comparison
-import pages.meic_analysis as meic_analysis
-import pages.meic_optimizer as meic_optimizer
-import pages.ai_analyst as ai_analyst
+import modules.login as login
+import modules.landing as landing
+import modules.portfolio_analytics as portfolio_analytics
+import modules.portfolio_builder as portfolio_builder
+import modules.monte_carlo as monte_carlo
+import modules.comparison as comparison
+import modules.meic_analysis as meic_analysis
+import modules.meic_optimizer as meic_optimizer
+import modules.ai_analyst as ai_analyst
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(

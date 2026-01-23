@@ -84,9 +84,13 @@ def sign_in_with_magic_link(email: str) -> Dict[str, Any]:
         return {'success': False, 'message': 'Database connection not available'}
 
     try:
-        # Get the redirect URL from environment or use default
-        redirect_url = os.environ.get("AUTH_REDIRECT_URL",
-                                       st.secrets.get("auth", {}).get("redirect_url", ""))
+        # Get the redirect URL from environment or secrets
+        redirect_url = os.environ.get("AUTH_REDIRECT_URL", "")
+        if not redirect_url:
+            try:
+                redirect_url = st.secrets.get("auth", {}).get("redirect_url", "")
+            except Exception:
+                pass
 
         # Send magic link via Supabase
         response = client.auth.sign_in_with_otp({

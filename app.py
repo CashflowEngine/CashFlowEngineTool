@@ -46,6 +46,22 @@ st.markdown("""
     /* IMPORT FONTS - FULL WEIGHTS (backup) */
     @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Poppins:wght@300;400;500;600;700&display=swap');
 
+    /* --- HIDE STREAMLIT BRANDING & MENU --- */
+    /* Hide the hamburger menu (three dots) */
+    #MainMenu {visibility: hidden !important;}
+    [data-testid="stToolbar"] {visibility: hidden !important; height: 0 !important;}
+
+    /* Hide the header completely */
+    header[data-testid="stHeader"] {display: none !important;}
+
+    /* Hide "Made with Streamlit" footer */
+    footer {visibility: hidden !important;}
+    .viewerBadge_container__r5tak {display: none !important;}
+
+    /* Hide deploy button */
+    .stDeployButton {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+
     /* --- SIDEBAR FLASH PREVENTION (loaded first) --- */
     /* This prevents the sidebar flash during page transitions by hiding toggle buttons */
     button[kind="header"],

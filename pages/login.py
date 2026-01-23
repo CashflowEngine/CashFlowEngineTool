@@ -39,6 +39,7 @@ def _handle_oauth_callback():
         query_params = st.query_params
 
         # Check for access_token and refresh_token (from OAuth or Magic Link)
+        # Supabase sends tokens as query params after our JS converts them from fragment
         access_token = query_params.get('access_token')
         refresh_token = query_params.get('refresh_token')
 
@@ -63,12 +64,44 @@ def _handle_oauth_callback():
     return False
 
 
+def _inject_fragment_handler():
+    """
+    Inject JavaScript to handle URL fragments from Supabase OAuth/Magic Link.
+    Supabase returns tokens in URL fragment (#access_token=...) which Streamlit can't read.
+    This JS converts fragments to query parameters and reloads.
+    """
+    st.markdown("""
+    <script>
+        (function() {
+            // Check if there's a hash fragment with tokens
+            if (window.location.hash && window.location.hash.includes('access_token')) {
+                // Parse the fragment
+                const fragment = window.location.hash.substring(1);
+                const params = new URLSearchParams(fragment);
+
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+
+                if (accessToken && refreshToken) {
+                    // Convert fragment to query string and redirect
+                    const newUrl = window.location.pathname + '?access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken);
+                    window.location.replace(newUrl);
+                }
+            }
+        })();
+    </script>
+    """, unsafe_allow_html=True)
+
+
 def show_login_page():
     """
     Login Page: Professional two-column layout with Magic Link and Google OAuth.
     """
     # Initialize auth session state
     init_auth_session_state()
+
+    # Inject JS to handle URL fragments from Supabase OAuth
+    _inject_fragment_handler()
 
     # Check for OAuth callback in URL
     if _handle_oauth_callback():

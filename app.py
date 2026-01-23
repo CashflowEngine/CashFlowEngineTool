@@ -654,7 +654,32 @@ components.html("""
 _query_params = st.query_params
 _access_token = _query_params.get('access_token')
 _refresh_token = _query_params.get('refresh_token')
+_auth_code = _query_params.get('code')
 
+# Handle PKCE code exchange (from OAuth providers)
+if _auth_code and not _access_token:
+    from core.auth import get_supabase_client
+    client = get_supabase_client()
+    if client:
+        try:
+            # Exchange the code for a session
+            response = client.auth.exchange_code_for_session({"auth_code": _auth_code})
+            if response and response.session:
+                st.session_state['is_authenticated'] = True
+                st.session_state['user'] = response.user
+                st.session_state['user_id'] = response.user.id
+                st.session_state['user_email'] = response.user.email
+                st.session_state['access_token'] = response.session.access_token
+                st.session_state['refresh_token'] = response.session.refresh_token
+                st.query_params.clear()
+                st.session_state.navigate_to_page = "Start & Data"
+                st.rerun()
+        except Exception as e:
+            import logging
+            logging.error(f"Code exchange error: {e}")
+            st.query_params.clear()
+
+# Handle direct token callback (from Magic Link or fragment conversion)
 if _access_token and _refresh_token:
     from core.auth import handle_auth_callback
     if handle_auth_callback(_access_token, _refresh_token):

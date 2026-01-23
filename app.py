@@ -623,6 +623,43 @@ init_auth_session_state()
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
 
+# Handle OAuth/Magic Link callback - check URL for tokens
+# Supabase sends tokens as URL fragment (#access_token=...) which needs JS to convert
+# First inject JS to handle fragments, then check query params
+st.markdown("""
+<script>
+    (function() {
+        // Check if there's a hash fragment with tokens
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+            // Parse the fragment
+            const fragment = window.location.hash.substring(1);
+            const params = new URLSearchParams(fragment);
+
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (accessToken && refreshToken) {
+                // Convert fragment to query string and redirect
+                const newUrl = window.location.pathname + '?access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken);
+                window.location.replace(newUrl);
+            }
+        }
+    })();
+</script>
+""", unsafe_allow_html=True)
+
+# Check for auth tokens in query params (after JS redirect from fragment)
+_query_params = st.query_params
+_access_token = _query_params.get('access_token')
+_refresh_token = _query_params.get('refresh_token')
+
+if _access_token and _refresh_token:
+    from core.auth import handle_auth_callback
+    if handle_auth_callback(_access_token, _refresh_token):
+        st.query_params.clear()
+        st.session_state.navigate_to_page = "Start & Data"
+        st.rerun()
+
 # Verify session on page load (refresh tokens if needed)
 if st.session_state.get('is_authenticated') and st.session_state.get('access_token'):
     if not verify_and_refresh_session():

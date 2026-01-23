@@ -40,24 +40,24 @@ def show_landing_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # --- MAIN HEADLINE (using h1 tag like original) ---
+    # --- MAIN HEADLINE (left-aligned, using h1 tag) ---
     st.markdown(f"""
-        <div style="text-align: center; margin: 30px 0 20px 0;">
-            <h1 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800;
-                        text-transform: uppercase; margin-bottom: 25px; letter-spacing: 4px;'>
+        <div style="text-align: left; margin: 0 0 20px 0;">
+            <h1 style='color: #4B5563; font-family: "Exo 2", sans-serif !important; font-weight: 800;
+                        text-transform: uppercase; margin-bottom: 15px; letter-spacing: 2px;'>
                 Advanced Portfolio Analytics &<br>Risk Simulation for Option Traders
             </h1>
-            <p style="font-family: 'Poppins', sans-serif; font-size: 15px; color: #6B7280; max-width: 700px;
-                      margin: 0 auto; line-height: 1.6;">
+            <p style="font-family: 'Poppins', sans-serif; font-size: 15px; color: #6B7280;
+                      margin: 0; line-height: 1.6;">
                 Analyze your options trading performance with professional-grade tools. Import your backtest
                 or live trading data to unlock comprehensive analytics, Monte Carlo simulations, and portfolio optimization.
             </p>
         </div>
     """, unsafe_allow_html=True)
 
-    # --- EXPLANATORY TEXT ---
+    # --- EXPLANATORY TEXT (left-aligned) ---
     st.markdown(f"""
-        <div style="text-align: center; max-width: 800px; margin: 0 auto 40px auto; padding: 0 20px;">
+        <div style="text-align: left; margin: 0 0 30px 0;">
             <p style="font-family: 'Poppins', sans-serif !important; font-size: 15px; color: #6B7280; line-height: 1.7;">
                 Cashflow Engine is your comprehensive analytics suite for evaluating option trading strategies.
                 To begin, import your backtest data or load a previously saved analysis from the database.

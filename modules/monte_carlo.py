@@ -37,90 +37,91 @@ def page_monte_carlo(full_df):
             st.session_state.mc_results = None
             st.rerun()
 
+    # --- CONFIGURATION BOX ---
+    with st.container(border=True):
+        ui.section_header("CONFIGURATION", "Set simulation parameters and stress test options")
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            n_sims = st.number_input("Number of Simulations", value=1000, step=500, min_value=100, max_value=10000)
+        with c2:
+            sim_months = st.number_input("Simulation Period (Months)", value=36, step=6, min_value=1, max_value=120)
+        with c3:
+            if from_builder and portfolio_daily_pnl is not None:
+                start_cap = st.number_input("Initial Capital ($)",
+                                            value=st.session_state.get('mc_portfolio_account_size', 100000),
+                                            step=1000, min_value=1000)
+            else:
+                start_cap = st.number_input("Initial Capital ($)", value=100000, step=1000, min_value=1000)
+
         st.write("")
 
-    st.subheader("Simulation Parameters")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        n_sims = st.number_input("Number of Simulations", value=1000, step=500, min_value=100, max_value=10000)
-    with c2:
-        sim_months = st.number_input("Simulation Period (Months)", value=36, step=6, min_value=1, max_value=120)
-    with c3:
-        if from_builder and portfolio_daily_pnl is not None:
-            start_cap = st.number_input("Initial Capital ($)",
-                                        value=st.session_state.get('mc_portfolio_account_size', 100000),
-                                        step=1000, min_value=1000)
-        else:
-            start_cap = st.number_input("Initial Capital ($)", value=100000, step=1000, min_value=1000)
+        # Get available strategies for the dropdown
+        available_strategies = []
+        if full_df is not None and not full_df.empty and 'strategy' in full_df.columns:
+            available_strategies = sorted(full_df['strategy'].dropna().unique().tolist())
 
-    st.write("")
+        with st.expander("🎯 Stress Test (Worst-Case Injection)", expanded=False):
+            stress_mode = st.radio(
+                "Stress Test Mode:",
+                ["Historical Max Loss (Real)", "Theoretical Max Risk (Black Swan)"],
+                index=1,
+                help="Historical: Uses actual worst days from data. Theoretical: Uses margin-based black swan calculation."
+            )
 
-    # Get available strategies for the dropdown
-    available_strategies = []
-    if full_df is not None and not full_df.empty and 'strategy' in full_df.columns:
-        available_strategies = sorted(full_df['strategy'].dropna().unique().tolist())
-
-    with st.expander("🎯 Stress Test (Worst-Case Injection)", expanded=False):
-        stress_mode = st.radio(
-            "Stress Test Mode:",
-            ["Historical Max Loss (Real)", "Theoretical Max Risk (Black Swan)"],
-            index=1,
-            help="Historical: Uses actual worst days from data. Theoretical: Uses margin-based black swan calculation."
-        )
-
-        if "Historical" in stress_mode:
-            st.markdown("""
-            <div style='background-color: #DBEAFE; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px;'>
-            <b>Historical Max Loss:</b> Injects each strategy's <b>actual worst day P&L</b> from your backtest data.<br>
-            • Events are injected <b>separately</b> for each strategy<br>
-            • Events occur at <b>random times</b> throughout the simulation (not simultaneously)<br>
-            • All strategies are included automatically
-            </div>
-            """, unsafe_allow_html=True)
-            stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, format="%d x/Year",
-                                  help="How many worst-day events per year per strategy", key="hist_stress_slider")
-            stress_strategies = available_strategies  # Use all for Historical
-            if stress_val > 0:
-                n_events = int(np.ceil(stress_val * (sim_months / 12.0)))
-                n_strats = len(available_strategies)
-                st.caption(f"📊 {n_events} worst-day events per strategy × {n_strats} strategies = {n_events * n_strats} total events per simulation, randomly distributed")
-        else:
-            st.markdown("""
-            <div style='background-color: #FEE2E2; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px;'>
-            <b>Theoretical Max Risk (Black Swan):</b> Simulates a market crash hitting <b>ALL selected strategies at once</b>.<br>
-            • Loss = PUT-side margin <b>minus premium received</b><br>
-            • Events are <b>distributed evenly</b> across years (max 1 per year)<br>
-            • Deselect strategies that profit from crashes (bear call spreads, long puts)
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Strategy selector ONLY for Theoretical mode
-            if len(available_strategies) > 0:
-                st.markdown("**Select strategies to include in black swan:**")
-                stress_strategies = st.multiselect(
-                    "Strategies at risk during crash:",
-                    options=available_strategies,
-                    default=available_strategies,
-                    key="stress_test_strategies",
-                    help="Only selected strategies will be hit simultaneously. Deselect strategies that profit from crashes."
-                )
+            if "Historical" in stress_mode:
+                st.markdown("""
+                <div style='background-color: #DBEAFE; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px;'>
+                <b>Historical Max Loss:</b> Injects each strategy's <b>actual worst day P&L</b> from your backtest data.<br>
+                • Events are injected <b>separately</b> for each strategy<br>
+                • Events occur at <b>random times</b> throughout the simulation (not simultaneously)<br>
+                • All strategies are included automatically
+                </div>
+                """, unsafe_allow_html=True)
+                stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, format="%d x/Year",
+                                      help="How many worst-day events per year per strategy", key="hist_stress_slider")
+                stress_strategies = available_strategies  # Use all for Historical
+                if stress_val > 0:
+                    n_events = int(np.ceil(stress_val * (sim_months / 12.0)))
+                    n_strats = len(available_strategies)
+                    st.caption(f"📊 {n_events} worst-day events per strategy × {n_strats} strategies = {n_events * n_strats} total events per simulation, randomly distributed")
             else:
-                stress_strategies = []
+                st.markdown("""
+                <div style='background-color: #FEE2E2; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px;'>
+                <b>Theoretical Max Risk (Black Swan):</b> Simulates a market crash hitting <b>ALL selected strategies at once</b>.<br>
+                • Loss = PUT-side margin <b>minus premium received</b><br>
+                • Events are <b>distributed evenly</b> across years (max 1 per year)<br>
+                • Deselect strategies that profit from crashes (bear call spreads, long puts)
+                </div>
+                """, unsafe_allow_html=True)
 
-            stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, format="%d x/Year",
-                                  help="How many combined crash events per year", key="theo_stress_slider")
-            if stress_val > 0:
-                n_events = int(np.ceil(stress_val * (sim_months / 12.0)))
-                st.caption(f"⚠️ {n_events} event(s) distributed across {max(1, sim_months//12)} year(s)")
+                # Strategy selector ONLY for Theoretical mode
+                if len(available_strategies) > 0:
+                    st.markdown("**Select strategies to include in black swan:**")
+                    stress_strategies = st.multiselect(
+                        "Strategies at risk during crash:",
+                        options=available_strategies,
+                        default=available_strategies,
+                        key="stress_test_strategies",
+                        help="Only selected strategies will be hit simultaneously. Deselect strategies that profit from crashes."
+                    )
+                else:
+                    stress_strategies = []
 
-        # Store selected strategies in session state for use during simulation
-        st.session_state.stress_test_selected_strategies = stress_strategies
+                stress_val = st.slider("Frequency (times per year)", 0, 12, 0, 1, format="%d x/Year",
+                                      help="How many combined crash events per year", key="theo_stress_slider")
+                if stress_val > 0:
+                    n_events = int(np.ceil(stress_val * (sim_months / 12.0)))
+                    st.caption(f"⚠️ {n_events} event(s) distributed across {max(1, sim_months//12)} year(s)")
 
-    st.write("")
+                # Store selected strategies in session state for use during simulation
+                st.session_state.stress_test_selected_strategies = stress_strategies
 
-    if st.button("🎲 Run Simulation", type="primary", use_container_width=True):
-        st.session_state.sim_run = True
-        st.session_state.mc_results = None
+        st.write("")
+
+        if st.button("🎲 Run Simulation", type="primary", use_container_width=True):
+            st.session_state.sim_run = True
+            st.session_state.mc_results = None
 
     if st.session_state.sim_run:
         if st.session_state.mc_results is None:
@@ -413,7 +414,9 @@ def page_monte_carlo(full_df):
                             else:
                                 st.markdown(msg)
 
-            st.subheader("Key Metrics")
+        # --- KEY METRICS BOX ---
+        with st.container(border=True):
+            ui.section_header("KEY METRICS", "Core performance indicators across all simulations")
             k1, k2, k3, k4, k5 = st.columns(5)
             with k1:
                 ui.render_hero_metric("Avg. Net Profit", f"${r['profit']:,.0f}", "Mean Result", "hero-teal" if r['profit'] > 0 else "hero-coral",
@@ -435,8 +438,9 @@ def page_monte_carlo(full_df):
                                   "hero-teal" if prob_profit > 0.9 else ("hero-coral" if prob_profit < 0.7 else "hero-neutral"),
                                   tooltip="Percentage of simulations that ended with profit (ending value > starting capital)")
 
-            st.write("")
-            st.subheader("Return Scenarios (CAGR)")
+        # --- RETURN & DRAWDOWN SCENARIOS BOX ---
+        with st.container(border=True):
+            ui.section_header("RETURN SCENARIOS (CAGR)", "Performance percentiles across simulations")
             r1, r2, r3 = st.columns(3)
             with r1:
                 cagr_best = r.get('cagr_p95', ((r['p95']/r['start_cap']) ** (12 / r.get('sim_months', 36))) - 1)
@@ -452,7 +456,7 @@ def page_monte_carlo(full_df):
                                   tooltip="5th percentile CAGR - only 5% of simulations performed worse")
 
             st.write("")
-            st.subheader("Drawdown Scenarios")
+            ui.section_header("DRAWDOWN SCENARIOS", "Risk percentiles across simulations")
             d1, d2, d3 = st.columns(3)
             with d1:
                 ui.render_hero_metric("Best Case DD", f"{r['d05']*100:.1f}%", "Top 5%", "hero-neutral",
@@ -464,8 +468,9 @@ def page_monte_carlo(full_df):
                 ui.render_hero_metric("Worst Case DD", f"{r['d95']*100:.1f}%", "Bottom 5%", "hero-neutral",
                                   tooltip="95th percentile drawdown - only 5% of simulations had larger drawdowns")
 
-            st.write("")
-            st.subheader("Portfolio Growth")
+        # --- PORTFOLIO GROWTH BOX ---
+        with st.container(border=True):
+            ui.section_header("PORTFOLIO GROWTH", "Visualization of simulation paths")
             show_paths = st.checkbox("Show individual paths", value=True)
 
             mc_paths = r['mc_paths']

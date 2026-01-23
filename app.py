@@ -14,23 +14,23 @@ from core.auth import (
 )
 
 # Import page modules
-import pages.login as login
-import pages.landing as landing
-import pages.portfolio_analytics as portfolio_analytics
-import pages.portfolio_builder as portfolio_builder
-import pages.monte_carlo as monte_carlo
-import pages.comparison as comparison
-import pages.meic_analysis as meic_analysis
-import pages.meic_optimizer as meic_optimizer
-import pages.ai_analyst as ai_analyst
-import pages.privacy as privacy
+import modules.login as login
+import modules.landing as landing
+import modules.portfolio_analytics as portfolio_analytics
+import modules.portfolio_builder as portfolio_builder
+import modules.monte_carlo as monte_carlo
+import modules.comparison as comparison
+import modules.meic_analysis as meic_analysis
+import modules.meic_optimizer as meic_optimizer
+import modules.ai_analyst as ai_analyst
+import modules.privacy as privacy
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Cashflow Engine", 
-    page_icon="⚡", 
+    page_title="Cashflow Engine",
+    page_icon="CashflowEngine_favicon.png",
     layout="wide",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state="expanded"
 )
 
 # --- 2. CORPORATE IDENTITY CSS ---
@@ -45,6 +45,22 @@ st.markdown("""
 <style>
     /* IMPORT FONTS - FULL WEIGHTS (backup) */
     @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    /* --- HIDE STREAMLIT BRANDING & MENU --- */
+    /* Hide the hamburger menu (three dots) */
+    #MainMenu {visibility: hidden !important;}
+    [data-testid="stToolbar"] {visibility: hidden !important; height: 0 !important;}
+
+    /* Hide the header completely */
+    header[data-testid="stHeader"] {display: none !important;}
+
+    /* Hide "Made with Streamlit" footer */
+    footer {visibility: hidden !important;}
+    .viewerBadge_container__r5tak {display: none !important;}
+
+    /* Hide deploy button */
+    .stDeployButton {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
 
     /* --- SIDEBAR FLASH PREVENTION (loaded first) --- */
     /* This prevents the sidebar flash during page transitions by hiding toggle buttons */
@@ -71,6 +87,7 @@ st.markdown("""
 
     /* Force Exo 2 for ALL Headings - More specific selectors */
     /* Force Exo 2 for ALL Headings and custom classes */
+    h1, h2, h3, h4, h5, h6,
     .exo2-heading,
     .card-title,
     .stHeading,
@@ -462,12 +479,13 @@ st.markdown("""
         color: #374151 !important;
     }
 
-    /* Footer */
+    /* Footer - only span main content area, not sidebar */
     .footer {
         position: fixed;
         bottom: 0;
-        left: 0;
-        width: 100%;
+        left: 310px; /* Sidebar width */
+        right: 0;
+        width: calc(100% - 310px);
         background-color: #F9FAFB;
         border-top: 1px solid #E5E7EB;
         padding: 8px;
@@ -479,6 +497,12 @@ st.markdown("""
     }
     .block-container {
         padding-bottom: 50px;
+        padding-top: 1rem !important;
+    }
+
+    /* Remove top padding from main content area */
+    .stMainBlockContainer, [data-testid="stAppViewBlockContainer"] {
+        padding-top: 1rem !important;
     }
 
     /* --- TOOLTIP STYLING --- */
@@ -830,7 +854,7 @@ else:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
                 st.rerun()
-        return
+        st.stop()  # Stop execution here - don't render page content
 
     else:
         if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)

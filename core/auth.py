@@ -108,23 +108,43 @@ def get_google_oauth_url() -> Optional[str]:
     """
     client = get_supabase_client()
     if not client:
+        logger.error("No Supabase client available for Google OAuth")
         return None
 
     try:
         redirect_url = os.environ.get("AUTH_REDIRECT_URL",
                                        st.secrets.get("auth", {}).get("redirect_url", ""))
 
+        # Supabase Python SDK v2 syntax
+        options = {}
+        if redirect_url:
+            options['redirect_to'] = redirect_url
+
         response = client.auth.sign_in_with_oauth({
             'provider': 'google',
-            'options': {
-                'redirect_to': redirect_url if redirect_url else None
-            }
+            'options': options
         })
 
-        return response.url if response else None
+        # Handle different response structures
+        if response:
+            if hasattr(response, 'url'):
+                return response.url
+            elif isinstance(response, dict) and 'url' in response:
+                return response['url']
+            else:
+                logger.info(f"OAuth response type: {type(response)}, content: {response}")
+                # Try to extract URL from response object
+                if hasattr(response, 'data') and response.data:
+                    if hasattr(response.data, 'url'):
+                        return response.data.url
+
+        logger.error("Could not extract OAuth URL from response")
+        return None
 
     except Exception as e:
         logger.error(f"Google OAuth error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 

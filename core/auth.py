@@ -1,6 +1,6 @@
 """
 Authentication module for CashFlow Engine.
-Uses Supabase Auth with Magic Link and Google OAuth.
+Uses Supabase Auth with Email OTP and Google OAuth.
 """
 import streamlit as st
 import os
@@ -60,7 +60,9 @@ def init_auth_session_state():
         'refresh_token': None,
         'auth_error': None,
         'auth_message': None,
-        'magic_link_sent': False,
+        'magic_link_sent': False,  # Keep for backwards compatibility
+        'otp_sent': False,  # OTP code sent to email
+        'otp_email': None,  # Email address for OTP verification
         'privacy_accepted': False,
     }
 
@@ -72,6 +74,15 @@ def init_auth_session_state():
 def sign_in_with_magic_link(email: str) -> Dict[str, Any]:
     """
     Send a magic link to the user's email for passwordless authentication.
+    DEPRECATED: Use send_email_otp instead for better Streamlit compatibility.
+    """
+    return send_email_otp(email)
+
+
+def send_email_otp(email: str) -> Dict[str, Any]:
+    """
+    Send a 6-digit OTP code to the user's email for passwordless authentication.
+    This method works better with Streamlit than Magic Links (no redirect issues).
 
     Args:
         email: User's email address
@@ -84,34 +95,83 @@ def sign_in_with_magic_link(email: str) -> Dict[str, Any]:
         return {'success': False, 'message': 'Database connection not available'}
 
     try:
-        # Get the redirect URL from environment or secrets
-        redirect_url = os.environ.get("AUTH_REDIRECT_URL", "")
-        if not redirect_url:
-            try:
-                redirect_url = st.secrets.get("auth", {}).get("redirect_url", "")
-            except Exception:
-                pass
-
-        # Send magic link via Supabase
+        # Send OTP via Supabase - do NOT include email_redirect_to for OTP flow
+        # This tells Supabase to send an OTP code instead of a magic link
         response = client.auth.sign_in_with_otp({
             'email': email,
             'options': {
-                'email_redirect_to': redirect_url if redirect_url else None
+                'should_create_user': True  # Auto-create user if not exists
             }
         })
 
-        logger.info(f"Magic link sent to {email}")
+        logger.info(f"OTP code sent to {email}")
         return {
             'success': True,
-            'message': 'Check your email for the login link!'
+            'message': 'Check your email for the verification code!'
         }
 
     except Exception as e:
-        logger.error(f"Magic link error: {e}")
+        logger.error(f"OTP send error: {e}")
         error_msg = str(e)
         if "rate limit" in error_msg.lower():
             return {'success': False, 'message': 'Too many requests. Please wait a moment and try again.'}
-        return {'success': False, 'message': f'Failed to send login link: {error_msg}'}
+        return {'success': False, 'message': f'Failed to send verification code: {error_msg}'}
+
+
+def verify_email_otp(email: str, otp_code: str) -> Dict[str, Any]:
+    """
+    Verify the OTP code entered by the user and establish a session.
+
+    Args:
+        email: User's email address
+        otp_code: 6-digit code from the email
+
+    Returns:
+        Dict with 'success' boolean and 'message' string
+    """
+    client = get_supabase_client()
+    if not client:
+        return {'success': False, 'message': 'Database connection not available'}
+
+    try:
+        # Verify the OTP code
+        response = client.auth.verify_otp({
+            'email': email,
+            'token': otp_code,
+            'type': 'email'
+        })
+
+        if response and response.user and response.session:
+            # Successfully verified - update session state
+            user = response.user
+            session = response.session
+
+            st.session_state['is_authenticated'] = True
+            st.session_state['user'] = user
+            st.session_state['user_id'] = user.id
+            st.session_state['user_email'] = user.email
+            st.session_state['access_token'] = session.access_token
+            st.session_state['refresh_token'] = session.refresh_token
+            st.session_state['otp_sent'] = False
+            st.session_state['otp_email'] = None
+
+            logger.info(f"User authenticated via OTP: {user.email}")
+            return {
+                'success': True,
+                'message': 'Successfully signed in!'
+            }
+        else:
+            return {
+                'success': False,
+                'message': 'Invalid verification code. Please try again.'
+            }
+
+    except Exception as e:
+        logger.error(f"OTP verification error: {e}")
+        error_msg = str(e)
+        if "invalid" in error_msg.lower() or "expired" in error_msg.lower():
+            return {'success': False, 'message': 'Invalid or expired code. Please request a new one.'}
+        return {'success': False, 'message': f'Verification failed: {error_msg}'}
 
 
 def get_google_oauth_url() -> Optional[str]:

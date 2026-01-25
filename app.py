@@ -33,66 +33,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 1.5. MAGIC LINK FRAGMENT HANDLER (must be early!) ---
-# Supabase Magic Link returns tokens as URL fragment (#access_token=...)
-# We use multiple methods to ensure JavaScript executes:
-# Method 1: SVG onload (often works when script tags are stripped)
-# Method 2: components.html iframe (same-origin can access parent)
-import streamlit.components.v1 as components
-
-# Method 1: SVG with onload handler - this often bypasses script tag filtering
-st.markdown("""
-<svg onload="
-    if(!window.__authHandled && window.location.hash.includes('access_token')){
-        window.__authHandled=true;
-        var f=window.location.hash.substring(1);
-        var p=new URLSearchParams(f);
-        var a=p.get('access_token');
-        var r=p.get('refresh_token');
-        if(a&&r){
-            window.location.replace(window.location.origin+window.location.pathname+'?access_token='+encodeURIComponent(a)+'&refresh_token='+encodeURIComponent(r));
-        }
-    }
-" style="display:none"></svg>
-""", unsafe_allow_html=True)
-
-# Method 2: Components iframe as backup (same-origin should allow parent access)
-components.html("""
-<script>
-(function(){
-    try {
-        if(window.__authIframeHandled) return;
-        window.__authIframeHandled = true;
-
-        // Try to access parent window's hash (works on same-origin)
-        var parentHash = '';
-        try {
-            parentHash = window.parent.location.hash;
-        } catch(e) {
-            console.log('Cannot access parent hash:', e);
-            return;
-        }
-
-        if(parentHash && parentHash.includes('access_token')){
-            var fragment = parentHash.substring(1);
-            var params = new URLSearchParams(fragment);
-            var accessToken = params.get('access_token');
-            var refreshToken = params.get('refresh_token');
-
-            if(accessToken && refreshToken){
-                var newUrl = window.parent.location.origin +
-                             window.parent.location.pathname +
-                             '?access_token=' + encodeURIComponent(accessToken) +
-                             '&refresh_token=' + encodeURIComponent(refreshToken);
-                window.parent.location.replace(newUrl);
-            }
-        }
-    } catch(e) {
-        console.log('Auth iframe error:', e);
-    }
-})();
-</script>
-""", height=0, width=0)
+# --- 1.5. AUTH CALLBACK HANDLER ---
+# Note: We use Email OTP flow which doesn't require fragment handling.
+# Google OAuth uses PKCE code exchange which is handled later in the file.
 
 # --- 2. CORPORATE IDENTITY CSS ---
 # Preload fonts for faster loading

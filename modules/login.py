@@ -1,20 +1,19 @@
 """
 Login Page for CashFlow Engine.
-Supports Magic Link (passwordless) and Google OAuth authentication.
+Supports Email OTP (passwordless) and Google OAuth authentication.
 """
 import streamlit as st
 import os
 import base64
-from urllib.parse import parse_qs, urlparse
 
 # Import auth module
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.auth import (
     init_auth_session_state,
-    sign_in_with_magic_link,
+    send_email_otp,
+    verify_email_otp,
     get_google_oauth_url,
-    handle_auth_callback,
     is_authenticated
 )
 
@@ -32,80 +31,12 @@ def _get_image_base64(file_path):
     return None
 
 
-def _handle_oauth_callback():
-    """Check URL for OAuth/Magic Link callback parameters."""
-    try:
-        # Get query parameters from URL
-        query_params = st.query_params
-
-        # Check for access_token and refresh_token (from OAuth or Magic Link)
-        # Supabase sends tokens as query params after our JS converts them from fragment
-        access_token = query_params.get('access_token')
-        refresh_token = query_params.get('refresh_token')
-
-        if access_token and refresh_token:
-            # Handle the callback
-            if handle_auth_callback(access_token, refresh_token):
-                # Clear the URL parameters
-                st.query_params.clear()
-                st.session_state.navigate_to_page = "Start & Data"
-                return True
-
-        # Check for error in callback
-        error = query_params.get('error')
-        if error:
-            error_description = query_params.get('error_description', 'Authentication failed')
-            st.session_state['auth_error'] = error_description
-            st.query_params.clear()
-
-    except Exception as e:
-        st.session_state['auth_error'] = f"Authentication error: {str(e)}"
-
-    return False
-
-
-def _inject_fragment_handler():
-    """
-    Inject JavaScript to handle URL fragments from Supabase OAuth/Magic Link.
-    Supabase returns tokens in URL fragment (#access_token=...) which Streamlit can't read.
-    This JS converts fragments to query parameters and reloads.
-    """
-    st.markdown("""
-    <script>
-        (function() {
-            // Check if there's a hash fragment with tokens
-            if (window.location.hash && window.location.hash.includes('access_token')) {
-                // Parse the fragment
-                const fragment = window.location.hash.substring(1);
-                const params = new URLSearchParams(fragment);
-
-                const accessToken = params.get('access_token');
-                const refreshToken = params.get('refresh_token');
-
-                if (accessToken && refreshToken) {
-                    // Convert fragment to query string and redirect
-                    const newUrl = window.location.pathname + '?access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken);
-                    window.location.replace(newUrl);
-                }
-            }
-        })();
-    </script>
-    """, unsafe_allow_html=True)
-
-
 def show_login_page():
     """
-    Login Page: Professional two-column layout with Magic Link and Google OAuth.
+    Login Page: Professional two-column layout with Email OTP and Google OAuth.
     """
     # Initialize auth session state
     init_auth_session_state()
-
-    # Inject JS to handle URL fragments from Supabase OAuth
-    _inject_fragment_handler()
-
-    # Check for OAuth callback in URL
-    if _handle_oauth_callback():
-        st.rerun()
 
     # --- CUSTOM LOGIN PAGE STYLES (Full-height right panel layout) ---
     st.markdown("""
@@ -333,12 +264,12 @@ def show_login_page():
                 </div>
             """, unsafe_allow_html=True)
 
-        # --- SUCCESS MESSAGE (Magic Link Sent) ---
-        if st.session_state.get('magic_link_sent'):
+        # --- SUCCESS MESSAGE (OTP Code Sent) ---
+        if st.session_state.get('otp_sent'):
             st.markdown("""
                 <div class="success-message">
                     <p><strong>Check your email!</strong><br>
-                    We've sent you a secure login link. Click it to sign in instantly.</p>
+                    We've sent you a 6-digit verification code. Enter it below to sign in.</p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -353,7 +284,7 @@ def show_login_page():
             st.session_state['auth_error'] = None
 
         # --- INTRO TEXT + LOGIN FORM (no extra spacing) ---
-        if not st.session_state.get('magic_link_sent'):
+        if not st.session_state.get('otp_sent'):
             st.markdown("""
                 <div style="text-align: center; margin-bottom: 5px; margin-top: 0;">
                     <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
@@ -363,40 +294,42 @@ def show_login_page():
             """, unsafe_allow_html=True)
 
         # --- GOOGLE SIGN-IN BUTTON (directly below, no columns) ---
-        google_url = get_google_oauth_url()
-        if google_url:
-            st.markdown(f"""
-                <a href="{google_url}" class="google-btn" target="_self">
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    Continue with Google
-                </a>
-            """, unsafe_allow_html=True)
-        else:
+        if not st.session_state.get('otp_sent'):
+            google_url = get_google_oauth_url()
+            if google_url:
+                st.markdown(f"""
+                    <a href="{google_url}" class="google-btn" target="_self">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Continue with Google
+                    </a>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                    <div style="text-align: center; padding: 14px; background-color: #F3F4F6;
+                                border-radius: 8px;">
+                        <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
+                            Use email verification below to sign in
+                        </span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # --- DIVIDER ---
             st.markdown("""
-                <div style="text-align: center; padding: 14px; background-color: #F3F4F6;
-                            border-radius: 8px;">
-                    <span style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #6B7280;">
-                        Use Magic Link below to sign in
-                    </span>
+                <div class="divider">
+                    <div class="divider-line"></div>
+                    <span class="divider-text">or</span>
+                    <div class="divider-line"></div>
                 </div>
             """, unsafe_allow_html=True)
 
-        # --- DIVIDER ---
-        st.markdown("""
-            <div class="divider">
-                <div class="divider-line"></div>
-                <span class="divider-text">or</span>
-                <div class="divider-line"></div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # --- MAGIC LINK FORM ---
-        if not st.session_state.get('magic_link_sent'):
+        # --- EMAIL OTP FORM ---
+        if not st.session_state.get('otp_sent'):
+            # Step 1: Enter email and request code
             email = st.text_input(
                 "Email Address",
                 placeholder="Enter your email address",
@@ -406,13 +339,13 @@ def show_login_page():
 
             # Privacy checkbox
             privacy_accepted = st.checkbox(
-                "I accept the [Privacy Policy](/privacy)",
+                "I accept the [Privacy Policy](?page=privacy)",
                 key="privacy_checkbox",
                 value=st.session_state.get('privacy_accepted', False)
             )
 
-            # Send Magic Link Button
-            if st.button("Send Magic Link", use_container_width=True, type="primary", key="magic_link_button"):
+            # Send Code Button
+            if st.button("Send Verification Code", use_container_width=True, type="primary", key="send_otp_button"):
                 if not email:
                     st.session_state['auth_error'] = "Please enter your email address."
                     st.rerun()
@@ -423,11 +356,11 @@ def show_login_page():
                     st.session_state['auth_error'] = "Please enter a valid email address."
                     st.rerun()
                 else:
-                    # Send magic link
-                    result = sign_in_with_magic_link(email)
+                    # Send OTP code
+                    result = send_email_otp(email)
                     if result['success']:
-                        st.session_state['magic_link_sent'] = True
-                        st.session_state['user_email'] = email
+                        st.session_state['otp_sent'] = True
+                        st.session_state['otp_email'] = email
                         st.session_state['privacy_accepted'] = True
                     else:
                         st.session_state['auth_error'] = result['message']
@@ -436,29 +369,65 @@ def show_login_page():
             # Privacy notice
             st.markdown("""
                 <div class="privacy-notice">
-                    By signing in, you agree to our <a href="/privacy">Privacy Policy</a>.
+                    By signing in, you agree to our <a href="?page=privacy">Privacy Policy</a>.
                     We use your email only for authentication and will never share it with third parties.
                 </div>
             """, unsafe_allow_html=True)
 
         else:
-            # Magic link was sent - show confirmation
+            # Step 2: Enter OTP code
             st.markdown(f"""
-                <div style="text-align: center; padding: 20px 0;">
+                <div style="text-align: center; padding: 10px 0;">
                     <p style="font-family: 'Poppins', sans-serif; font-size: 14px; color: #4B5563;">
-                        Sent to: <strong>{st.session_state.get('user_email', '')}</strong>
+                        Code sent to: <strong>{st.session_state.get('otp_email', '')}</strong>
                     </p>
                 </div>
             """, unsafe_allow_html=True)
 
-            # Resend button
-            if st.button("Send New Link", use_container_width=True, type="secondary"):
-                st.session_state['magic_link_sent'] = False
+            # OTP Code input
+            otp_code = st.text_input(
+                "Verification Code",
+                placeholder="Enter 6-digit code",
+                key="otp_code_input",
+                max_chars=6,
+                label_visibility="collapsed"
+            )
+
+            # Verify button
+            if st.button("Verify & Sign In", use_container_width=True, type="primary", key="verify_otp_button"):
+                if not otp_code:
+                    st.session_state['auth_error'] = "Please enter the verification code."
+                    st.rerun()
+                elif len(otp_code) < 6:
+                    st.session_state['auth_error'] = "Please enter the complete 6-digit code."
+                    st.rerun()
+                else:
+                    # Verify OTP code
+                    result = verify_email_otp(st.session_state.get('otp_email', ''), otp_code)
+                    if result['success']:
+                        st.session_state['otp_sent'] = False
+                        st.session_state['otp_email'] = None
+                        st.session_state.navigate_to_page = "Start & Data"
+                        st.rerun()
+                    else:
+                        st.session_state['auth_error'] = result['message']
+                        st.rerun()
+
+            # Resend code button
+            if st.button("Resend Code", use_container_width=True, type="secondary"):
+                email = st.session_state.get('otp_email', '')
+                if email:
+                    result = send_email_otp(email)
+                    if result['success']:
+                        st.session_state['auth_error'] = None
+                        st.success("New code sent! Check your email.")
+                    else:
+                        st.session_state['auth_error'] = result['message']
                 st.rerun()
 
             if st.button("Use Different Email", use_container_width=True, type="tertiary"):
-                st.session_state['magic_link_sent'] = False
-                st.session_state['user_email'] = None
+                st.session_state['otp_sent'] = False
+                st.session_state['otp_email'] = None
                 st.rerun()
 
     # --- RIGHT PANEL: FULL-HEIGHT MARKETING IMAGE ---

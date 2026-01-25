@@ -88,9 +88,92 @@ SUPABASE_KEY = "your-key"
 
 ### UI/Styling
 - Custom CSS heavily overrides Streamlit defaults
-- Fonts: Exo 2 (headings), Poppins (body)
-- Primary color: #302BFF (Electric Blue)
 - Uses `!important` flags extensively for style enforcement
+- See Corporate Identity section below for complete design specifications
+
+## Corporate Identity
+
+### Brand Identity
+- **Name:** Cashflow Engine
+- **Claim:** Automated Options Trading
+- **Signature:** Engineered by Thomas Mehlitz
+- **Vibe:** Technical, precise, systematic, trustworthy. No gimmicks, pure performance.
+
+### Typography
+
+**Primary Font (Headlines & Logo)**
+- **Font:** Exo 2
+- **Weight:** Bold or Extra Bold
+- **Usage:** Logo wordmark ("CASHFLOW ENGINE"), large headings
+- **Style:** Always UPPERCASE for the "machine look"
+- **Letter-spacing:** 50 (wider, premium appearance)
+
+**Secondary Font (Body, UI, Subtitles)**
+- **Font:** Poppins
+- **Weights:**
+  - Regular: Body text, explanations
+  - Medium: Button text, menus
+  - Light/Thin: Signature "Engineered by..."
+- **Usage:** Everything except main headlines
+
+### Color Palette
+
+**Core Brand Colors**
+| Name | Hex | Usage |
+|------|-----|-------|
+| Electric Blue | `#302BFF` | **Primary.** Logo lines, primary buttons, links, key accents |
+| Space Grey | `#4B5563` | **Text.** Logo text, headings, body text (metallic look) |
+| Pure White | `#FFFFFF` | **Background.** Use generous whitespace |
+
+**Functional Trading Colors**
+| Name | Hex | Usage |
+|------|-----|-------|
+| Turbo Teal | `#00D2BE` | **Profit/Long.** Rising prices, positive numbers, "Buy" buttons |
+| Radical Coral | `#FF2E4D` | **Loss/Short.** Falling prices, negative numbers, risk warnings |
+| Amber Flux | `#FFAB00` | **Status.** Warnings, "Pending", neutral states |
+
+**UI Background Colors**
+| Name | Hex | Usage |
+|------|-----|-------|
+| Ice Tint | `#F0F4FF` | Important info boxes (very light blue) |
+| Vapor Grey | `#F3F4F6` | Tables, standard containers |
+
+### Logo Construction
+1. **Top line:** 2px in Electric Blue
+2. **Headline:** "CASHFLOW ENGINE" - Exo 2 Bold, Uppercase, Space Grey
+3. **Subline:** "AUTOMATED OPTIONS TRADING" - Poppins Bold, Uppercase, Space Grey
+4. **Bottom line:** 2px in Electric Blue
+5. **Signature:** "ENGINEERED BY THOMAS MEHLITZ" - Poppins Light, Uppercase, Electric Blue (letter-spacing: 200)
+
+### UI Elements
+
+**Primary Button**
+- Background: Electric Blue (`#302BFF`)
+- Text: White, Poppins Bold, UPPERCASE
+- Border-radius: 6px (slightly rounded)
+- Effect: Light blue shadow/glow
+
+**Links**
+- Normal: Electric Blue, bold
+- Hover: Electric Violet (`#7B2BFF`), underlined
+
+**Info Boxes**
+- No black borders
+- Use Ice Tint (`#F0F4FF`) fill or 1px light grey (`#E5E7EB`) border
+
+### Visual Language
+
+**Charts**
+- Thin, precise lines (the "heroes" of the UI)
+- Use Turbo Teal and Radical Coral
+- No old-fashioned Excel-style bars
+
+**Backgrounds**
+- White preferred, or subtle gradient mesh (white to lightest blue) for depth
+
+**Icons**
+- Minimalist, thin outline style
+- Colored in Electric Blue
 
 ## Key Patterns
 

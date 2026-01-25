@@ -124,7 +124,7 @@ def verify_email_otp(email: str, otp_code: str) -> Dict[str, Any]:
 
     Args:
         email: User's email address
-        otp_code: 6-digit code from the email
+        otp_code: Verification code from the email (6-8 digits)
 
     Returns:
         Dict with 'success' boolean and 'message' string

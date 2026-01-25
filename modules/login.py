@@ -269,7 +269,7 @@ def show_login_page():
             st.markdown("""
                 <div class="success-message">
                     <p><strong>Check your email!</strong><br>
-                    We've sent you a 6-digit verification code. Enter it below to sign in.</p>
+                    We've sent you a verification code. Enter it below to sign in.</p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -384,12 +384,12 @@ def show_login_page():
                 </div>
             """, unsafe_allow_html=True)
 
-            # OTP Code input
+            # OTP Code input (Supabase sends 6-8 digit codes)
             otp_code = st.text_input(
                 "Verification Code",
-                placeholder="Enter 6-digit code",
+                placeholder="Enter verification code",
                 key="otp_code_input",
-                max_chars=6,
+                max_chars=8,
                 label_visibility="collapsed"
             )
 
@@ -399,7 +399,7 @@ def show_login_page():
                     st.session_state['auth_error'] = "Please enter the verification code."
                     st.rerun()
                 elif len(otp_code) < 6:
-                    st.session_state['auth_error'] = "Please enter the complete 6-digit code."
+                    st.session_state['auth_error'] = "Please enter the complete verification code."
                     st.rerun()
                 else:
                     # Verify OTP code

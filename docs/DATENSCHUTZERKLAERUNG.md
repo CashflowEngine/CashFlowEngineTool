@@ -6,7 +6,8 @@
 
 # 1. Verantwortlicher
 
-**Mango Tree Haven LLC**
+**cashflowengine.io**
+*(ein Dienst der Mango Tree Haven LLC)*
 
 30 N Gould St Ste R
 Sheridan, WY 82801
@@ -248,7 +249,8 @@ Die aktuelle Version finden Sie stets auf unserer Website.
 
 # 15. Kontakt
 
-**Mango Tree Haven LLC**
+**cashflowengine.io**
+*(ein Dienst der Mango Tree Haven LLC)*
 
 30 N Gould St Ste R
 Sheridan, WY 82801

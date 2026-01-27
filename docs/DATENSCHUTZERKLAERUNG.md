@@ -2,6 +2,8 @@
 
 ## CashFlow Engine Tool
 
+> 🇬🇧 **[View in English](./PRIVACY_POLICY.md)**
+
 ---
 
 # 1. Verantwortlicher

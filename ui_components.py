@@ -357,7 +357,7 @@ def render_save_load_sidebar(bt_df, live_df):
                     st.success("Saved!")
 
     with load_tab:
-        saved = db.get_analysis_list_enhanced()
+        saved = db.get_analysis_list()  # Use wrapper that passes user_id for cache
         if not saved:
             st.caption("No saves.")
         else:
@@ -380,7 +380,8 @@ def render_save_load_sidebar(bt_df, live_df):
 def _load_with_feedback(analysis_id, name):
     loading = st.empty()
     loading.info(f"Loading...")
-    bt_df, live_df = db.load_analysis_from_db(analysis_id)
+    user_id = db.get_current_user_id()
+    bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
     if bt_df is not None:
         st.session_state['full_df'] = bt_df
         if live_df is not None:

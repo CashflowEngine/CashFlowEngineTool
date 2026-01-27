@@ -43,6 +43,17 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
     with st.container(border=True):
         ui.section_header("Configuration", description="Set the evaluation period and map strategies between live and backtest data.")
 
+        # Context about the data source
+        st.markdown(f"""
+        <div style='background-color: #F0F4FF; padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;'>
+            <strong>Data Period:</strong> This analysis uses your <strong>Live trading data</strong> as the baseline period.<br>
+            Live data range: <strong>{live_min_ts.strftime('%Y-%m-%d') if pd.notna(live_min_ts) else 'N/A'}</strong> to
+            <strong>{live_max_ts.strftime('%Y-%m-%d') if pd.notna(live_max_ts) else 'N/A'}</strong>
+            ({(live_max_ts - live_min_ts).days if pd.notna(live_min_ts) and pd.notna(live_max_ts) else 0} days) •
+            {len(live_strategies)} strategies • {len(live_df)} total trades
+        </div>
+        """, unsafe_allow_html=True)
+
         # Date range
         config_c1, config_c2, config_c3 = st.columns([1, 1, 2])
 
@@ -148,8 +159,14 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
         live_wr = live_wins / live_trades if live_trades > 0 else 0
         bt_wr = bt_wins / bt_trades if bt_trades > 0 else 0
 
-        # KPI Row
-        m1, m2, m3, m4, m5 = st.columns(5)
+        # Calculate additional statistics
+        live_avg_win = s_live[s_live['pnl'] > 0]['pnl'].mean() if live_wins > 0 else 0
+        live_avg_loss = s_live[s_live['pnl'] <= 0]['pnl'].mean() if (live_trades - live_wins) > 0 else 0
+        bt_avg_win = s_bt[s_bt['pnl'] > 0]['pnl'].mean() if bt_wins > 0 else 0
+        bt_avg_loss = s_bt[s_bt['pnl'] <= 0]['pnl'].mean() if (bt_trades - bt_wins) > 0 else 0
+
+        # KPI Row 1
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
         with m1:
             ui.render_hero_metric("Live P/L", f"${pl_live:,.0f}", f"{live_trades} trades", "hero-teal" if pl_live > 0 else "hero-coral")
         with m2:
@@ -161,6 +178,34 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
         with m5:
             wr_diff = (live_wr - bt_wr) * 100
             ui.render_hero_metric("Win Rate Diff", f"{wr_diff:+.1f}%", f"Live: {live_wr:.1%} vs BT: {bt_wr:.1%}", "hero-neutral")
+        with m6:
+            trade_diff = live_trades - bt_trades
+            ui.render_hero_metric("Trade Count Diff", f"{trade_diff:+d}", f"L: {live_trades} vs B: {bt_trades}", "hero-neutral")
+
+        st.write("")
+
+        # KPI Row 2: Additional statistics
+        s1, s2, s3, s4, s5, s6 = st.columns(6)
+        with s1:
+            ui.render_hero_metric("Live Avg Win", f"${live_avg_win:,.0f}", f"BT: ${bt_avg_win:,.0f}", "hero-neutral")
+        with s2:
+            ui.render_hero_metric("Live Avg Loss", f"${live_avg_loss:,.0f}", f"BT: ${bt_avg_loss:,.0f}", "hero-neutral")
+        with s3:
+            live_pf = abs(s_live[s_live['pnl'] > 0]['pnl'].sum() / s_live[s_live['pnl'] < 0]['pnl'].sum()) if s_live[s_live['pnl'] < 0]['pnl'].sum() != 0 else 0
+            bt_pf = abs(s_bt[s_bt['pnl'] > 0]['pnl'].sum() / s_bt[s_bt['pnl'] < 0]['pnl'].sum()) if s_bt[s_bt['pnl'] < 0]['pnl'].sum() != 0 else 0
+            ui.render_hero_metric("Profit Factor", f"{live_pf:.2f}", f"BT: {bt_pf:.2f}", "hero-neutral")
+        with s4:
+            live_best = s_live['pnl'].max() if not s_live.empty else 0
+            bt_best = s_bt['pnl'].max() if not s_bt.empty else 0
+            ui.render_hero_metric("Best Trade", f"${live_best:,.0f}", f"BT: ${bt_best:,.0f}", "hero-neutral")
+        with s5:
+            live_worst = s_live['pnl'].min() if not s_live.empty else 0
+            bt_worst = s_bt['pnl'].min() if not s_bt.empty else 0
+            ui.render_hero_metric("Worst Trade", f"${live_worst:,.0f}", f"BT: ${bt_worst:,.0f}", "hero-neutral")
+        with s6:
+            live_std = s_live['pnl'].std() if len(s_live) > 1 else 0
+            bt_std = s_bt['pnl'].std() if len(s_bt) > 1 else 0
+            ui.render_hero_metric("P/L Std Dev", f"${live_std:,.0f}", f"BT: ${bt_std:,.0f}", "hero-neutral")
 
         # Equity curves
         st.write("")

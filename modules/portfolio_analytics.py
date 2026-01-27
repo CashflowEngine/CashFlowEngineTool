@@ -135,6 +135,20 @@ def page_portfolio_analytics(full_df, live_df=None):
         peak_margin = margin_series.max() if not margin_series.empty else 0
         avg_margin = margin_series.mean() if not margin_series.empty else 0
 
+        # Calculate Portfolio Correlation early for KPI display
+        avg_correlation = 0
+        if len(selected_strats) > 1:
+            pnl_matrix_kpi = pd.DataFrame(index=full_idx)
+            for s in selected_strats:
+                s_df = filt[filt['strategy'] == s]
+                if not s_df.empty:
+                    pnl_matrix_kpi[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+            if len(pnl_matrix_kpi.columns) > 1:
+                corr_matrix = pnl_matrix_kpi.corr()
+                # Get upper triangle (excluding diagonal)
+                corr_values = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)).stack()
+                avg_correlation = corr_values.mean() if not corr_values.empty else 0
+
         # === KPI HIGHLIGHTS (3x6 Grid) ===
         # Row 1: Primary metrics (Teal/Coral)
         r1c1, r1c2, r1c3, r1c4, r1c5, r1c6 = st.columns(6)
@@ -162,7 +176,10 @@ def page_portfolio_analytics(full_df, live_df=None):
         r3c1, r3c2, r3c3, r3c4, r3c5, r3c6 = st.columns(6)
         with r3c1: ui.render_hero_metric("Alpha (vs SPX)", f"{m['Alpha']:.1%}", "Excess return", "hero-neutral")
         with r3c2: ui.render_hero_metric("Beta (vs SPX)", f"{m['Beta']:.2f}", "Market sensitivity", "hero-neutral")
-        with r3c3: ui.render_hero_metric("Avg Ret/Marg", f"{m['AvgRetMargin']:.1%}", "", "hero-neutral")
+        # Portfolio Correlation KPI - highlight low correlation as good
+        corr_style = "hero-teal" if avg_correlation < 0.3 else ("hero-neutral" if avg_correlation < 0.6 else "hero-coral")
+        corr_hint = "Low (diversified)" if avg_correlation < 0.3 else ("Moderate" if avg_correlation < 0.6 else "High")
+        with r3c3: ui.render_hero_metric("Portfolio Corr", f"{avg_correlation:.2f}", corr_hint, corr_style)
         with r3c4: ui.render_hero_metric("Kelly", f"{m['Kelly']:.1%}", "", "hero-neutral")
         with r3c5: ui.render_hero_metric("Peak Margin", f"${peak_margin:,.0f}", f"{peak_margin/account_size:.0%} of Account", "hero-neutral")
         with r3c6: ui.render_hero_metric("Avg Margin", f"${avg_margin:,.0f}", f"{avg_margin/account_size:.0%} of Account", "hero-neutral")
@@ -337,7 +354,6 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "CAGR": s_cagr,
                     "Max DD ($)": s_dd_usd,
                     "MAR": s_mar,
-                    "MART": s_mart,
                     "Peak Margin": s_peak_margin
                 })
 
@@ -351,7 +367,6 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "CAGR": m['CAGR'],
                     "Max DD ($)": m['MaxDD_USD'],
                     "MAR": m['MAR'],
-                    "MART": m['MART'],
                     "Peak Margin": perf_df["Peak Margin"].max()
                 }
                 perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
@@ -366,7 +381,6 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "CAGR": st.column_config.NumberColumn(format="%.1f%%"),
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
-                    "MART": st.column_config.NumberColumn(format="%.2f"),
                     "Peak Margin": st.column_config.NumberColumn(format="$%.0f")
                 },
                 use_container_width=True,

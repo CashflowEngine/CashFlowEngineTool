@@ -62,6 +62,19 @@ st.markdown("""
     .stDeployButton {display: none !important;}
     [data-testid="stDecoration"] {display: none !important;}
 
+    /* --- HIDE MULTIPAGE NAVIGATION (prevents flash during transitions) --- */
+    [data-testid="stSidebarNav"],
+    [data-testid="stSidebarNavItems"],
+    nav[data-testid="stSidebarNav"],
+    ul[data-testid="stSidebarNavItems"],
+    .st-emotion-cache-16idsys,
+    [data-testid="stSidebarNavLink"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
     /* --- SIDEBAR FLASH PREVENTION (loaded first) --- */
     /* This prevents the sidebar flash during page transitions by hiding toggle buttons */
     button[kind="header"],
@@ -88,6 +101,10 @@ st.markdown("""
     /* Force Exo 2 for ALL Headings - More specific selectors */
     /* Force Exo 2 for ALL Headings and custom classes */
     h1, h2, h3, h4, h5, h6,
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
     .exo2-heading,
     .card-title,
     .stHeading,
@@ -102,6 +119,15 @@ st.markdown("""
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         color: #4B5563 !important;
+        font-weight: 800 !important;
+    }
+
+    /* Additional Streamlit heading overrides */
+    .main h1, .main h2, .main h3,
+    .element-container h1, .element-container h2,
+    [data-testid="stAppViewBlockContainer"] h1,
+    [data-testid="stAppViewBlockContainer"] h2 {
+        font-family: 'Exo 2', sans-serif !important;
         font-weight: 800 !important;
     }
 
@@ -735,11 +761,11 @@ else:
 
         st.markdown("---")
 
-        # Analysis Manager - simple section without expander (same size as menu items)
+        # Analysis Manager - larger text for visibility
         st.markdown("""
-            <div style="font-family: 'Poppins', sans-serif !important; font-weight: 600 !important;
-                        font-size: 13px; color: #4B5563; text-transform: none;
-                        letter-spacing: 0.3px; margin-bottom: 10px; padding: 10px 12px;">
+            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
+                        font-size: 18px; color: #302BFF; text-transform: uppercase;
+                        letter-spacing: 1px; margin-bottom: 12px; padding: 10px 12px;">
                 Analysis Manager
             </div>
         """, unsafe_allow_html=True)

@@ -3,6 +3,7 @@ import pandas as pd
 import database as db
 import calculations as calc
 import ui_components as ui
+from modules.precompute import precompute_on_upload, invalidate_cache
 
 def show_landing_page():
     """
@@ -128,6 +129,11 @@ def show_landing_page():
                             st.session_state['live_df'] = pd.concat(dfs_live, ignore_index=True)
                             st.session_state['live_filenames'] = ", ".join([f.name for f in live_files])
 
+                    # Pre-compute metrics for AI and faster page loads
+                    if 'full_df' in st.session_state and not st.session_state['full_df'].empty:
+                        ui.show_loading_overlay("ANALYZING PORTFOLIO", "Computing metrics for AI assistant...")
+                        precompute_on_upload(st.session_state['full_df'])
+
                     ui.hide_loading_overlay()
                     st.rerun()
                 else:
@@ -154,6 +160,10 @@ def show_landing_page():
                                 st.session_state['full_df'] = bt_df
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
+
+                                # Pre-compute metrics for AI and faster page loads
+                                ui.show_loading_overlay("ANALYZING PORTFOLIO", "Computing metrics for AI assistant...")
+                                precompute_on_upload(st.session_state['full_df'])
 
                                 ui.hide_loading_overlay()
                                 st.rerun()

@@ -788,6 +788,15 @@ else:
 
         st.markdown("---")
 
+        # AI Assistant Widget (on all pages)
+        try:
+            from modules.ai_analyst import render_ai_sidebar_widget
+            render_ai_sidebar_widget(current_page=current_page_val)
+        except Exception:
+            pass  # Silently fail if AI module not available
+
+        st.markdown("---")
+
         # Show logged in user
         if st.session_state.get('user_email'):
             st.caption(f"Logged in as: {st.session_state.user_email}")

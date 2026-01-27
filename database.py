@@ -99,8 +99,13 @@ def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags
 
     # Get current user ID for multi-user support
     user_id = get_current_user_id()
+    access_token = st.session_state.get('access_token')
+
+    logger.info(f"Save attempt - user_id: {user_id}, has_access_token: {access_token is not None}")
+
     if not user_id:
         logger.warning("No user_id found - saving without user association")
+        st.warning("Warning: Not logged in. Data may not be saved to your account.")
 
     try:
         bt_json = clean_df_for_json(bt_df)
@@ -177,23 +182,37 @@ def get_analysis_list_for_user(user_id=None):
     if not DB_AVAILABLE:
         return []
 
+    logger.info(f"Fetching analyses for user_id: {user_id}")
+
     # Get authenticated client (RLS will filter by user automatically)
     client = get_authenticated_client() or supabase
 
+    # If no RLS configured, filter by user_id manually
+    # This is a fallback for when RLS policies are not yet set up
+
     try:
-        # OPTIMIZATION: Use Postgres JSON operator (->) to fetch ONLY the metadata object.
-        # This prevents downloading the full Backtest/Live data (MBs) for the list view.
-        # Note: RLS policies will automatically filter to current user's data
+        # Build query with explicit user_id filter (required since RLS may not be configured)
+        query = client.table('analyses').select(
+            "id, name, created_at, user_id, data_json->metadata"
+        )
+
+        # CRITICAL: Always filter by user_id to ensure data isolation
+        if user_id:
+            query = query.eq('user_id', user_id)
+            logger.info(f"Filtering analyses by user_id: {user_id}")
+        else:
+            logger.warning("No user_id provided - returning empty list for security")
+            return []
+
         try:
+            response = query.order('created_at', desc=True).execute()
+            logger.info(f"Query returned {len(response.data)} records")
+        except Exception as e:
+            # Fallback for older Postgres versions or if JSON operator fails
+            logger.warning(f"Optimized fetch failed: {e}, falling back to full fetch")
             response = client.table('analyses').select(
-                "id, name, created_at, data_json->metadata"
-            ).order('created_at', desc=True).execute()
-        except Exception:
-            # Fallback for older Postgres versions or if index is missing
-            logger.warning("Optimized fetch failed, falling back to full fetch")
-            response = client.table('analyses').select(
-                "id, name, created_at, data_json"
-            ).order('created_at', desc=True).execute()
+                "id, name, created_at, user_id, data_json"
+            ).eq('user_id', user_id).order('created_at', desc=True).execute()
 
         analyses = []
         for item in response.data:
@@ -232,21 +251,27 @@ def get_analysis_list_for_user(user_id=None):
 
             analyses.append(analysis)
 
-        logger.info(f"Loaded {len(analyses)} analyses for user {_user_id}")
+        logger.info(f"Loaded {len(analyses)} analyses for user {user_id}")
         return analyses
     except Exception as e:
         logger.error(f"Failed to get enhanced list: {e}")
         return []
 
 def delete_analysis_from_db(analysis_id):
-    """Delete an analysis by ID. RLS ensures user can only delete their own."""
+    """Delete an analysis by ID. Filters by user_id for security."""
     if not DB_AVAILABLE:
         return False
+
+    user_id = get_current_user_id()
+    if not user_id:
+        logger.error("Cannot delete - no user logged in")
+        return False
+
     try:
-        # Use authenticated client for RLS
         client = get_authenticated_client() or supabase
-        client.table('analyses').delete().eq('id', analysis_id).execute()
-        logger.info(f"Analysis {analysis_id} deleted")
+        # Filter by both analysis_id AND user_id for security
+        client.table('analyses').delete().eq('id', analysis_id).eq('user_id', user_id).execute()
+        logger.info(f"Analysis {analysis_id} deleted for user {user_id}")
         get_analysis_list_for_user.clear()  # Clear cache
         return True
     except Exception as e:
@@ -275,17 +300,27 @@ def load_analysis_from_db(analysis_id, _user_id=None):
     """
     Load analysis from database.
     CACHED: Expensive JSON parsing and dataframe creation is cached indefinitely for specific ID.
-    RLS ensures user can only load their own analyses.
     Note: _user_id prefixed with underscore to exclude from cache key but enables per-user caching.
     """
     if not DB_AVAILABLE:
         return None, None
+
+    # Security check - must have user_id
+    if not _user_id:
+        logger.warning("load_analysis_from_db called without user_id")
+        _user_id = get_current_user_id()
+        if not _user_id:
+            logger.error("Cannot load analysis - no user logged in")
+            return None, None
+
     try:
         # Use authenticated client for RLS
         client = get_authenticated_client() or supabase
 
-        # Here we NEED the full data_json
-        response = client.table('analyses').select("data_json").eq('id', analysis_id).execute()
+        # Filter by both analysis_id AND user_id for security
+        logger.info(f"Loading analysis {analysis_id} for user {_user_id}")
+        response = client.table('analyses').select("data_json, user_id").eq('id', analysis_id).eq('user_id', _user_id).execute()
+
         if response.data:
             json_data = response.data[0]['data_json']
             if isinstance(json_data, list):

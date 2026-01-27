@@ -135,7 +135,7 @@ def show_landing_page():
 
         with tab_db:
             if db.DB_AVAILABLE:
-                saved_analyses = db.get_analysis_list_enhanced()
+                saved_analyses = db.get_analysis_list()  # Use wrapper that passes user_id
                 if saved_analyses:
                     c_load1, c_load2 = st.columns([3, 1])
                     with c_load1:
@@ -147,7 +147,8 @@ def show_landing_page():
                             ui.show_loading_overlay("LOADING FROM CLOUD", "Fetching portfolio data...")
 
                             analysis_id = options[selected_option]
-                            bt_df, live_df = db.load_analysis_from_db(analysis_id)
+                            user_id = db.get_current_user_id()
+                            bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
                             if bt_df is not None:
                                 st.session_state['full_df'] = bt_df

@@ -152,7 +152,7 @@ def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags
         logger.info(f"Analysis '{name}' saved successfully for user {user_id}")
 
         # Clear cache to show new entry immediately
-        get_analysis_list_enhanced.clear()
+        get_analysis_list_for_user.clear()
 
         return True
     except Exception as e:
@@ -161,16 +161,18 @@ def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags
         return False
 
 def get_analysis_list():
-    """Retrieve list of saved analyses (legacy wrapper)."""
-    return get_analysis_list_enhanced()
+    """Retrieve list of saved analyses for the current user."""
+    # Pass user_id for cache separation - each user gets their own cache
+    user_id = get_current_user_id()
+    return get_analysis_list_for_user(user_id=user_id)
 
-@st.cache_data(ttl=300, show_spinner=False)
-def get_analysis_list_enhanced(_user_id=None):
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_analysis_list_for_user(user_id=None):
     """
     Get analysis list with metadata for the current user.
     OPTIMIZED: Fetches only the metadata field from the JSON column.
-    Note: _user_id is prefixed with underscore to exclude from caching key hash
-          but we still use it for cache invalidation per user.
+    NOTE: user_id (without underscore) IS included in cache key for per-user caching.
     """
     if not DB_AVAILABLE:
         return []
@@ -230,6 +232,7 @@ def get_analysis_list_enhanced(_user_id=None):
 
             analyses.append(analysis)
 
+        logger.info(f"Loaded {len(analyses)} analyses for user {_user_id}")
         return analyses
     except Exception as e:
         logger.error(f"Failed to get enhanced list: {e}")
@@ -244,7 +247,7 @@ def delete_analysis_from_db(analysis_id):
         client = get_authenticated_client() or supabase
         client.table('analyses').delete().eq('id', analysis_id).execute()
         logger.info(f"Analysis {analysis_id} deleted")
-        get_analysis_list_enhanced.clear()  # Clear cache
+        get_analysis_list_for_user.clear()  # Clear cache
         return True
     except Exception as e:
         logger.error(f"Delete error: {e}")
@@ -260,7 +263,7 @@ def rename_analysis_in_db(analysis_id, new_name):
         client = get_authenticated_client() or supabase
         client.table('analyses').update({"name": new_name}).eq('id', analysis_id).execute()
         logger.info(f"Analysis {analysis_id} renamed to {new_name}")
-        get_analysis_list_enhanced.clear()  # Clear cache
+        get_analysis_list_for_user.clear()  # Clear cache
         return True
     except Exception as e:
         logger.error(f"Rename error: {e}")

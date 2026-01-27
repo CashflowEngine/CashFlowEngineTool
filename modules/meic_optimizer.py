@@ -114,10 +114,21 @@ def analyze_meic_group(df, account_size):
     }
 
 
-def load_file_with_caching(uploaded_file):
-    """Load and parse CSV file with support for Option Omega export format."""
+def load_file_with_caching(uploaded_file, chunksize=50000):
+    """Load and parse CSV file with support for Option Omega export format.
+    Uses chunked reading for large files to avoid memory issues."""
     try:
-        df = pd.read_csv(uploaded_file)
+        # Get file size for progress indication
+        file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
+
+        # For large files (>50MB), use chunked reading
+        if file_size > 50 * 1024 * 1024:  # 50MB
+            chunks = []
+            for chunk in pd.read_csv(uploaded_file, chunksize=chunksize, low_memory=False):
+                chunks.append(chunk)
+            df = pd.concat(chunks, ignore_index=True)
+        else:
+            df = pd.read_csv(uploaded_file, low_memory=False)
 
         # Handle Option Omega format: Date Closed + Time Closed -> timestamp
         if 'Date Closed' in df.columns and 'Time Closed' in df.columns:
@@ -165,6 +176,28 @@ def page_meic_optimizer():
     ui.render_page_header("MEIC OPTIMIZER (4D)")
     st.caption("ENTRY TIMES • PREMIUM • WIDTH • STOP LOSS")
 
+    # Page Explanation
+    with st.expander("ℹ️ What is the MEIC Optimizer?", expanded=False):
+        st.markdown("""
+        **The MEIC Optimizer helps you find the optimal combination of trading parameters:**
+
+        This tool analyzes your Option Omega backtest results across **4 dimensions**:
+        1. **Entry Time** - What time of day produces the best results?
+        2. **Premium** - What credit received levels work best?
+        3. **Wing Width** - What strike width optimizes risk/reward?
+        4. **Stop Loss** - What stop loss level balances protection and profitability?
+
+        **How to use:**
+        1. **Generate Signals** - Create a CSV file with every possible entry time
+        2. **Run Backtests** - Use Option Omega with "Custom Signals (Open Only)" mode
+        3. **Name Files Correctly** - Use format: `MEIC_W50_SL100_P2-5.csv` (W=Width, SL=StopLoss, P=Premium)
+        4. **Upload & Analyze** - Upload all result files here to find optimal parameters
+
+        **File Size Note:** For large backtests (many entry times), files can be 100MB+.
+        The analyzer processes files in chunks to handle large datasets efficiently.
+        If uploads fail, try uploading fewer files at once or reduce the date range in your backtest.
+        """)
+
     tab_gen, tab_ana = st.tabs(["1. Signal Generator (for Option Omega)", "2. 4D Analyzer (Results)"])
 
     # --- TAB 1: GENERATOR ---
@@ -207,7 +240,23 @@ def page_meic_optimizer():
         **Supported CSV formats:** Option Omega exports with columns like Date Opened, Time Opened, P/L, etc.
         """)
 
+        # File upload with size warning
+        st.markdown("""
+        <div style='background-color: #FEF3C7; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 12px;'>
+            <strong>⚠️ Large File Upload Tips:</strong><br>
+            • Files up to 200MB each are supported<br>
+            • For very large files, consider splitting your backtest into smaller date ranges<br>
+            • If upload fails, refresh the page and try uploading fewer files at once<br>
+            • Processing time increases with file size - please be patient
+        </div>
+        """, unsafe_allow_html=True)
+
         uploaded_files = st.file_uploader("Upload Backtest CSVs (Multiple Selection)", accept_multiple_files=True, type=['csv'], key="opt_files")
+
+        # Show file size info if files uploaded
+        if uploaded_files:
+            total_size = sum(f.size for f in uploaded_files if hasattr(f, 'size'))
+            st.caption(f"📁 {len(uploaded_files)} file(s) selected • Total size: {total_size / (1024*1024):.1f} MB")
 
         account_size = st.number_input("Account Size ($)", value=100000, step=10000, key="opt_acc_size")
 

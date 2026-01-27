@@ -4,28 +4,40 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import ui_components as ui
+import calculations as calc
 
 def page_meic_analysis(bt_df, live_df=None):
     """MEIC Deep Dive page - Enhanced with Entry Time Filter, Monthly Performance, and Equity Curves."""
-    ui.render_page_header("🔬 MEIC DEEP DIVE")
-    st.caption("ENTRY TIME ANALYSIS & OPTIMIZATION")
-
-    # === DATA SOURCE TOGGLE ===
-    data_source = "Backtest Data"
-    if live_df is not None and not live_df.empty:
-        c_toggle, _ = st.columns([1, 4])
-        with c_toggle:
-            data_source = st.radio("Source:", ["Backtest Data", "Live Data"], label_visibility="collapsed", key="meic_source")
-
-    target_df = live_df if data_source == "Live Data" and live_df is not None else bt_df
-
-    if target_df is None or target_df.empty:
-        st.warning("No data available.")
-        return
+    ui.render_page_header("MEIC DEEP DIVE")
+    st.caption("MARKET ENTRY IMPROVEMENT COEFFICIENT ANALYSIS")
 
     # === SECTION 1: CONFIGURATION (Card) ===
     with st.container(border=True):
         ui.section_header("Configuration")
+
+        # MEIC Explanation Box
+        st.markdown("""
+        <div style='background-color: #F0F4FF; padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;'>
+            <strong>What is MEIC?</strong><br>
+            The <strong>Market Entry Improvement Coefficient</strong> analyzes your trade performance by entry time.
+            This helps identify optimal market entry windows for your strategies - some times of day consistently
+            produce better results due to market volatility patterns, liquidity, and price action behavior.
+            Use this analysis to filter out underperforming entry times and improve overall portfolio returns.
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Data Source Toggle - now inside Configuration
+        data_source = "Backtest Data"
+        if live_df is not None and not live_df.empty:
+            config_source_col, _ = st.columns([1, 2])
+            with config_source_col:
+                data_source = st.radio("Data Source:", ["Backtest Data", "Live Data"], horizontal=True, key="meic_source")
+
+        target_df = live_df if data_source == "Live Data" and live_df is not None else bt_df
+
+        if target_df is None or target_df.empty:
+            st.warning("No data available.")
+            return
 
         # Date range and Account Size in first row
         min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
@@ -359,6 +371,9 @@ def page_meic_analysis(bt_df, live_df=None):
         )
         st.session_state.meic_equity_strategies = selected_eq_strategies
 
+        # Fetch SPX benchmark for the period
+        spx = calc.fetch_spx_benchmark(pd.to_datetime(sel_dates[0]), pd.to_datetime(sel_dates[1]))
+
         # Create equity curve figure
         fig_eq = go.Figure()
 
@@ -370,6 +385,18 @@ def page_meic_analysis(bt_df, live_df=None):
             name='Combined Portfolio',
             line=dict(color=ui.COLOR_BLUE, width=3)
         ))
+
+        # Add SPX benchmark if available
+        if spx is not None and len(spx) > 0:
+            # Normalize SPX to start at account_size
+            spx_normalized = (spx / spx.iloc[0]) * account_size
+            fig_eq.add_trace(go.Scatter(
+                x=spx_normalized.index,
+                y=spx_normalized,
+                mode='lines',
+                name='SPX Benchmark',
+                line=dict(color='gray', width=2, dash='dot')
+            ))
 
         # Add starting line
         fig_eq.add_hline(y=account_size, line_dash="dash", line_color="lightgray")

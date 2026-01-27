@@ -353,8 +353,7 @@ def render_save_load_sidebar(bt_df, live_df):
             save_desc = st.text_area("Desc", height=60, key="save_desc_input", label_visibility="collapsed", placeholder="Notes")
 
             if st.button("Save Analysis", use_container_width=True, type="tertiary"):
-                if db.save_analysis_to_db_enhanced(save_name, bt_df, live_df, save_desc):
-                    st.success("Saved!")
+                _save_with_feedback(save_name, bt_df, live_df, save_desc)
 
     with load_tab:
         saved = db.get_analysis_list()  # Use wrapper that passes user_id for cache
@@ -377,16 +376,41 @@ def render_save_load_sidebar(bt_df, live_df):
                         if db.delete_analysis_from_db(aid):
                             st.rerun()
 
+def _save_with_feedback(name, bt_df, live_df, description):
+    """Save analysis with loading overlay feedback."""
+    # Show saving overlay
+    show_loading_overlay("SAVING TO CLOUD", "Uploading your analysis data...")
+
+    # Perform save
+    success = db.save_analysis_to_db_enhanced(name, bt_df, live_df, description)
+
+    # Hide overlay
+    hide_loading_overlay()
+
+    if success:
+        st.success(f"✓ Saved '{name}' successfully!")
+        time.sleep(1)
+        st.rerun()
+    else:
+        st.error("Failed to save. Please try again.")
+
+
 def _load_with_feedback(analysis_id, name):
-    loading = st.empty()
-    loading.info(f"Loading...")
+    """Load analysis with loading overlay feedback."""
+    show_loading_overlay("LOADING FROM CLOUD", "Fetching your analysis data...")
+
     user_id = db.get_current_user_id()
     bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+
+    hide_loading_overlay()
+
     if bt_df is not None:
         st.session_state['full_df'] = bt_df
         if live_df is not None:
             st.session_state['live_df'] = live_df
-        loading.success(f"Loaded!")
+        st.success(f"✓ Loaded successfully!")
         time.sleep(0.5)
         st.session_state.navigate_to_page = "Portfolio Analytics"
         st.rerun()
+    else:
+        st.error("Failed to load. Please try again.")

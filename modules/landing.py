@@ -45,12 +45,12 @@ def show_landing_page():
         <div style="text-align: left; margin: 0 0 20px 0;">
             <h1 style='color: #4B5563; font-family: "Exo 2", sans-serif !important; font-weight: 800;
                         text-transform: uppercase; margin-bottom: 15px; letter-spacing: 2px;'>
-                Advanced Portfolio Analytics &<br>Risk Simulation for Option Traders
+                Options Backtesting & Portfolio Analytics<br>for 0DTE, Iron Condor & Credit Spread Traders
             </h1>
             <p style="font-family: 'Poppins', sans-serif; font-size: 15px; color: #6B7280;
                       margin: 0; line-height: 1.6;">
-                Analyze your options trading performance with professional-grade tools. Import your backtest
-                or live trading data to unlock comprehensive analytics, Monte Carlo simulations, and portfolio optimization.
+                Professional options trading analytics platform. Backtest your SPX, SPY & QQQ strategies,
+                run Monte Carlo simulations, and optimize your Iron Condor and Credit Spread portfolio allocation.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -59,9 +59,9 @@ def show_landing_page():
     st.markdown(f"""
         <div style="text-align: left; margin: 0 0 30px 0;">
             <p style="font-family: 'Poppins', sans-serif !important; font-size: 15px; color: #6B7280; line-height: 1.7;">
-                Cashflow Engine is your comprehensive analytics suite for evaluating option trading strategies.
-                To begin, import your backtest data or load a previously saved analysis from the database.
-                Once your data is loaded, you'll have access to all analysis modules.
+                Cashflow Engine is your comprehensive options trading analytics suite. Built for 0DTE traders,
+                Iron Condor and Credit Spread specialists who need professional backtesting and Monte Carlo analysis.
+                Import your backtest data to unlock Sharpe ratio, drawdown analysis, Kelly Criterion sizing, and more.
             </p>
         </div>
     """, unsafe_allow_html=True)

@@ -3,6 +3,7 @@ import pandas as pd
 import database as db
 import calculations as calc
 import ui_components as ui
+import precompute
 
 def show_landing_page():
     """
@@ -128,6 +129,14 @@ def show_landing_page():
                             st.session_state['live_df'] = pd.concat(dfs_live, ignore_index=True)
                             st.session_state['live_filenames'] = ", ".join([f.name for f in live_files])
 
+                    # Pre-compute statistics for faster page loads
+                    ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics for instant access...")
+                    precompute.precompute_all(
+                        st.session_state.get('full_df'),
+                        st.session_state.get('live_df'),
+                        account_size=100000
+                    )
+
                     ui.hide_loading_overlay()
                     st.rerun()
                 else:
@@ -153,6 +162,10 @@ def show_landing_page():
                                 st.session_state['full_df'] = bt_df
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
+
+                                # Pre-compute statistics for faster page loads
+                                ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
+                                precompute.precompute_all(bt_df, live_df, account_size=100000)
 
                                 ui.hide_loading_overlay()
                                 st.rerun()

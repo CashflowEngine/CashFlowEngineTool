@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
+import precompute
 import time
 
 def page_portfolio_builder(full_df):
@@ -71,54 +72,67 @@ def page_portfolio_builder(full_df):
     strategies = sorted(filtered_df['strategy'].unique().tolist())
     full_date_range = pd.date_range(start=selected_dates[0], end=selected_dates[1], freq='D')
 
-    # Pre-calculate stats
-    strategy_base_stats = {}
+    # Check if we can use pre-computed stats (when using full date range)
+    cached_stats = precompute.get_cached('strategy_base_stats')
+    use_cache = (
+        cached_stats is not None and
+        selected_dates[0] == min_d and
+        selected_dates[1] == max_d and
+        precompute.is_cache_valid(full_df)
+    )
 
-    for strat in strategies:
-        strat_data = filtered_df[filtered_df['strategy'] == strat].copy()
-        if strat_data.empty: continue
+    if use_cache:
+        # Use pre-computed stats (instant!)
+        strategy_base_stats = cached_stats
+    else:
+        # Compute stats for custom date range
+        strategy_base_stats = {}
 
-        dna = calc.get_cached_dna(strat, strat_data)
-        category = calc.categorize_strategy(strat)
-        total_lots, contracts_per_day = calc.calculate_lots_from_trades(strat_data)
+        for strat in strategies:
+            strat_data = filtered_df[filtered_df['strategy'] == strat].copy()
+            if strat_data.empty: continue
 
-        contracts_per_day = max(0.5, round(contracts_per_day * 2) / 2)
+            dna = calc.get_cached_dna(strat, strat_data)
+            category = calc.categorize_strategy(strat)
+            total_lots, contracts_per_day = calc.calculate_lots_from_trades(strat_data)
 
-        margin_per_contract = strat_data['margin'].mean() if 'margin' in strat_data.columns else 0
-        total_pnl = strat_data['pnl'].sum()
+            contracts_per_day = max(0.5, round(contracts_per_day * 2) / 2)
 
-        wins = strat_data[strat_data['pnl'] > 0]['pnl']
-        losses = strat_data[strat_data['pnl'] <= 0]['pnl']
-        win_rate = len(wins) / len(strat_data) if len(strat_data) > 0 else 0
-        avg_win = wins.mean() if len(wins) > 0 else 0
-        avg_loss = abs(losses.mean()) if len(losses) > 0 else 0
-        kelly = 0
-        if avg_loss > 0 and avg_win > 0:
-            b = avg_win / avg_loss
-            kelly = (win_rate * b - (1 - win_rate)) / b
-            kelly = max(0, min(kelly, 1))
+            margin_per_contract = strat_data['margin'].mean() if 'margin' in strat_data.columns else 0
+            total_pnl = strat_data['pnl'].sum()
 
-        daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
-        daily_pnl_aligned = daily_pnl.reindex(full_date_range, fill_value=0)
+            wins = strat_data[strat_data['pnl'] > 0]['pnl']
+            losses = strat_data[strat_data['pnl'] <= 0]['pnl']
+            win_rate = len(wins) / len(strat_data) if len(strat_data) > 0 else 0
+            avg_win = wins.mean() if len(wins) > 0 else 0
+            avg_loss = abs(losses.mean()) if len(losses) > 0 else 0
+            kelly = 0
+            if avg_loss > 0 and avg_win > 0:
+                b = avg_win / avg_loss
+                kelly = (win_rate * b - (1 - win_rate)) / b
+                kelly = max(0, min(kelly, 1))
 
-        cumsum = daily_pnl_aligned.cumsum()
-        peak = cumsum.cummax()
-        dd = (cumsum - peak).min()
+            daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
+            daily_pnl_aligned = daily_pnl.reindex(full_date_range, fill_value=0)
 
-        margin_series = calc.generate_daily_margin_series_optimized(strat_data).reindex(full_date_range, fill_value=0)
+            cumsum = daily_pnl_aligned.cumsum()
+            peak = cumsum.cummax()
+            dd = (cumsum - peak).min()
 
-        strategy_base_stats[strat] = {
-            'category': category,
-            'dna': dna,
-            'contracts_per_day': contracts_per_day,
-            'margin_per_contract': margin_per_contract,
-            'total_pnl': total_pnl,
-            'win_rate': win_rate,
-            'kelly': kelly,
-            'max_dd': abs(dd) if dd < 0 else 0,
-            'daily_pnl_series': daily_pnl_aligned,
-            'margin_series': margin_series
-        }
+            margin_series = calc.generate_daily_margin_series_optimized(strat_data).reindex(full_date_range, fill_value=0)
+
+            strategy_base_stats[strat] = {
+                'category': category,
+                'dna': dna,
+                'contracts_per_day': contracts_per_day,
+                'margin_per_contract': margin_per_contract,
+                'total_pnl': total_pnl,
+                'win_rate': win_rate,
+                'kelly': kelly,
+                'max_dd': abs(dd) if dd < 0 else 0,
+                'daily_pnl_series': daily_pnl_aligned,
+                'margin_series': margin_series
+            }
 
     # Allocation Table (Card)
     with st.container(border=True):

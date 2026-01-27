@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
+import precompute
 import time
 
 def page_portfolio_analytics(full_df, live_df=None):
@@ -118,10 +119,14 @@ def page_portfolio_analytics(full_df, live_df=None):
         equity = account_size + daily_pnl.cumsum()
         ret = equity.pct_change().fillna(0)
 
-        # Benchmarking
-        spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
-        spx_ret = None
+        # Benchmarking - use cached SPX if available
+        cached_spx = precompute.get_cached('spx_benchmark')
+        if cached_spx is not None and precompute.is_cache_valid(full_df):
+            spx = cached_spx
+        else:
+            spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
 
+        spx_ret = None
         if spx is not None:
             spx.index = pd.to_datetime(spx.index)
             spx_filtered = spx[(spx.index.date >= dates[0]) & (spx.index.date <= dates[1])]
@@ -135,19 +140,31 @@ def page_portfolio_analytics(full_df, live_df=None):
         peak_margin = margin_series.max() if not margin_series.empty else 0
         avg_margin = margin_series.mean() if not margin_series.empty else 0
 
-        # Calculate Portfolio Correlation early for KPI display
-        avg_correlation = 0
-        if len(selected_strats) > 1:
-            pnl_matrix_kpi = pd.DataFrame(index=full_idx)
-            for s in selected_strats:
-                s_df = filt[filt['strategy'] == s]
-                if not s_df.empty:
-                    pnl_matrix_kpi[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
-            if len(pnl_matrix_kpi.columns) > 1:
-                corr_matrix = pnl_matrix_kpi.corr()
-                # Get upper triangle (excluding diagonal)
-                corr_values = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)).stack()
-                avg_correlation = corr_values.mean() if not corr_values.empty else 0
+        # Calculate Portfolio Correlation - use cached if using all strategies and full date range
+        cached_corr = precompute.get_cached('avg_correlation')
+        use_cached_corr = (
+            cached_corr is not None and
+            precompute.is_cache_valid(full_df) and
+            set(selected_strats) == set(all_strategies) and
+            dates[0] == min_ts.date() and
+            dates[1] == max_ts.date()
+        )
+
+        if use_cached_corr:
+            avg_correlation = cached_corr
+        else:
+            avg_correlation = 0
+            if len(selected_strats) > 1:
+                pnl_matrix_kpi = pd.DataFrame(index=full_idx)
+                for s in selected_strats:
+                    s_df = filt[filt['strategy'] == s]
+                    if not s_df.empty:
+                        pnl_matrix_kpi[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                if len(pnl_matrix_kpi.columns) > 1:
+                    corr_matrix = pnl_matrix_kpi.corr()
+                    # Get upper triangle (excluding diagonal)
+                    corr_values = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)).stack()
+                    avg_correlation = corr_values.mean() if not corr_values.empty else 0
 
         # === KPI HIGHLIGHTS (3x6 Grid) ===
         # Row 1: Primary metrics (Teal/Coral)

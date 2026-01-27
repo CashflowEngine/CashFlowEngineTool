@@ -280,14 +280,21 @@ def delete_analysis_from_db(analysis_id):
 
 
 def rename_analysis_in_db(analysis_id, new_name):
-    """Rename an analysis. RLS ensures user can only rename their own."""
+    """Rename an analysis. Filters by user_id for security."""
     if not DB_AVAILABLE:
         return False
+
+    user_id = get_current_user_id()
+    if not user_id:
+        logger.error("Cannot rename - no user logged in")
+        return False
+
     try:
         # Use authenticated client for RLS
         client = get_authenticated_client() or supabase
-        client.table('analyses').update({"name": new_name}).eq('id', analysis_id).execute()
-        logger.info(f"Analysis {analysis_id} renamed to {new_name}")
+        # Filter by both analysis_id AND user_id for security
+        client.table('analyses').update({"name": new_name}).eq('id', analysis_id).eq('user_id', user_id).execute()
+        logger.info(f"Analysis {analysis_id} renamed to {new_name} for user {user_id}")
         get_analysis_list_for_user.clear()  # Clear cache
         return True
     except Exception as e:

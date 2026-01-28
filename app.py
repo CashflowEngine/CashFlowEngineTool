@@ -27,13 +27,30 @@ import modules.privacy as privacy
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Cashflow Engine",
+    page_title="CashFlow Engine | Options Backtesting & Portfolio Analytics for 0DTE Trading",
     page_icon="CashflowEngine_favicon.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# --- 1.5. AUTH CALLBACK HANDLER ---
+# Note: We use Email OTP flow which doesn't require fragment handling.
+# Google OAuth uses PKCE code exchange which is handled later in the file.
+
 # --- 2. CORPORATE IDENTITY CSS ---
+# SEO Meta Tags
+st.markdown("""
+<meta name="description" content="Professional options trading analytics platform. Backtest 0DTE strategies, run Monte Carlo simulations, analyze Iron Condors & Credit Spreads. Free options backtesting software for SPX, SPY, QQQ traders.">
+<meta name="keywords" content="0DTE options, options backtesting, iron condor strategy, credit spread, Monte Carlo simulation, options trading software, portfolio analytics, SPX options, SPY options, options trading journal, trading performance tracker">
+<meta name="author" content="CashFlow Engine">
+<meta property="og:title" content="CashFlow Engine | Options Backtesting & Portfolio Analytics">
+<meta property="og:description" content="Professional options trading analytics. Backtest 0DTE strategies, Monte Carlo simulations, Iron Condor & Credit Spread optimization.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CashFlow Engine - Options Trading Analytics">
+<meta name="twitter:description" content="Backtest your 0DTE, Iron Condor & Credit Spread strategies with professional analytics tools.">
+""", unsafe_allow_html=True)
+
 # Preload fonts for faster loading
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -672,6 +689,43 @@ init_auth_session_state()
 
 if 'navigate_to_page' not in st.session_state:
     st.session_state.navigate_to_page = None
+
+# Check for auth tokens in query params (after JS redirect from fragment)
+_query_params = st.query_params
+_access_token = _query_params.get('access_token')
+_refresh_token = _query_params.get('refresh_token')
+_auth_code = _query_params.get('code')
+
+# Handle PKCE code exchange (from OAuth providers)
+if _auth_code and not _access_token:
+    from core.auth import get_supabase_client
+    client = get_supabase_client()
+    if client:
+        try:
+            # Exchange the code for a session
+            response = client.auth.exchange_code_for_session({"auth_code": _auth_code})
+            if response and response.session:
+                st.session_state['is_authenticated'] = True
+                st.session_state['user'] = response.user
+                st.session_state['user_id'] = response.user.id
+                st.session_state['user_email'] = response.user.email
+                st.session_state['access_token'] = response.session.access_token
+                st.session_state['refresh_token'] = response.session.refresh_token
+                st.query_params.clear()
+                st.session_state.navigate_to_page = "Start & Data"
+                st.rerun()
+        except Exception as e:
+            import logging
+            logging.error(f"Code exchange error: {e}")
+            st.query_params.clear()
+
+# Handle direct token callback (from Magic Link or fragment conversion)
+if _access_token and _refresh_token:
+    from core.auth import handle_auth_callback
+    if handle_auth_callback(_access_token, _refresh_token):
+        st.query_params.clear()
+        st.session_state.navigate_to_page = "Start & Data"
+        st.rerun()
 
 # Verify session on page load (refresh tokens if needed)
 if st.session_state.get('is_authenticated') and st.session_state.get('access_token'):

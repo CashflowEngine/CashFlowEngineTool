@@ -71,151 +71,40 @@ def repair_df_dates(df):
     return df
 
 def save_analysis_to_db(name, bt_df, live_df=None):
-    """Save analysis to database (legacy wrapper)."""
-    return save_analysis_to_db_enhanced(name, bt_df, live_df)
+    """Save analysis to database (delegates to database.py for auth)."""
+    import database as db
+    return db.save_analysis_to_db(name, bt_df, live_df)
 
 def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags=None):
-    """Enhanced save with metadata."""
-    if not DB_AVAILABLE:
-        st.error("Database not connected.")
-        return False
-    
-    try:
-        bt_json = clean_df_for_json(bt_df)
-        live_json = clean_df_for_json(live_df)
-        
-        trade_count = len(bt_df) if bt_df is not None and not bt_df.empty else 0
-        total_pnl = float(bt_df['pnl'].sum()) if bt_df is not None and not bt_df.empty else 0
-        strategies = list(bt_df['strategy'].unique()) if bt_df is not None and not bt_df.empty else []
-        
-        date_start = None
-        date_end = None
-        if bt_df is not None and not bt_df.empty and 'timestamp' in bt_df.columns:
-            date_start = str(bt_df['timestamp'].min().date())
-            date_end = str(bt_df['timestamp'].max().date())
-        
-        metadata = {
-            "description": description,
-            "tags": tags or [],
-            "trade_count": trade_count,
-            "total_pnl": total_pnl,
-            "strategies": strategies[:10],
-            "date_start": date_start,
-            "date_end": date_end,
-            "has_live": live_df is not None and not live_df.empty
-        }
-        
-        payload = {
-            "version": 3,
-            "backtest": bt_json,
-            "live": live_json,
-            "metadata": metadata
-        }
-        
-        supabase.table('analyses').insert({
-            "name": name,
-            "data_json": payload
-        }).execute()
-        
-        logger.info(f"Analysis '{name}' saved successfully")
-        return True
-    except Exception as e:
-        logger.error(f"Enhanced save error: {e}")
-        st.error(f"Save Error: {e}")
-        return False
+    """Enhanced save with metadata (delegates to database.py for auth)."""
+    import database as db
+    return db.save_analysis_to_db_enhanced(name, bt_df, live_df, description, tags)
 
 def get_analysis_list():
-    """Retrieve list of saved analyses (legacy wrapper)."""
-    return get_analysis_list_enhanced()
+    """Retrieve list of saved analyses for current user (delegates to database.py)."""
+    import database as db
+    return db.get_analysis_list()
 
 def get_analysis_list_enhanced():
-    """Get analysis list with metadata."""
-    if not DB_AVAILABLE:
-        return []
-    
-    try:
-        response = supabase.table('analyses').select(
-            "id, name, created_at, data_json"
-        ).order('created_at', desc=True).execute()
-        
-        analyses = []
-        for item in response.data:
-            analysis = {
-                'id': item['id'],
-                'name': item['name'],
-                'created_at': item['created_at']
-            }
-            
-            data_json = item.get('data_json', {})
-            if isinstance(data_json, dict):
-                metadata = data_json.get('metadata', {})
-                analysis['description'] = metadata.get('description', '')
-                analysis['tags'] = metadata.get('tags', [])
-                analysis['trade_count'] = metadata.get('trade_count', 0)
-                analysis['total_pnl'] = metadata.get('total_pnl', 0)
-                analysis['strategies'] = metadata.get('strategies', [])
-                analysis['date_start'] = metadata.get('date_start', '')
-                analysis['date_end'] = metadata.get('date_end', '')
-                analysis['has_live'] = metadata.get('has_live', False)
-            else:
-                if isinstance(data_json, list):
-                    analysis['trade_count'] = len(data_json)
-                analysis['description'] = ''
-                analysis['tags'] = []
-            
-            analyses.append(analysis)
-        
-        return analyses
-    except Exception as e:
-        logger.error(f"Failed to get enhanced list: {e}")
-        return []
+    """Get analysis list with metadata for current user (delegates to database.py)."""
+    import database as db
+    return db.get_analysis_list()
 
 def delete_analysis_from_db(analysis_id):
-    """Delete an analysis by ID."""
-    if not DB_AVAILABLE:
-        return False
-    try:
-        supabase.table('analyses').delete().eq('id', analysis_id).execute()
-        logger.info(f"Analysis {analysis_id} deleted")
-        return True
-    except Exception as e:
-        logger.error(f"Delete error: {e}")
-        return False
+    """Delete an analysis by ID (delegates to database.py for auth)."""
+    import database as db
+    return db.delete_analysis_from_db(analysis_id)
 
 def rename_analysis_in_db(analysis_id, new_name):
-    """Rename an analysis."""
-    if not DB_AVAILABLE:
-        return False
-    try:
-        supabase.table('analyses').update({"name": new_name}).eq('id', analysis_id).execute()
-        logger.info(f"Analysis {analysis_id} renamed to {new_name}")
-        return True
-    except Exception as e:
-        logger.error(f"Rename error: {e}")
-        return False
+    """Rename an analysis (delegates to database.py for auth)."""
+    import database as db
+    return db.rename_analysis_in_db(analysis_id, new_name)
 
 def load_analysis_from_db(analysis_id):
-    """Load analysis from database."""
-    if not DB_AVAILABLE:
-        return None, None
-    try:
-        response = supabase.table('analyses').select("data_json").eq('id', analysis_id).execute()
-        if response.data:
-            json_data = response.data[0]['data_json']
-            if isinstance(json_data, list):
-                bt_df = pd.DataFrame(json_data)
-                return repair_df_dates(bt_df), None
-            elif isinstance(json_data, dict):
-                bt_data = json_data.get('backtest', [])
-                live_data = json_data.get('live', [])
-                bt_df = pd.DataFrame(bt_data) if bt_data else pd.DataFrame()
-                live_df = pd.DataFrame(live_data) if live_data else None
-                return repair_df_dates(bt_df), repair_df_dates(live_df) if live_df is not None else None
-        return None, None
-    except Exception as e:
-        logger.error(f"Load Error: {e}")
-        st.error(f"Load Error: {e}")
-        return None, None
+    """Load analysis from database (delegates to database.py for auth)."""
+    import database as db
+    user_id = db.get_current_user_id()
+    return db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
 # --- DATA LOADING FUNCTIONS ---
 

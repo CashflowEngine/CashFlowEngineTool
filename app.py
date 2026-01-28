@@ -27,7 +27,7 @@ import modules.privacy as privacy
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Cashflow Engine",
+    page_title="CashFlow Engine | Options Backtesting & Portfolio Analytics for 0DTE Trading",
     page_icon="CashflowEngine_favicon.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -38,6 +38,19 @@ st.set_page_config(
 # Google OAuth uses PKCE code exchange which is handled later in the file.
 
 # --- 2. CORPORATE IDENTITY CSS ---
+# SEO Meta Tags
+st.markdown("""
+<meta name="description" content="Professional options trading analytics platform. Backtest 0DTE strategies, run Monte Carlo simulations, analyze Iron Condors & Credit Spreads. Free options backtesting software for SPX, SPY, QQQ traders.">
+<meta name="keywords" content="0DTE options, options backtesting, iron condor strategy, credit spread, Monte Carlo simulation, options trading software, portfolio analytics, SPX options, SPY options, options trading journal, trading performance tracker">
+<meta name="author" content="CashFlow Engine">
+<meta property="og:title" content="CashFlow Engine | Options Backtesting & Portfolio Analytics">
+<meta property="og:description" content="Professional options trading analytics. Backtest 0DTE strategies, Monte Carlo simulations, Iron Condor & Credit Spread optimization.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CashFlow Engine - Options Trading Analytics">
+<meta name="twitter:description" content="Backtest your 0DTE, Iron Condor & Credit Spread strategies with professional analytics tools.">
+""", unsafe_allow_html=True)
+
 # Preload fonts for faster loading
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66,6 +79,19 @@ st.markdown("""
     .stDeployButton {display: none !important;}
     [data-testid="stDecoration"] {display: none !important;}
 
+    /* --- HIDE MULTIPAGE NAVIGATION (prevents flash during transitions) --- */
+    [data-testid="stSidebarNav"],
+    [data-testid="stSidebarNavItems"],
+    nav[data-testid="stSidebarNav"],
+    ul[data-testid="stSidebarNavItems"],
+    .st-emotion-cache-16idsys,
+    [data-testid="stSidebarNavLink"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
     /* --- SIDEBAR FLASH PREVENTION (loaded first) --- */
     /* This prevents the sidebar flash during page transitions by hiding toggle buttons */
     button[kind="header"],
@@ -92,6 +118,10 @@ st.markdown("""
     /* Force Exo 2 for ALL Headings - More specific selectors */
     /* Force Exo 2 for ALL Headings and custom classes */
     h1, h2, h3, h4, h5, h6,
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
     .exo2-heading,
     .card-title,
     .stHeading,
@@ -106,6 +136,15 @@ st.markdown("""
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         color: #4B5563 !important;
+        font-weight: 800 !important;
+    }
+
+    /* Additional Streamlit heading overrides */
+    .main h1, .main h2, .main h3,
+    .element-container h1, .element-container h2,
+    [data-testid="stAppViewBlockContainer"] h1,
+    [data-testid="stAppViewBlockContainer"] h2 {
+        font-family: 'Exo 2', sans-serif !important;
         font-weight: 800 !important;
     }
 
@@ -776,11 +815,11 @@ else:
 
         st.markdown("---")
 
-        # Analysis Manager - simple section without expander (same size as menu items)
+        # Analysis Manager - larger text for visibility
         st.markdown("""
-            <div style="font-family: 'Poppins', sans-serif !important; font-weight: 600 !important;
-                        font-size: 13px; color: #4B5563; text-transform: none;
-                        letter-spacing: 0.3px; margin-bottom: 10px; padding: 10px 12px;">
+            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
+                        font-size: 18px; color: #302BFF; text-transform: uppercase;
+                        letter-spacing: 1px; margin-bottom: 12px; padding: 10px 12px;">
                 Analysis Manager
             </div>
         """, unsafe_allow_html=True)

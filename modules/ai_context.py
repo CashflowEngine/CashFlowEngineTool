@@ -299,12 +299,13 @@ class AIContextBuilder:
             Vollständiger Kontext-String für den AI-Prompt
         """
         # Check if precomputed data is available
-        from modules.precompute import is_precomputed, get_precomputed_context_for_ai
+        import precompute
 
-        if is_precomputed():
+        df = st.session_state.get('full_df', pd.DataFrame())
+        if precompute.is_cache_valid(df):
             # Use precomputed data for faster context building
             context_parts = [
-                get_precomputed_context_for_ai(),
+                AIContextBuilder._build_precomputed_context(),
                 AIContextBuilder.build_monte_carlo_context(),
             ]
         else:
@@ -323,6 +324,51 @@ class AIContextBuilder:
             context_parts.append(f"\n## AKTUELLER KONTEXT\nUser ist auf der Seite: **{current_page}**")
 
         return "\n".join(context_parts)
+
+    @staticmethod
+    def _build_precomputed_context() -> str:
+        """Baut Kontext aus vorberechneten Daten."""
+        import precompute
+
+        lines = ["## VORBERECHNETE PORTFOLIO-DATEN\n"]
+
+        # Basic metrics
+        basic = precompute.get_cached('basic_metrics', {})
+        if basic:
+            lines.append(f"""### Übersicht
+- Strategien: {basic.get('strategy_count', 0)}
+- Trades: {basic.get('total_trades', 0):,}
+- Zeitraum: {basic.get('days', 0)} Tage
+- Total P&L: ${basic.get('total_pnl', 0):,.0f}
+- CAGR: {basic.get('cagr', 0)*100:.1f}%
+- Sharpe: {basic.get('sharpe', 0):.2f}
+- Max Drawdown: {basic.get('max_dd', 0)*100:.1f}%
+- MAR: {basic.get('mar', 0):.2f}
+""")
+
+        # Strategy stats
+        strat_stats = precompute.get_cached('strategy_stats', {})
+        if strat_stats:
+            lines.append("### Strategie-Performance\n")
+            for name, stats in strat_stats.items():
+                lines.append(f"""**{name}**
+- P&L: ${stats.get('total_pnl', 0):,.0f} | Trades: {stats.get('trades', 0)}
+- Win Rate: {stats.get('win_rate', 0)*100:.0f}% | PF: {stats.get('profit_factor', 0):.2f}
+- MAR: {stats.get('mar', 0):.2f} | Max DD: {stats.get('max_dd', 0)*100:.1f}%
+""")
+
+        # Correlation warnings
+        corr = precompute.get_cached('correlation_matrix')
+        if corr is not None and isinstance(corr, pd.DataFrame):
+            high_corr = []
+            for i, col1 in enumerate(corr.columns):
+                for j, col2 in enumerate(corr.columns):
+                    if i < j and abs(corr.loc[col1, col2]) > 0.7:
+                        high_corr.append(f"- {col1} ↔ {col2}: {corr.loc[col1, col2]:.2f}")
+            if high_corr:
+                lines.append("### Korrelations-Warnungen\n" + "\n".join(high_corr))
+
+        return "\n".join(lines)
 
     @staticmethod
     def get_quick_stats() -> Dict[str, Any]:

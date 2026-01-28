@@ -3,7 +3,7 @@ import pandas as pd
 import database as db
 import calculations as calc
 import ui_components as ui
-from modules.precompute import precompute_on_upload, invalidate_cache
+import precompute
 
 def show_landing_page():
     """
@@ -46,12 +46,12 @@ def show_landing_page():
         <div style="text-align: left; margin: 0 0 20px 0;">
             <h1 style='color: #4B5563; font-family: "Exo 2", sans-serif !important; font-weight: 800;
                         text-transform: uppercase; margin-bottom: 15px; letter-spacing: 2px;'>
-                Advanced Portfolio Analytics &<br>Risk Simulation for Option Traders
+                Options Backtesting & Portfolio Analytics<br>for 0DTE, Iron Condor & Credit Spread Traders
             </h1>
             <p style="font-family: 'Poppins', sans-serif; font-size: 15px; color: #6B7280;
                       margin: 0; line-height: 1.6;">
-                Analyze your options trading performance with professional-grade tools. Import your backtest
-                or live trading data to unlock comprehensive analytics, Monte Carlo simulations, and portfolio optimization.
+                Professional options trading analytics platform. Backtest your SPX, SPY & QQQ strategies,
+                run Monte Carlo simulations, and optimize your Iron Condor and Credit Spread portfolio allocation.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -60,9 +60,9 @@ def show_landing_page():
     st.markdown(f"""
         <div style="text-align: left; margin: 0 0 30px 0;">
             <p style="font-family: 'Poppins', sans-serif !important; font-size: 15px; color: #6B7280; line-height: 1.7;">
-                Cashflow Engine is your comprehensive analytics suite for evaluating option trading strategies.
-                To begin, import your backtest data or load a previously saved analysis from the database.
-                Once your data is loaded, you'll have access to all analysis modules.
+                Cashflow Engine is your comprehensive options trading analytics suite. Built for 0DTE traders,
+                Iron Condor and Credit Spread specialists who need professional backtesting and Monte Carlo analysis.
+                Import your backtest data to unlock Sharpe ratio, drawdown analysis, Kelly Criterion sizing, and more.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -129,10 +129,13 @@ def show_landing_page():
                             st.session_state['live_df'] = pd.concat(dfs_live, ignore_index=True)
                             st.session_state['live_filenames'] = ", ".join([f.name for f in live_files])
 
-                    # Pre-compute metrics for AI and faster page loads
-                    if 'full_df' in st.session_state and not st.session_state['full_df'].empty:
-                        ui.show_loading_overlay("ANALYZING PORTFOLIO", "Computing metrics for AI assistant...")
-                        precompute_on_upload(st.session_state['full_df'])
+                    # Pre-compute statistics for faster page loads and AI assistant
+                    ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics for instant access...")
+                    precompute.precompute_all(
+                        st.session_state.get('full_df'),
+                        st.session_state.get('live_df'),
+                        account_size=100000
+                    )
 
                     ui.hide_loading_overlay()
                     st.rerun()
@@ -161,9 +164,9 @@ def show_landing_page():
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
 
-                                # Pre-compute metrics for AI and faster page loads
-                                ui.show_loading_overlay("ANALYZING PORTFOLIO", "Computing metrics for AI assistant...")
-                                precompute_on_upload(st.session_state['full_df'])
+                                # Pre-compute statistics for faster page loads and AI assistant
+                                ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
+                                precompute.precompute_all(bt_df, live_df, account_size=100000)
 
                                 ui.hide_loading_overlay()
                                 st.rerun()

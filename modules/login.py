@@ -339,7 +339,7 @@ def show_login_page():
 
             # Privacy checkbox
             privacy_accepted = st.checkbox(
-                "I accept the [Privacy Policy](?page=privacy)",
+                "I accept the [Privacy Policy](https://cashflowengine.io/privacy)",
                 key="privacy_checkbox",
                 value=st.session_state.get('privacy_accepted', False)
             )
@@ -369,7 +369,7 @@ def show_login_page():
             # Privacy notice
             st.markdown("""
                 <div class="privacy-notice">
-                    By signing in, you agree to our <a href="?page=privacy">Privacy Policy</a>.
+                    By signing in, you agree to our <a href="https://cashflowengine.io/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
                     We use your email only for authentication and will never share it with third parties.
                 </div>
             """, unsafe_allow_html=True)

@@ -9,7 +9,7 @@ import calculations as calc
 def page_meic_analysis(bt_df, live_df=None):
     """MEIC Deep Dive page - Enhanced with Entry Time Filter, Monthly Performance, and Equity Curves."""
     ui.render_page_header("MEIC DEEP DIVE")
-    st.caption("MARKET ENTRY IMPROVEMENT COEFFICIENT ANALYSIS")
+    st.caption("Analyze and optimize your Multiple Entry Iron Condor strategies by entry time, performance, and market patterns.")
 
     # === SECTION 1: CONFIGURATION (Card) ===
     with st.container(border=True):
@@ -462,12 +462,16 @@ def page_meic_analysis(bt_df, live_df=None):
                     s_trades = len(strat_data)
                     s_win_rate = (strat_data['pnl'] > 0).mean()
                     s_avg_pnl = strat_data['pnl'].mean()
+                    # Calculate required margin from the margin column
+                    s_margin_series = calc.generate_daily_margin_series_optimized(strat_data)
+                    s_max_margin = s_margin_series.max() if not s_margin_series.empty else 0
                     strat_perf.append({
                         'Strategy': strat,
                         'Total P/L': s_pnl,
                         'Trades': s_trades,
                         'Win Rate': s_win_rate,
-                        'Avg Trade': s_avg_pnl
+                        'Avg Trade': s_avg_pnl,
+                        'Required Margin': s_max_margin
                     })
 
             if strat_perf:
@@ -476,7 +480,8 @@ def page_meic_analysis(bt_df, live_df=None):
                     perf_df.style.format({
                         'Total P/L': '${:,.0f}',
                         'Win Rate': '{:.1%}',
-                        'Avg Trade': '${:,.0f}'
+                        'Avg Trade': '${:,.0f}',
+                        'Required Margin': '${:,.0f}'
                     }),
                     use_container_width=True,
                     hide_index=True

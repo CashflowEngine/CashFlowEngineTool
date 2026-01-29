@@ -39,12 +39,150 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
     live_min_ts = live_df['timestamp'].min()
     live_max_ts = live_df['timestamp'].max()
 
-    # Get live strategies early for display
+    # Get date range from backtest data
+    bt_min_ts = bt_df['timestamp'].min() if bt_df is not None and not bt_df.empty else None
+    bt_max_ts = bt_df['timestamp'].max() if bt_df is not None and not bt_df.empty else None
+
+    # Get strategies for comparison
     live_strategies = sorted(live_df['strategy'].unique())
+    bt_strategies = sorted(bt_df['strategy'].unique()) if bt_df is not None and not bt_df.empty else []
+
+    # === SECTION 0: STRATEGY MAPPING OVERVIEW (Card) ===
+    with st.container(border=True):
+        ui.section_header("Strategy Mapping Overview",
+            description="Review and map all strategies between your live trading and backtest data.")
+
+        # Build automatic mapping
+        auto_mapping = {}
+        unmapped_live = []
+        unmapped_bt = list(bt_strategies)
+
+        for live_s in live_strategies:
+            matched = None
+            for bt_s in bt_strategies:
+                # Try various matching strategies
+                if bt_s == live_s:
+                    matched = bt_s
+                    break
+                if bt_s in live_s or live_s in bt_s:
+                    matched = bt_s
+                    break
+                # Try matching by core name (without prefixes/suffixes)
+                live_core = live_s.replace('_', ' ').replace('-', ' ').upper()
+                bt_core = bt_s.replace('_', ' ').replace('-', ' ').upper()
+                if live_core in bt_core or bt_core in live_core:
+                    matched = bt_s
+                    break
+
+            if matched:
+                auto_mapping[live_s] = matched
+                if matched in unmapped_bt:
+                    unmapped_bt.remove(matched)
+            else:
+                unmapped_live.append(live_s)
+
+        # Display mapping table
+        mapping_data = []
+        for live_s in live_strategies:
+            bt_match = auto_mapping.get(live_s, "Not Matched")
+            status = "Matched" if live_s in auto_mapping else "Unmapped"
+            mapping_data.append({
+                'Live Strategy': live_s,
+                'Backtest Strategy': bt_match,
+                'Status': status
+            })
+
+        mapping_df = pd.DataFrame(mapping_data)
+
+        # Style the status column
+        def color_status(val):
+            if val == "Matched":
+                return 'background-color: rgba(0, 210, 190, 0.2); color: #065F46'
+            else:
+                return 'background-color: rgba(255, 46, 77, 0.2); color: #991B1B'
+
+        st.dataframe(
+            mapping_df.style.map(color_status, subset=['Status']),
+            use_container_width=True,
+            hide_index=True,
+            height=min(300, 35 + len(mapping_df) * 35)
+        )
+
+        # Show warnings for unmapped strategies
+        if unmapped_live:
+            st.warning(f"**Unmapped Live Strategies:** {', '.join(unmapped_live)}")
+            st.markdown("""
+            <div style='background-color: #FEF3C7; padding: 12px 16px; border-radius: 8px; margin-top: 8px; font-size: 12px;'>
+                <strong>Suggestions for unmapped strategies:</strong><br>
+                • Verify strategy names match between live and backtest data<br>
+                • Check for typos or different naming conventions<br>
+                • Some live strategies may not have backtest equivalents (new strategies)
+            </div>
+            """, unsafe_allow_html=True)
+
+        if unmapped_bt:
+            st.info(f"**Backtest strategies without live matches:** {', '.join(unmapped_bt)}")
+
+    # === SECTION 0.5: DATA MISMATCH ANALYSIS (Card) ===
+    with st.container(border=True):
+        ui.section_header("Data Coverage Analysis",
+            description="Compare date ranges and identify gaps between live and backtest data.")
+
+        col_live, col_bt = st.columns(2)
+
+        with col_live:
+            st.markdown("**Live Data**")
+            st.markdown(f"""
+            - Date Range: **{live_min_ts.strftime('%Y-%m-%d') if pd.notna(live_min_ts) else 'N/A'}** to **{live_max_ts.strftime('%Y-%m-%d') if pd.notna(live_max_ts) else 'N/A'}**
+            - Trading Days: **{live_df['timestamp'].dt.date.nunique()}**
+            - Strategies: **{len(live_strategies)}**
+            - Total Trades: **{len(live_df):,}**
+            """)
+
+        with col_bt:
+            st.markdown("**Backtest Data**")
+            st.markdown(f"""
+            - Date Range: **{bt_min_ts.strftime('%Y-%m-%d') if pd.notna(bt_min_ts) else 'N/A'}** to **{bt_max_ts.strftime('%Y-%m-%d') if pd.notna(bt_max_ts) else 'N/A'}**
+            - Trading Days: **{bt_df['timestamp'].dt.date.nunique() if bt_df is not None and not bt_df.empty else 0}**
+            - Strategies: **{len(bt_strategies)}**
+            - Total Trades: **{len(bt_df) if bt_df is not None else 0:,}**
+            """)
+
+        # Check for date mismatches
+        issues = []
+        suggestions = []
+
+        if pd.notna(bt_min_ts) and pd.notna(live_min_ts):
+            if bt_max_ts < live_min_ts:
+                issues.append("Backtest data ends before live data starts - no overlap period.")
+                suggestions.append("Update your backtest to include dates from your live trading period.")
+            elif bt_min_ts > live_min_ts:
+                issues.append(f"Backtest starts later ({bt_min_ts.strftime('%Y-%m-%d')}) than live data ({live_min_ts.strftime('%Y-%m-%d')}).")
+                suggestions.append("Some live trades may not have backtest comparison data.")
+
+        if pd.notna(bt_max_ts) and pd.notna(live_max_ts) and bt_max_ts < live_max_ts:
+            issues.append(f"Backtest ends ({bt_max_ts.strftime('%Y-%m-%d')}) before live data ends ({live_max_ts.strftime('%Y-%m-%d')}).")
+            suggestions.append("Update your backtest to cover the full live trading period.")
+
+        if len(bt_strategies) < len(live_strategies):
+            issues.append(f"Fewer backtest strategies ({len(bt_strategies)}) than live strategies ({len(live_strategies)}).")
+            suggestions.append("Some live strategies may not have backtest equivalents.")
+
+        if issues:
+            st.markdown("**Data Coverage Issues:**")
+            for i, issue in enumerate(issues):
+                st.markdown(f"""
+                <div style='background-color: #FEE2E2; padding: 10px 14px; border-radius: 6px; margin: 4px 0; font-size: 12px;'>
+                    <strong style='color: #991B1B;'>Issue:</strong> {issue}<br>
+                    <strong style='color: #065F46;'>Suggestion:</strong> {suggestions[i] if i < len(suggestions) else 'Review data sources.'}
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.success("Data coverage looks good! Both datasets have overlapping date ranges.")
 
     # === SECTION 1: CONFIGURATION (Card) ===
     with st.container(border=True):
-        ui.section_header("Configuration", description="Set the evaluation period and map strategies between live and backtest data.")
+        ui.section_header("Analysis Configuration", description="Set the evaluation period and select strategies to compare.")
 
         # Context about the data source
         st.markdown(f"""
@@ -97,28 +235,34 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
                     (bt_df['timestamp'].dt.date <= selected_comp_dates[1])
                 ].copy()
 
-        bt_strategies = sorted(bt_df['strategy'].unique()) if bt_df is not None and not bt_df.empty else []
-        live_strategies = sorted(live_df['strategy'].unique())
+        # Update strategy lists after date filtering
+        bt_strategies_filtered = sorted(bt_df['strategy'].unique()) if bt_df is not None and not bt_df.empty else []
+        live_strategies_filtered = sorted(live_df['strategy'].unique())
 
         with config_c3:
-            st.markdown("**Strategy Mapping**")
+            st.markdown("**Strategy Selection**")
             # Single dropdown for strategy selection
             selected_strategy = st.selectbox(
                 "Select Live Strategy to Analyze:",
-                options=live_strategies,
+                options=live_strategies_filtered,
                 key="comp_live_strategy"
             )
 
-            # Find best matching backtest strategy
+            # Find best matching backtest strategy using the auto-mapping or manual selection
             default_bt_ix = 0
-            for k, bt_s in enumerate(bt_strategies):
-                if bt_s in selected_strategy or selected_strategy in bt_s:
-                    default_bt_ix = k
-                    break
+            if selected_strategy in auto_mapping:
+                bt_match = auto_mapping[selected_strategy]
+                if bt_match in bt_strategies_filtered:
+                    default_bt_ix = bt_strategies_filtered.index(bt_match)
+            else:
+                for k, bt_s in enumerate(bt_strategies_filtered):
+                    if bt_s in selected_strategy or selected_strategy in bt_s:
+                        default_bt_ix = k
+                        break
 
             mapped_bt_strategy = st.selectbox(
                 "Map to Backtest Strategy:",
-                options=bt_strategies,
+                options=bt_strategies_filtered,
                 index=default_bt_ix,
                 key="comp_bt_strategy"
             )
@@ -345,13 +489,14 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
         # Build comparison table for all strategies
         all_comparisons = []
 
-        for live_s in live_strategies:
-            # Find best matching backtest strategy
-            matched_bt = None
-            for bt_s in bt_strategies:
-                if bt_s in live_s or live_s in bt_s:
-                    matched_bt = bt_s
-                    break
+        for live_s in live_strategies_filtered:
+            # Use auto-mapping if available, otherwise try to find best match
+            matched_bt = auto_mapping.get(live_s)
+            if not matched_bt:
+                for bt_s in bt_strategies_filtered:
+                    if bt_s in live_s or live_s in bt_s:
+                        matched_bt = bt_s
+                        break
 
             if matched_bt:
                 s_live_temp = live_df[live_df['strategy'] == live_s]

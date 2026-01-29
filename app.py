@@ -804,13 +804,22 @@ else:
                 st.session_state["main_nav_radio"] = target_display_key
 
         # Navigation with current page indicator
-        selected_key = st.radio(
-            "Navigation",
-            menu_items,
-            index=menu_items.index(current_key),
-            label_visibility="collapsed",
-            key="main_nav_radio"
-        )
+        # Don't use index parameter when key is in session_state to avoid conflict
+        if "main_nav_radio" not in st.session_state:
+            selected_key = st.radio(
+                "Navigation",
+                menu_items,
+                index=menu_items.index(current_key),
+                label_visibility="collapsed",
+                key="main_nav_radio"
+            )
+        else:
+            selected_key = st.radio(
+                "Navigation",
+                menu_items,
+                label_visibility="collapsed",
+                key="main_nav_radio"
+            )
 
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:

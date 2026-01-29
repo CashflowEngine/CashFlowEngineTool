@@ -57,12 +57,15 @@ class GeminiClient:
 
     def _get_api_key(self) -> Optional[str]:
         """Get API key from various sources."""
-        # Try Streamlit secrets first
-        if hasattr(st, 'secrets'):
-            if 'GEMINI_API_KEY' in st.secrets:
-                return st.secrets['GEMINI_API_KEY']
-            if 'GOOGLE_API_KEY' in st.secrets:
-                return st.secrets['GOOGLE_API_KEY']
+        # Try Streamlit secrets first (with error handling)
+        try:
+            if hasattr(st, 'secrets') and st.secrets:
+                if 'GEMINI_API_KEY' in st.secrets:
+                    return st.secrets['GEMINI_API_KEY']
+                if 'GOOGLE_API_KEY' in st.secrets:
+                    return st.secrets['GOOGLE_API_KEY']
+        except Exception:
+            pass  # No secrets file, continue to env vars
 
         # Try environment variables
         return os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')

@@ -261,10 +261,10 @@ def show_landing_page():
                 "MEIC Deep Dive")
     render_tile(r2c2, "MEIC Optimizer",
                 "Generate entry signals for Option Omega based on your optimization criteria. Analyze batch results and find the most robust parameter sets for your strategy.",
-                None, coming_soon=True)
+                "MEIC Optimizer")
     render_tile(r2c3, "AI Analyst",
                 "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.",
-                None, coming_soon=True)
+                "AI Analyst")
     render_tile(r2c4, "Documentation",
                 "Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.",
                 None, coming_soon=True)

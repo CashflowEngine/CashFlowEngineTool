@@ -19,10 +19,10 @@ def page_meic_analysis(bt_df, live_df=None):
         st.markdown("""
         <div style='background-color: #F0F4FF; padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;'>
             <strong>What is MEIC?</strong><br>
-            The <strong>Market Entry Improvement Coefficient</strong> analyzes your trade performance by entry time.
-            This helps identify optimal market entry windows for your strategies - some times of day consistently
-            produce better results due to market volatility patterns, liquidity, and price action behavior.
-            Use this analysis to filter out underperforming entry times and improve overall portfolio returns.
+            <strong>Multiple Entry Iron Condor</strong> - a strategy where Iron Condors are opened at different
+            times throughout the trading day to diversify timing risk. This analysis helps you identify which
+            entry times historically produce the best performance, allowing you to focus on profitable time
+            windows and filter out underperforming ones.
         </div>
         """, unsafe_allow_html=True)
 
@@ -101,19 +101,22 @@ def page_meic_analysis(bt_df, live_df=None):
         # Get times with positive P/L as default suggestion
         positive_times = time_quick_stats[time_quick_stats['total_pnl'] > 0].index.tolist()
 
-        # Handle pending quick action (must be BEFORE widget creation)
+        # Handle pending quick action - directly modify session state BEFORE widget creation
         pending_action = st.session_state.pop('_meic_pending_filter_action', None)
         if pending_action == 'all':
-            default_times = all_entry_times
+            st.session_state['meic_entry_time_filter'] = all_entry_times
         elif pending_action == 'none':
-            default_times = []
+            st.session_state['meic_entry_time_filter'] = []
         elif pending_action == 'profitable':
-            default_times = positive_times
+            st.session_state['meic_entry_time_filter'] = positive_times
+
+        # Determine default for first load only
+        if 'meic_entry_time_filter' not in st.session_state:
+            default_times = all_entry_times
         else:
-            # Use stored value or default to all times
-            default_times = st.session_state.get('meic_entry_time_filter', all_entry_times)
-            # Filter to only valid options
-            default_times = [t for t in default_times if t in all_entry_times]
+            # Filter to only valid options (in case strategies changed)
+            current_val = st.session_state.get('meic_entry_time_filter', all_entry_times)
+            default_times = [t for t in current_val if t in all_entry_times]
 
         filter_col1, filter_col2 = st.columns([3, 1])
 

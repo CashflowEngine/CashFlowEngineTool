@@ -54,13 +54,27 @@ def render_page_header(title, subtitle=None):
     """Render a consistent page header with Exo 2 font - uses h1 tag like original."""
     inject_fonts()
 
-    # Use h1 tag exactly like the original - browser renders it large automatically
-    # No explicit font-size - let browser/Streamlit handle the sizing
-    header_html = f"""<h1 style='color: #4B5563; font-family: "Exo 2", sans-serif; font-weight: 800;
-        text-transform: uppercase; margin-bottom: 0;'>{title}</h1>"""
+    # Use h1 tag with explicit font-family using !important to override Streamlit defaults
+    # Also add a class for JavaScript targeting and font-size for consistency
+    header_html = f"""
+    <h1 class="page-main-header exo2-heading" style='color: #4B5563 !important;
+        font-family: "Exo 2", sans-serif !important; font-weight: 800 !important;
+        text-transform: uppercase !important; margin-bottom: 0 !important;
+        letter-spacing: 2px !important; font-size: 2rem !important;'>{title}</h1>
+    <script>
+        // Immediately apply font to ensure it renders correctly
+        (function() {{
+            var h1 = document.querySelector('.page-main-header');
+            if (h1) {{
+                h1.style.setProperty('font-family', '"Exo 2", sans-serif', 'important');
+                h1.style.setProperty('font-weight', '800', 'important');
+            }}
+        }})();
+    </script>
+    """
 
     if subtitle:
-        header_html += f'<p style="font-family: Poppins, sans-serif; color: #6B7280; font-size: 14px; margin-top: 8px;">{subtitle}</p>'
+        header_html += f'<p style="font-family: Poppins, sans-serif !important; color: #6B7280; font-size: 14px; margin-top: 8px;">{subtitle}</p>'
 
     st.markdown(header_html, unsafe_allow_html=True)
 

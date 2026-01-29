@@ -444,3 +444,194 @@ def analyze_meic_group(df, account_size):
     cagr = (1 + daily_pnl.sum() / account_size) ** (365 / days) - 1
     mar = cagr / abs(max_dd) if max_dd != 0 else 0
     return {'MAR': mar, 'CAGR': cagr, 'MaxDD': max_dd}
+
+
+# --- PORTFOLIO OPTIMIZATION FUNCTIONS ---
+
+def kelly_optimize_allocation(strategy_base_stats, target_margin, kelly_fraction,
+                              workhorse_pct, airbag_pct, opportunist_pct,
+                              category_overrides):
+    """
+    Optimize portfolio allocation using Kelly Criterion.
+
+    This function calculates the optimal multiplier for each strategy based on:
+    1. Individual strategy Kelly values
+    2. Target margin budget
+    3. Category allocation targets (workhorse/airbag/opportunist)
+
+    Args:
+        strategy_base_stats: Dict of strategy statistics
+        target_margin: Total margin budget
+        kelly_fraction: Fraction of Kelly to use (0-1, e.g., 0.2 for 20% Kelly)
+        workhorse_pct: Target allocation for workhorse strategies
+        airbag_pct: Target allocation for airbag strategies
+        opportunist_pct: Target allocation for opportunist strategies
+        category_overrides: Dict mapping strategy names to category overrides
+
+    Returns:
+        Dict mapping strategy names to optimal multipliers
+    """
+    result = {}
+
+    # Group strategies by category
+    categories = {'Workhorse': [], 'Airbag': [], 'Opportunist': []}
+
+    for strat, stats in strategy_base_stats.items():
+        cat = category_overrides.get(strat, stats.get('category', 'Workhorse'))
+        if cat not in categories:
+            cat = 'Workhorse'
+        categories[cat].append((strat, stats))
+
+    # Calculate Kelly-weighted allocations within each category
+    for cat, cat_strategies in categories.items():
+        if not cat_strategies:
+            continue
+
+        # Get category budget
+        if cat == 'Workhorse':
+            cat_budget = target_margin * workhorse_pct
+        elif cat == 'Airbag':
+            cat_budget = target_margin * airbag_pct
+        else:
+            cat_budget = target_margin * opportunist_pct
+
+        # Calculate total weighted Kelly for category
+        total_kelly_weight = 0
+        for strat, stats in cat_strategies:
+            kelly = stats.get('kelly', 0)
+            kelly = max(0, min(kelly * kelly_fraction, 1))  # Apply fraction and cap at 1
+            total_kelly_weight += kelly * stats.get('margin_per_contract', 0)
+
+        # Allocate based on Kelly weights
+        for strat, stats in cat_strategies:
+            kelly = stats.get('kelly', 0)
+            kelly = max(0, min(kelly * kelly_fraction, 1))
+            margin_per = stats.get('margin_per_contract', 0)
+
+            if total_kelly_weight > 0 and margin_per > 0:
+                # Weight by Kelly value
+                strat_budget = cat_budget * (kelly * margin_per / total_kelly_weight)
+                multiplier = strat_budget / margin_per
+                # Cap at reasonable values
+                multiplier = max(0, min(multiplier, 10))
+                # Round to 0.5 increments
+                multiplier = round(multiplier * 2) / 2
+            else:
+                multiplier = 0
+
+            result[strat] = multiplier
+
+    return result
+
+
+def mart_optimize_allocation(strategy_base_stats, target_margin, account_size,
+                             category_overrides, full_date_range, filtered_df,
+                             min_pnl=0, max_iterations=50):
+    """
+    Optimize portfolio allocation to maximize MART ratio.
+
+    MART = CAGR / (Max Drawdown $ / Account Size)
+
+    This function uses an iterative approach to find the allocation that
+    maximizes the portfolio's MART ratio while respecting margin constraints.
+
+    Args:
+        strategy_base_stats: Dict of strategy statistics
+        target_margin: Total margin budget
+        account_size: Account size for calculations
+        category_overrides: Dict mapping strategy names to category overrides
+        full_date_range: Pandas date range for the evaluation period
+        filtered_df: Filtered DataFrame with trade data
+        min_pnl: Minimum required P/L
+        max_iterations: Maximum iterations for optimization
+
+    Returns:
+        Dict mapping strategy names to optimal multipliers
+    """
+    # Start with equal allocation
+    strategies = list(strategy_base_stats.keys())
+    n_strats = len(strategies)
+
+    if n_strats == 0:
+        return {}
+
+    # Initialize multipliers
+    best_allocation = {s: 1.0 for s in strategies}
+    best_mart = -999
+
+    # Calculate initial allocation based on margin constraint
+    total_margin_at_1x = sum(stats.get('margin_per_contract', 0) for stats in strategy_base_stats.values())
+
+    if total_margin_at_1x > 0:
+        base_multiplier = target_margin / total_margin_at_1x
+        base_multiplier = max(0.1, min(base_multiplier, 5))  # Cap between 0.1 and 5
+    else:
+        base_multiplier = 1.0
+
+    # Initialize with base multiplier
+    current_allocation = {s: base_multiplier for s in strategies}
+
+    # Simple iterative optimization
+    for iteration in range(max_iterations):
+        # Calculate portfolio metrics for current allocation
+        port_pnl = pd.Series(0.0, index=full_date_range)
+
+        for strat, mult in current_allocation.items():
+            if strat in strategy_base_stats and mult > 0:
+                stats = strategy_base_stats[strat]
+                daily_pnl = stats.get('daily_pnl_series')
+                if daily_pnl is not None:
+                    port_pnl = port_pnl.add(daily_pnl * mult, fill_value=0)
+
+        # Calculate MART
+        total_pnl = port_pnl.sum()
+        port_equity = account_size + port_pnl.cumsum()
+        peak = port_equity.cummax()
+        max_dd_usd = abs((port_equity - peak).min())
+
+        if max_dd_usd > 0:
+            days = len(port_pnl)
+            if days > 0 and total_pnl > -account_size:
+                cagr = (1 + total_pnl / account_size) ** (365 / days) - 1
+                mart = cagr / (max_dd_usd / account_size) if max_dd_usd > 0 else 0
+            else:
+                mart = -999
+        else:
+            mart = 0
+
+        # Check minimum P/L constraint
+        if total_pnl < min_pnl:
+            mart = -999
+
+        # Update best if improved
+        if mart > best_mart:
+            best_mart = mart
+            best_allocation = current_allocation.copy()
+
+        # Generate next allocation by random perturbation
+        if iteration < max_iterations - 1:
+            new_allocation = {}
+            for strat in strategies:
+                # Random adjustment between -20% and +20%
+                adjustment = 1.0 + (np.random.random() - 0.5) * 0.4
+                new_mult = current_allocation[strat] * adjustment
+                new_mult = max(0, min(new_mult, 10))  # Cap between 0 and 10
+                new_mult = round(new_mult * 2) / 2  # Round to 0.5 increments
+                new_allocation[strat] = new_mult
+
+            # Check margin constraint
+            total_new_margin = sum(
+                strategy_base_stats[s].get('margin_per_contract', 0) * new_allocation[s]
+                for s in strategies if s in strategy_base_stats
+            )
+
+            # Scale if over target margin
+            if total_new_margin > target_margin * 1.1:  # Allow 10% overage
+                scale = target_margin / total_new_margin
+                new_allocation = {s: m * scale for s, m in new_allocation.items()}
+                # Re-round after scaling
+                new_allocation = {s: round(m * 2) / 2 for s, m in new_allocation.items()}
+
+            current_allocation = new_allocation
+
+    return best_allocation

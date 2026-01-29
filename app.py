@@ -796,6 +796,13 @@ else:
 
         st.write("")
 
+        # Sync radio button state with programmatic navigation BEFORE rendering
+        # This ensures landing page links work correctly by updating the radio button's stored value
+        if st.session_state.navigate_to_page in page_map.values():
+            target_display_key = list(page_map.keys())[list(page_map.values()).index(st.session_state.navigate_to_page)]
+            if "main_nav_radio" not in st.session_state or st.session_state.get("main_nav_radio") != target_display_key:
+                st.session_state["main_nav_radio"] = target_display_key
+
         # Navigation with current page indicator
         selected_key = st.radio(
             "Navigation",

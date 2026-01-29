@@ -38,6 +38,11 @@ st.set_page_config(
 # Google OAuth uses PKCE code exchange which is handled later in the file.
 
 # --- 2. CORPORATE IDENTITY CSS ---
+# Viewport Meta Tag for responsive design (CRITICAL for mobile)
+st.markdown("""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+""", unsafe_allow_html=True)
+
 # SEO Meta Tags
 st.markdown("""
 <meta name="description" content="Professional options trading analytics platform. Backtest 0DTE strategies, run Monte Carlo simulations, analyze Iron Condors & Credit Spreads. Free options backtesting software for SPX, SPY, QQQ traders.">
@@ -646,6 +651,296 @@ st.markdown("""
     button span[class*="material"] {
         font-size: 0 !important;
         visibility: hidden !important;
+    }
+
+    /* =================================================================
+       RESPONSIVE DESIGN - MOBILE & TABLET VIEWS
+       These styles only apply on smaller screens and do not affect desktop
+       ================================================================= */
+
+    /* --- TABLET BREAKPOINT (max-width: 768px) --- */
+    @media screen and (max-width: 768px) {
+        /* Sidebar - narrower on tablet */
+        section[data-testid="stSidebar"] {
+            width: 220px !important;
+            min-width: 220px !important;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            width: 220px !important;
+        }
+
+        /* Footer adjustment for narrower sidebar */
+        .footer {
+            left: 220px !important;
+            width: calc(100% - 220px) !important;
+        }
+
+        /* Hero cards - slightly smaller */
+        .hero-card {
+            height: 120px !important;
+            padding: 12px 10px !important;
+        }
+
+        .hero-value {
+            font-size: 22px !important;
+        }
+
+        .hero-label {
+            font-size: 10px !important;
+        }
+
+        /* Page headers smaller */
+        h1, .page-header, [data-testid="stMarkdownContainer"] h1 {
+            font-size: 1.5rem !important;
+        }
+
+        h2, [data-testid="stMarkdownContainer"] h2 {
+            font-size: 1.25rem !important;
+        }
+
+        /* Feature tiles - smaller */
+        .feature-tile {
+            height: 160px !important;
+            padding: 4px !important;
+        }
+
+        .feature-title {
+            font-size: 14px !important;
+            height: 32px !important;
+        }
+
+        .feature-desc {
+            font-size: 12px !important;
+        }
+
+        /* Streamlit columns - force 2 columns max on tablet */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 45% !important;
+            flex: 1 1 45% !important;
+        }
+
+        /* Container padding reduced */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 16px !important;
+            margin-bottom: 16px !important;
+        }
+
+        /* Buttons - touch friendly */
+        div.stButton > button {
+            min-height: 44px !important;
+            padding: 10px 16px !important;
+        }
+    }
+
+    /* --- MOBILE BREAKPOINT (max-width: 480px) --- */
+    @media screen and (max-width: 480px) {
+        /* Sidebar - completely hidden on mobile, show toggle */
+        section[data-testid="stSidebar"] {
+            transform: translateX(-100%) !important;
+            position: fixed !important;
+            z-index: 9999 !important;
+            width: 280px !important;
+            min-width: 280px !important;
+            transition: transform 0.3s ease !important;
+        }
+
+        /* When sidebar is expanded on mobile */
+        section[data-testid="stSidebar"][aria-expanded="true"] {
+            transform: translateX(0) !important;
+        }
+
+        /* Show sidebar toggle button on mobile */
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"],
+        button[kind="header"] {
+            display: flex !important;
+            visibility: visible !important;
+            position: fixed !important;
+            top: 10px !important;
+            left: 10px !important;
+            z-index: 10000 !important;
+            background-color: #302BFF !important;
+            border-radius: 8px !important;
+            padding: 8px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+        }
+
+        [data-testid="stSidebarCollapseButton"] svg,
+        [data-testid="collapsedControl"] svg,
+        button[kind="header"] svg {
+            color: #FFFFFF !important;
+            fill: #FFFFFF !important;
+        }
+
+        /* Main content - full width on mobile */
+        .main .block-container {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            max-width: 100% !important;
+        }
+
+        /* Footer - full width on mobile */
+        .footer {
+            left: 0 !important;
+            width: 100% !important;
+            padding: 10px 16px !important;
+        }
+
+        /* Hero cards - stacked full width */
+        .hero-card {
+            height: auto !important;
+            min-height: 100px !important;
+            padding: 16px !important;
+            margin-bottom: 12px !important;
+        }
+
+        .hero-value {
+            font-size: 24px !important;
+        }
+
+        .hero-label {
+            font-size: 11px !important;
+            margin-bottom: 6px !important;
+        }
+
+        /* Page headers - mobile friendly */
+        h1, .page-header, [data-testid="stMarkdownContainer"] h1 {
+            font-size: 1.25rem !important;
+            line-height: 1.3 !important;
+        }
+
+        h2, [data-testid="stMarkdownContainer"] h2 {
+            font-size: 1.1rem !important;
+        }
+
+        /* Feature tiles - vertical stack */
+        .feature-tile {
+            height: auto !important;
+            min-height: 120px !important;
+            padding: 16px !important;
+        }
+
+        .feature-title {
+            font-size: 14px !important;
+            height: auto !important;
+            margin-bottom: 8px !important;
+        }
+
+        /* Force single column layout on mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+            width: 100% !important;
+        }
+
+        /* Container padding - mobile */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 12px !important;
+            margin-bottom: 12px !important;
+            border-radius: 8px !important;
+        }
+
+        /* Buttons - larger touch targets */
+        div.stButton > button {
+            min-height: 48px !important;
+            padding: 12px 20px !important;
+            font-size: 14px !important;
+            width: 100% !important;
+        }
+
+        /* Input fields - larger on mobile */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div {
+            min-height: 44px !important;
+            font-size: 16px !important; /* Prevents iOS zoom */
+        }
+
+        /* Tabs - scrollable on mobile */
+        .stTabs [data-baseweb="tab-list"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+        }
+
+        /* Expanders - full width */
+        .streamlit-expanderHeader {
+            padding: 12px !important;
+        }
+
+        /* Metrics - stacked */
+        [data-testid="stMetric"] {
+            padding: 8px !important;
+        }
+
+        [data-testid="stMetricValue"] {
+            font-size: 20px !important;
+        }
+
+        /* DataFrames - horizontal scroll */
+        .stDataFrame {
+            overflow-x: auto !important;
+        }
+
+        /* Charts - responsive */
+        [data-testid="stPlotlyChart"] {
+            width: 100% !important;
+        }
+
+        /* Mobile info banner */
+        .mobile-info-banner {
+            display: block !important;
+            background: linear-gradient(135deg, #302BFF 0%, #7B2BFF 100%) !important;
+            color: #FFFFFF !important;
+            padding: 12px 16px !important;
+            border-radius: 8px !important;
+            margin-bottom: 16px !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 13px !important;
+            text-align: center !important;
+        }
+    }
+
+    /* Desktop: Hide mobile-only elements */
+    @media screen and (min-width: 481px) {
+        .mobile-info-banner {
+            display: none !important;
+        }
+    }
+
+    /* --- VERY SMALL SCREENS (max-width: 360px) --- */
+    @media screen and (max-width: 360px) {
+        .hero-value {
+            font-size: 20px !important;
+        }
+
+        h1, .page-header {
+            font-size: 1.1rem !important;
+        }
+
+        div.stButton > button {
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+        }
+
+        .main .block-container {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
     }
 
 </style>

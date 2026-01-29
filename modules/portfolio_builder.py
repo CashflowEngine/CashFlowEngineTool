@@ -98,7 +98,9 @@ def page_portfolio_builder(full_df):
 
             contracts_per_day = max(0.5, round(contracts_per_day * 2) / 2)
 
-            margin_per_contract = strat_data['margin'].mean() if 'margin' in strat_data.columns else 0
+            # Calculate max daily margin (sum of all open positions on any given day)
+            margin_series = calc.generate_daily_margin_series_optimized(strat_data)
+            margin_per_contract = margin_series.max() if len(margin_series) > 0 else 0
             total_pnl = strat_data['pnl'].sum()
 
             wins = strat_data[strat_data['pnl'] > 0]['pnl']
@@ -160,30 +162,114 @@ def page_portfolio_builder(full_df):
         if 'mart_min_pnl' not in st.session_state: st.session_state.mart_min_pnl = 0
 
         # Option strategy types for dropdown
-        OPTION_STRATEGIES = ["Iron Condor", "Double Calendar", "Put Credit Spread", "Call Credit Spread",
+        OPTION_STRATEGIES = ["Iron Condor", "Double Calendar", "Bull Put Spread", "Bear Call Spread",
+                            "Bull Call Spread", "Bear Put Spread", "Long Put", "Long Call",
                             "Butterfly", "Straddle", "Strangle", "Covered Call", "Cash Secured Put", "Other"]
 
-        def detect_option_strategy(strat_name):
-            """Auto-detect option strategy from strategy name."""
-            name_lower = strat_name.lower()
-            if 'iron condor' in name_lower or 'ic' in name_lower:
+        def detect_option_strategy_from_legs(strat_name, strat_df):
+            """Detect option strategy by analyzing the legs of trades.
+
+            Priority 1: Analyze legs to determine strategy type.
+            Priority 2: Fall back to strategy name pattern matching.
+            """
+            # First try to detect from legs
+            if strat_df is not None and not strat_df.empty and 'legs' in strat_df.columns:
+                sample = strat_df.head(50)  # Sample trades for analysis
+
+                # Count leg patterns
+                has_short_put = 0
+                has_short_call = 0
+                has_long_put = 0
+                has_long_call = 0
+
+                for _, row in sample.iterrows():
+                    legs_str = str(row.get('legs', '')).upper()
+
+                    # Detect short/long puts and calls
+                    if ' P STO' in legs_str or ' PUT STO' in legs_str or 'SELL.*PUT' in legs_str:
+                        has_short_put += 1
+                    if ' C STO' in legs_str or ' CALL STO' in legs_str or 'SELL.*CALL' in legs_str:
+                        has_short_call += 1
+                    if ' P BTO' in legs_str or ' PUT BTO' in legs_str or 'BUY.*PUT' in legs_str:
+                        has_long_put += 1
+                    if ' C BTO' in legs_str or ' CALL BTO' in legs_str or 'BUY.*CALL' in legs_str:
+                        has_long_call += 1
+
+                # Determine strategy from leg composition
+                total = len(sample)
+                if total > 0:
+                    # Iron Condor: Both short put and short call
+                    if has_short_put > total * 0.4 and has_short_call > total * 0.4:
+                        return "Iron Condor"
+                    # Bull Put Spread: Short put + long put (at lower strike)
+                    elif has_short_put > total * 0.4 and has_long_put > total * 0.4 and has_short_call < total * 0.1:
+                        return "Bull Put Spread"
+                    # Bear Call Spread: Short call + long call (at higher strike)
+                    elif has_short_call > total * 0.4 and has_long_call > total * 0.4 and has_short_put < total * 0.1:
+                        return "Bear Call Spread"
+                    # Long Put only
+                    elif has_long_put > total * 0.4 and has_short_put < total * 0.1 and has_short_call < total * 0.1 and has_long_call < total * 0.1:
+                        return "Long Put"
+                    # Long Call only
+                    elif has_long_call > total * 0.4 and has_short_call < total * 0.1 and has_short_put < total * 0.1 and has_long_put < total * 0.1:
+                        return "Long Call"
+
+            # Fall back to strategy name pattern matching
+            return detect_option_strategy_from_name(strat_name)
+
+        def detect_option_strategy_from_name(strat_name):
+            """Detect option strategy from strategy name patterns."""
+            name_upper = strat_name.upper()
+
+            # Long positions (check first as they're specific)
+            if 'LONG PUT' in name_upper:
+                return "Long Put"
+            if 'LONG CALL' in name_upper:
+                return "Long Call"
+
+            # Spread patterns
+            if 'BPS' in name_upper or 'BULL PUT' in name_upper:
+                return "Bull Put Spread"
+            if 'BCS' in name_upper or 'BULL CALL' in name_upper:
+                return "Bull Call Spread"
+            if 'BEAR CALL' in name_upper:
+                return "Bear Call Spread"
+            if 'BEAR PUT' in name_upper:
+                return "Bear Put Spread"
+
+            # METF patterns
+            if 'METF' in name_upper:
+                if 'CALL' in name_upper:
+                    return "Bear Call Spread"  # METF-Call is typically a call spread (credit)
+                if 'PUT' in name_upper:
+                    return "Bull Put Spread"   # METF-Put is typically a put spread (credit)
+
+            # Iron Condor
+            if 'IRON CONDOR' in name_upper or 'IC' in name_upper or 'MEIC' in name_upper:
                 return "Iron Condor"
-            elif 'double calendar' in name_lower or 'dc' in name_lower or 'calendar' in name_lower:
+
+            # Calendar spreads
+            if 'DOUBLE CALENDAR' in name_upper or 'DC' in name_upper or 'CALENDAR' in name_upper:
                 return "Double Calendar"
-            elif 'put credit' in name_lower or 'pcs' in name_lower:
-                return "Put Credit Spread"
-            elif 'call credit' in name_lower or 'ccs' in name_lower:
-                return "Call Credit Spread"
-            elif 'butterfly' in name_lower or 'fly' in name_lower:
+
+            # Credit spreads (generic)
+            if 'PUT CREDIT' in name_upper or 'PCS' in name_upper:
+                return "Bull Put Spread"
+            if 'CALL CREDIT' in name_upper or 'CCS' in name_upper:
+                return "Bear Call Spread"
+
+            # Other patterns
+            if 'BUTTERFLY' in name_upper or 'FLY' in name_upper or 'BWB' in name_upper:
                 return "Butterfly"
-            elif 'straddle' in name_lower:
+            if 'STRADDLE' in name_upper:
                 return "Straddle"
-            elif 'strangle' in name_lower:
+            if 'STRANGLE' in name_upper:
                 return "Strangle"
-            elif 'covered call' in name_lower:
+            if 'COVERED CALL' in name_upper:
                 return "Covered Call"
-            elif 'csp' in name_lower or 'cash secured' in name_lower:
+            if 'CSP' in name_upper or 'CASH SECURED' in name_upper:
                 return "Cash Secured Put"
+
             return "Other"
 
         allocation_data = []
@@ -194,74 +280,43 @@ def page_portfolio_builder(full_df):
             mult = st.session_state.portfolio_allocation.get(strat, 1.0)
 
             # Auto-detect or use override for option strategy
-            opt_strat = st.session_state.option_strategy_overrides.get(strat, detect_option_strategy(strat))
+            # Get strategy data for legs-based detection
+            strat_data_for_detection = filtered_df[filtered_df['strategy'] == strat] if strat in filtered_df['strategy'].values else None
+            opt_strat = st.session_state.option_strategy_overrides.get(strat, detect_option_strategy_from_legs(strat, strat_data_for_detection))
 
             allocation_data.append({
-                'Category': cat,
-                'OptStrategy': opt_strat,
                 'Strategy': strat,  # Full strategy name
                 'StrategyFull': strat,
-                'Hist': stats['contracts_per_day'],
                 'Margin/Lot': stats['margin_per_contract'],
                 'P&L': stats['total_pnl'],
                 'P&L*M': stats['total_pnl'] * mult,
                 'DD': stats['max_dd'],
                 'DD*M': stats['max_dd'] * mult,
-                'Margin*M': stats['margin_per_contract'] * stats['contracts_per_day'] * mult,
-                'Multiplier': mult
+                'Margin*M': stats['margin_per_contract'] * mult,
+                'Multiplier': mult,
+                'Category': cat,
+                'OptStrategy': opt_strat
             })
 
         alloc_df = pd.DataFrame(allocation_data)
 
         # Calculate totals for display
         total_margin_lot = alloc_df['Margin/Lot'].sum()
-        total_row = pd.DataFrame([{
-            'Category': '',
-            'OptStrategy': '',
-            'Strategy': 'TOTAL',
-            'StrategyFull': '',
-            'Hist': alloc_df['Hist'].sum(),
-            'Margin/Lot': total_margin_lot,
-            'P&L': alloc_df['P&L'].sum(),
-            'P&L*M': alloc_df['P&L*M'].sum(),
-            'DD': alloc_df['DD'].max(),
-            'DD*M': alloc_df['DD*M'].max(),
-            'Margin*M': alloc_df['Margin*M'].sum(),
-            'Multiplier': 0
-        }])
 
-        # Data editor with improved columns
+        # Data editor with improved columns - Strategy Name first, Type and OptStrategy at end
         edited_alloc = st.data_editor(
-            alloc_df[['Category', 'OptStrategy', 'Strategy', 'Hist', 'Margin/Lot', 'P&L', 'P&L*M', 'DD*M', 'Margin*M', 'Multiplier']],
+            alloc_df[['Strategy', 'Margin/Lot', 'P&L', 'P&L*M', 'DD*M', 'Margin*M', 'Multiplier', 'Category', 'OptStrategy']],
             column_config={
-                "Category": st.column_config.SelectboxColumn(
-                    "Type ✏️",
-                    options=["Workhorse", "Airbag", "Opportunist"],
-                    width="small",
-                    help="Strategy type: Workhorse (core), Airbag (hedge), Opportunist (tactical)"
-                ),
-                "OptStrategy": st.column_config.SelectboxColumn(
-                    "Option Strategy ✏️",
-                    options=OPTION_STRATEGIES,
-                    width="medium",
-                    help="Option strategy type (auto-detected, editable)"
-                ),
                 "Strategy": st.column_config.TextColumn(
                     "Strategy Name",
                     width="large",
                     help="Full strategy name from your CSV file"
                 ),
-                "Hist": st.column_config.NumberColumn(
-                    "Hist C/D",
-                    format="%.1f",
-                    width="small",
-                    help="Historical average contracts per day"
-                ),
                 "Margin/Lot": st.column_config.NumberColumn(
-                    "Margin/Lot",
+                    "Max Margin",
                     format="$%.0f",
                     width="small",
-                    help="Average margin required per contract"
+                    help="Maximum daily margin for this strategy"
                 ),
                 "P&L": st.column_config.NumberColumn(
                     "P&L (1x)",
@@ -293,10 +348,22 @@ def page_portfolio_builder(full_df):
                     max_value=10.0,
                     step=0.1,
                     help="Adjust position size: 1.0 = historical, 2.0 = double, 0.5 = half"
+                ),
+                "Category": st.column_config.SelectboxColumn(
+                    "Type ✏️",
+                    options=["Workhorse", "Airbag", "Opportunist"],
+                    width="small",
+                    help="Strategy type: Workhorse (core), Airbag (hedge), Opportunist (tactical)"
+                ),
+                "OptStrategy": st.column_config.SelectboxColumn(
+                    "Option Strategy ✏️",
+                    options=OPTION_STRATEGIES,
+                    width="medium",
+                    help="Option strategy type (auto-detected, editable)"
                 )
             },
             use_container_width=True,
-            key="allocation_editor_v21",
+            key="allocation_editor_v22",
             hide_index=True
         )
 
@@ -306,10 +373,10 @@ def page_portfolio_builder(full_df):
                         display: flex; justify-content: space-between; font-family: Poppins, sans-serif; font-size: 13px;
                         flex-wrap: wrap; gap: 15px;">
                 <span><strong>TOTAL ({len(alloc_df)} strategies)</strong></span>
-                <span>Margin/Lot: <strong>${alloc_df['Margin/Lot'].sum():,.0f}</strong></span>
+                <span>Max Margin: <strong>${alloc_df['Margin/Lot'].sum():,.0f}</strong></span>
                 <span>P&L (1x): <strong>${alloc_df['P&L'].sum():,.0f}</strong></span>
                 <span>P&L*M: <strong>${alloc_df['P&L*M'].sum():,.0f}</strong></span>
-                <span>Max DD*M: <strong>${alloc_df['DD*M'].max():,.0f}</strong></span>
+                <span>Max DD*M: <strong>${-abs(alloc_df['DD*M'].max()):,.0f}</strong></span>
                 <span>Margin*M: <strong>${alloc_df['Margin*M'].sum():,.0f}</strong></span>
             </div>
         """, unsafe_allow_html=True)
@@ -321,12 +388,19 @@ def page_portfolio_builder(full_df):
             st.session_state.category_overrides[full_strat] = row['Category']
             st.session_state.option_strategy_overrides[full_strat] = row['OptStrategy']
 
-        # === BUTTON LAYOUT: Calculate with Reset/Set to 0 | Kelly | MART ===
+        # === BUTTON LAYOUT: Calculate | Kelly | MART (all same height) ===
         st.markdown("")
         calc_col, kelly_col, mart_col = st.columns([1, 1, 1])
 
         # --- CALCULATE Section ---
         with calc_col:
+            st.markdown("""
+                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px; text-align: center;">
+                    PORTFOLIO METRICS
+                </div>
+            """, unsafe_allow_html=True)
+            # Spacer to align with number inputs
+            st.markdown("<div style='height: 38px;'></div>", unsafe_allow_html=True)
             if st.button("CALCULATE", use_container_width=True, type="primary"):
                 st.session_state.calculate_kpis = True
                 st.rerun()
@@ -353,16 +427,18 @@ def page_portfolio_builder(full_df):
             kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input")
             st.session_state.kelly_pct = kelly_input
             if st.button("RUN KELLY", use_container_width=True, type="primary", key="run_kelly_btn"):
-                with placeholder:
-                    ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
-                optimized = calc.kelly_optimize_allocation(
-                    strategy_base_stats, target_margin, kelly_input/100,
-                    workhorse_pct/100, airbag_pct/100, opportunist_pct/100,
-                    st.session_state.category_overrides
-                )
-                st.session_state.portfolio_allocation = optimized
-                st.session_state.calculate_kpis = True
-                placeholder.empty()
+                try:
+                    with placeholder:
+                        ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
+                    optimized = calc.kelly_optimize_allocation(
+                        strategy_base_stats, target_margin, kelly_input/100,
+                        workhorse_pct/100, airbag_pct/100, opportunist_pct/100,
+                        st.session_state.category_overrides
+                    )
+                    st.session_state.portfolio_allocation = optimized
+                    st.session_state.calculate_kpis = True
+                finally:
+                    placeholder.empty()
                 st.rerun()
 
         # --- MART OPTIMIZER Section ---
@@ -375,26 +451,27 @@ def page_portfolio_builder(full_df):
             mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input")
             st.session_state.mart_min_pnl = mart_min_pnl
             if st.button("RUN MART", use_container_width=True, type="primary", key="run_mart_btn"):
-                with placeholder:
-                    ui.show_loading_overlay("Optimizing", "Running MART optimization...")
-                optimized = calc.mart_optimize_allocation(
-                    strategy_base_stats, target_margin, account_size,
-                    st.session_state.category_overrides, full_date_range, filtered_df,
-                    min_pnl=mart_min_pnl
-                )
-                st.session_state.portfolio_allocation = optimized
-                st.session_state.calculate_kpis = True
-                placeholder.empty()
+                try:
+                    with placeholder:
+                        ui.show_loading_overlay("Optimizing", "Running MART optimization...")
+                    optimized = calc.mart_optimize_allocation(
+                        strategy_base_stats, target_margin, account_size,
+                        st.session_state.category_overrides, full_date_range, filtered_df,
+                        min_pnl=mart_min_pnl
+                    )
+                    st.session_state.portfolio_allocation = optimized
+                    st.session_state.calculate_kpis = True
+                finally:
+                    placeholder.empty()
                 st.rerun()
 
     if not st.session_state.get('calculate_kpis', False):
         st.info("Adjust allocations and click CALCULATE to see projected performance.")
         return
 
-    # Show loading while calculating
+    # Show loading while calculating (will be cleared after metrics are computed)
     with placeholder:
         ui.show_loading_overlay("Calculating", "Computing portfolio metrics...")
-    time.sleep(0.05)
 
     # === CALCULATE METRICS ===
     port_pnl = pd.Series(0.0, index=full_date_range)
@@ -420,7 +497,7 @@ def page_portfolio_builder(full_df):
 
             cat = st.session_state.category_overrides.get(strat, stats['category'])
             if cat in category_margin:
-                s_margin = stats['margin_per_contract'] * stats['contracts_per_day'] * mult
+                s_margin = stats['margin_per_contract'] * mult
                 category_margin[cat] += s_margin
                 category_pnl[cat] += s_pnl
 

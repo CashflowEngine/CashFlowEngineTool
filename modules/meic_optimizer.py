@@ -9,17 +9,24 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def generate_oo_signals(start_date, end_date, interval_min=5):
-    """Generate Option Omega entry signals for backtesting."""
+def generate_oo_signals(start_date, end_date, start_time="09:32", interval_min=5):
+    """Generate Option Omega entry signals for backtesting.
+
+    Args:
+        start_date: First date to generate signals for
+        end_date: Last date to generate signals for
+        start_time: Start time for signals (format: "HH:MM"), default "09:32"
+        interval_min: Interval between signals in minutes
+    """
     dates = pd.date_range(start=start_date, end=end_date, freq='B')  # Business days
 
     signals = []
     for d in dates:
-        # Generate signals from 9:35 to 15:55 in 5-minute increments
-        start_time = pd.Timestamp(f"{d.date()} 09:35:00")
-        end_time = pd.Timestamp(f"{d.date()} 15:55:00")
+        # Generate signals from start_time to 15:59 in specified intervals
+        day_start = pd.Timestamp(f"{d.date()} {start_time}:00")
+        end_time = pd.Timestamp(f"{d.date()} 15:59:00")
 
-        current = start_time
+        current = day_start
         while current <= end_time:
             signals.append({
                 'Date': d.date(),
@@ -212,8 +219,28 @@ def page_meic_optimizer():
         with c2:
             gen_interval = st.number_input("Interval (Minutes)", value=5, min_value=1, max_value=60, key="opt_gen_interval")
 
+        # Start Time selection
+        st.markdown("**Start Time**")
+        st.caption("First signal of each day will be at this time. Signals continue in intervals until 15:59.")
+
+        # Generate time options from 9:32 to 15:59 in minute increments
+        time_options = []
+        for hour in range(9, 16):
+            start_min = 32 if hour == 9 else 0
+            end_min = 59 if hour < 15 else 59
+            for minute in range(start_min, end_min + 1):
+                time_options.append(f"{hour:02d}:{minute:02d}")
+
+        gen_start_time = st.selectbox(
+            "Start Time",
+            options=time_options,
+            index=0,  # Default to 09:32
+            key="opt_gen_start_time",
+            label_visibility="collapsed"
+        )
+
         if st.button("Generate CSV", type="primary", key="opt_gen_btn"):
-            df_signals = generate_oo_signals(gen_start, gen_end, interval_min=gen_interval)
+            df_signals = generate_oo_signals(gen_start, gen_end, start_time=gen_start_time, interval_min=gen_interval)
 
             # Convert to CSV string
             csv = df_signals.to_csv(index=False)
@@ -370,16 +397,73 @@ def page_meic_optimizer():
             col_f1, col_f2 = st.columns([1, 3])
 
             with col_f1:
-                st.markdown("**Filters**")
+                st.markdown("**Performance Filters**")
                 min_mar_6m = st.slider("Min MAR (6M)", 0.0, 5.0, 1.5, 0.1, key="opt_min_mar_6m")
                 min_mar_total = st.slider("Min MAR (Total)", 0.0, 3.0, 0.5, 0.1, key="opt_min_mar_total")
                 min_trades = st.slider("Min Trades (6M)", 0, 100, 20, 5, key="opt_min_trades")
+
+                st.markdown("---")
+                st.markdown("**Parameter Filters**")
+
+                # Width filter
+                available_widths = sorted(results_df['Width'].unique())
+                if len(available_widths) > 1:
+                    selected_widths = st.multiselect(
+                        "Width",
+                        options=available_widths,
+                        default=available_widths,
+                        key="opt_filter_width"
+                    )
+                else:
+                    selected_widths = available_widths
+
+                # Premium filter
+                available_premiums = sorted(results_df['Premium'].unique())
+                if len(available_premiums) > 1:
+                    selected_premiums = st.multiselect(
+                        "Premium",
+                        options=available_premiums,
+                        default=available_premiums,
+                        key="opt_filter_premium",
+                        format_func=lambda x: f"${x:.2f}"
+                    )
+                else:
+                    selected_premiums = available_premiums
+
+                # SL filter
+                available_sls = sorted(results_df['SL'].unique())
+                if len(available_sls) > 1:
+                    selected_sls = st.multiselect(
+                        "Stop Loss",
+                        options=available_sls,
+                        default=available_sls,
+                        key="opt_filter_sl"
+                    )
+                else:
+                    selected_sls = available_sls
+
+                # Entry Time filter
+                available_times = sorted(results_df['EntryTime'].unique())
+                if len(available_times) > 1:
+                    st.markdown("**Entry Time Range**")
+                    time_col1, time_col2 = st.columns(2)
+                    with time_col1:
+                        time_start = st.selectbox("From", options=available_times, index=0, key="opt_time_start")
+                    with time_col2:
+                        time_end = st.selectbox("To", options=available_times, index=len(available_times)-1, key="opt_time_end")
+                    selected_times = [t for t in available_times if t >= time_start and t <= time_end]
+                else:
+                    selected_times = available_times
 
             # Apply filters
             filtered_res = results_df[
                 (results_df['MAR (6M)'] >= min_mar_6m) &
                 (results_df['MAR (Total)'] >= min_mar_total) &
-                (results_df['Trades (6M)'] >= min_trades)
+                (results_df['Trades (6M)'] >= min_trades) &
+                (results_df['Width'].isin(selected_widths)) &
+                (results_df['Premium'].isin(selected_premiums)) &
+                (results_df['SL'].isin(selected_sls)) &
+                (results_df['EntryTime'].isin(selected_times))
             ].sort_values('MAR (6M)', ascending=False)
 
             with col_f2:
@@ -481,7 +565,7 @@ def page_meic_optimizer():
                                 y=heat_pivot.index,
                                 colorscale=colorscale,
                                 text=heat_pivot.values,
-                                texttemplate="%.2f",
+                                texttemplate="%{text:.2f}",
                                 textfont={"size": 11},
                                 hovertemplate=f"Entry Time: %{{y}}<br>{heatmap_x}: %{{x}}<br>{heatmap_metric}: %{{z:.2f}}<extra></extra>"
                             ))

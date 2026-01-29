@@ -39,6 +39,9 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
     live_min_ts = live_df['timestamp'].min()
     live_max_ts = live_df['timestamp'].max()
 
+    # Get live strategies early for display
+    live_strategies = sorted(live_df['strategy'].unique())
+
     # === SECTION 1: CONFIGURATION (Card) ===
     with st.container(border=True):
         ui.section_header("Configuration", description="Set the evaluation period and map strategies between live and backtest data.")

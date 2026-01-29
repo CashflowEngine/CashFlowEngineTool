@@ -129,7 +129,7 @@ def show_landing_page():
                             st.session_state['live_df'] = pd.concat(dfs_live, ignore_index=True)
                             st.session_state['live_filenames'] = ", ".join([f.name for f in live_files])
 
-                    # Pre-compute statistics for faster page loads
+                    # Pre-compute statistics for faster page loads and AI assistant
                     ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics for instant access...")
                     precompute.precompute_all(
                         st.session_state.get('full_df'),
@@ -164,7 +164,7 @@ def show_landing_page():
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
 
-                                # Pre-compute statistics for faster page loads
+                                # Pre-compute statistics for faster page loads and AI assistant
                                 ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
                                 precompute.precompute_all(bt_df, live_df, account_size=100000)
 

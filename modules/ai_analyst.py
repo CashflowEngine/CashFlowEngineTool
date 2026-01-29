@@ -224,40 +224,72 @@ WICHTIG:
 def render_ai_sidebar_widget(current_page: str = None):
     """
     Render a compact AI widget in the sidebar.
-    Can be called from app.py to show on all pages.
+    Called from app.py (already inside st.sidebar context).
     """
-    with st.sidebar:
-        with st.expander("🤖 AI Assistant", expanded=False):
-            client = get_gemini_client()
+    # Initialize sidebar chat history
+    if 'sidebar_ai_response' not in st.session_state:
+        st.session_state.sidebar_ai_response = None
 
-            if not client.is_available:
-                st.warning("AI nicht verfügbar")
-                return
+    # Header
+    st.markdown("""
+        <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
+                    font-size: 18px; color: #302BFF; text-transform: uppercase;
+                    letter-spacing: 1px; margin-bottom: 8px; padding: 0 12px;">
+            🤖 AI Assistant
+        </div>
+    """, unsafe_allow_html=True)
 
-            stats = AIContextBuilder.get_quick_stats()
-            if stats['status'] != 'ready':
-                st.info("Lade Daten für AI-Analyse")
-                return
+    # Check data availability
+    stats = AIContextBuilder.get_quick_stats()
+    if stats['status'] != 'ready':
+        st.caption("Lade Daten um AI zu nutzen")
+        return
 
-            # Mini chat input
-            quick_question = st.text_input(
-                "Schnelle Frage:",
-                placeholder="z.B. 'Was ist mein MAR?'",
-                key="sidebar_ai_input",
-                label_visibility="collapsed"
-            )
+    # Get client status
+    client = get_gemini_client()
+    client_status = client.get_status()
 
-            if quick_question:
-                context = AIContextBuilder.build_full_context(current_page=current_page)
-                system_instruction = f"{CASHFLOW_ENGINE_KNOWLEDGE}\n\n{context}\n\nAntworte kurz und prägnant (max 3 Sätze)."
+    if not client_status['has_api_key']:
+        st.caption("⚠️ API-Key fehlt")
+        st.caption("Gehe zu AI Analyst Seite")
+        return
 
-                with st.spinner("..."):
+    if not client_status['available']:
+        st.caption(f"⚠️ {client_status.get('error', 'Nicht verfügbar')}")
+        return
+
+    # Quick stats
+    st.caption(f"📊 {stats['strategies']} Strategien | {stats['trades']:,} Trades")
+
+    # Question input
+    quick_question = st.text_input(
+        "Frage:",
+        placeholder="z.B. 'Was ist mein MAR?'",
+        key="sidebar_ai_input",
+        label_visibility="collapsed"
+    )
+
+    # Ask button
+    if st.button("Fragen", key="sidebar_ai_ask", use_container_width=True, type="primary"):
+        if quick_question:
+            with st.spinner("Analysiere..."):
+                try:
+                    context = AIContextBuilder.build_full_context(current_page=current_page)
+                    system_instruction = f"{CASHFLOW_ENGINE_KNOWLEDGE}\n\n{context}\n\nAntworte kurz und prägnant (max 3 Sätze). Sprache: Deutsch wenn deutsche Frage."
+
                     response = client.generate(
                         prompt=quick_question,
                         system_instruction=system_instruction,
                         temperature=0.5,
                         max_tokens=500
                     )
-                    st.markdown(response)
+                    st.session_state.sidebar_ai_response = response
+                except Exception as e:
+                    st.session_state.sidebar_ai_response = f"Fehler: {str(e)}"
 
-            st.caption("Für ausführliche Analysen → AI Analyst Seite")
+    # Show response
+    if st.session_state.sidebar_ai_response:
+        st.markdown("---")
+        st.markdown(st.session_state.sidebar_ai_response)
+
+    st.caption("Für mehr → AI Analyst Seite")

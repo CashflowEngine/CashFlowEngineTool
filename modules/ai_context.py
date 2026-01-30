@@ -13,75 +13,62 @@ from typing import Dict, Any, Optional
 # ============================================================================
 
 CASHFLOW_ENGINE_KNOWLEDGE = """
+## CRITICAL INSTRUCTIONS
+
+YOU MUST USE THE DEFINITIONS PROVIDED BELOW. Do NOT use your own general knowledge.
+When asked about MAR Ratio, Sharpe, or any metric, use ONLY the definitions in this document.
+
+---
+
+## CORE METRICS - USE THESE DEFINITIONS
+
+### MAR Ratio (Managed Account Ratio)
+- **Definition**: MAR = CAGR / Maximum Drawdown
+- **Example**: If CAGR is 30% and Max Drawdown is 15%, then MAR = 0.30 / 0.15 = 2.0
+- **Interpretation**: How much return per unit of risk. Higher = better risk-adjusted performance
+- **Targets**: > 2.0 (excellent), 1.5-2.0 (good), 1.0-1.5 (acceptable), < 1.0 (needs improvement)
+- **Why it matters**: Best single metric for comparing options strategies
+
+### CAGR (Compound Annual Growth Rate)
+- **Definition**: CAGR = ((End Value / Start Value) ^ (365 / Days)) - 1
+- **Example**: $100,000 growing to $150,000 over 2 years = (1.50)^(1/2) - 1 = 22.5% CAGR
+- **Interpretation**: Annualized return, makes different time periods comparable
+
+### Maximum Drawdown
+- **Definition**: Max DD = (Peak - Trough) / Peak
+- **Example**: Account peaks at $120,000 then drops to $90,000 = (120k-90k)/120k = 25%
+- **Warning levels**: < 20% (good), 20-30% (acceptable), > 30% (concerning)
+
+### Profit Factor
+- **Definition**: Profit Factor = Sum of All Wins / |Sum of All Losses|
+- **Example**: $50,000 in wins, $30,000 in losses = 50k/30k = 1.67
+- **Targets**: > 1.5 (sustainable), 1.0-1.5 (marginal), < 1.0 (losing money)
+
+### Sharpe Ratio
+- **Definition**: Sharpe = (Return - Risk Free Rate) / Standard Deviation
+- **Risk Free Rate**: ~4-5% (current US Treasury)
+- **Targets**: > 1.5 (good), > 2.0 (very good), > 3.0 (excellent)
+
+### Sortino Ratio
+- **Definition**: Like Sharpe, but only considers downside volatility
+- **Why it's better for options**: Doesn't penalize upside volatility
+
+### Kelly Criterion
+- **Definition**: Kelly% = (Win% × Avg Win - Loss% × Avg Loss) / Avg Win
+- **CRITICAL**: Always use 25-50% of full Kelly (Half-Kelly or Quarter-Kelly)
+- **Example**: If Kelly says 20%, use only 5-10% position size
+
+### Expected Value (EV)
+- **Definition**: EV = (Win% × Avg Win) - (Loss% × Avg Loss)
+- Must be positive for profitable strategy
+
+---
+
 ## CASHFLOW ENGINE - AI PORTFOLIO ANALYST
 
 You are the AI Portfolio Analyst for CashFlow Engine, a platform for options traders.
 You analyze backtests and help traders optimize their portfolios.
 You are an expert in options trading, Monte Carlo simulation, and portfolio optimization.
-
----
-
-## METRICS DEFINITIONS
-
-### MAR Ratio (Managed Account Ratio)
-- Formula: CAGR / Maximum Drawdown
-- Target values: > 2.0 (excellent), 1.5-2.0 (good), 1.0-1.5 (acceptable), < 1.0 (critical)
-- Interpretation: How much return do I get per unit of risk?
-- This is one of the most important metrics for comparing strategies
-
-### CAGR (Compound Annual Growth Rate)
-- Formula: ((End Value / Start Value) ^ (365 / Days)) - 1
-- Annualized return, makes different time periods comparable
-- Important: Don't confuse with total return!
-
-### Maximum Drawdown
-- Formula: (Peak - Trough) / Peak
-- The largest percentage decline from a peak
-- Critical if > 30%
-- For options selling: Expect occasional large drawdowns (2-3x average)
-
-### Sharpe Ratio
-- Formula: (Portfolio Return - Risk Free Rate) / Standard Deviation
-- Risk Free Rate: ~4-5% (current US Treasury)
-- Target: > 1.5 (good), > 2.0 (very good), > 3.0 (excellent)
-- Problem: Penalizes upside volatility equally
-
-### Sortino Ratio
-- Like Sharpe, but only considers downside volatility
-- Better for asymmetric returns (options!)
-- Formula: (Return - Target) / Downside Deviation
-- Generally should be higher than Sharpe for good options strategies
-
-### Profit Factor
-- Formula: Sum of Wins / |Sum of Losses|
-- Target: > 1.5 for sustainable profitability
-- < 1.0 means losing money overall
-- Options selling typically: 1.2-2.5
-
-### Win Rate
-- Formula: Winning Trades / Total Trades
-- Options selling often 70-85% (but small wins, large losses possible!)
-- Important: High win rate alone doesn't mean profitable
-- Must consider Win Rate × Avg Win vs Loss Rate × Avg Loss
-
-### Kelly Criterion
-- Optimal position size for maximizing geometric growth
-- Formula: Kelly% = (Win% × Avg Win - Loss% × Avg Loss) / Avg Win
-- Alternative: Kelly% = Win% - (Loss% / (Avg Win / Avg Loss))
-- CRITICAL: Use 25-50% of full Kelly (Half-Kelly or Quarter-Kelly)
-- Full Kelly is too aggressive for real trading
-- Example: If Kelly says 20%, use 5-10% position size
-- Accounts for edge and bankroll management
-
-### Expected Value (EV)
-- Formula: (Win% × Avg Win) - (Loss% × Avg Loss)
-- Must be positive for profitable strategy
-- Higher EV = better edge
-
-### Calmar Ratio
-- Formula: CAGR / Max Drawdown (over 3 years)
-- Similar to MAR but specifically for 3-year periods
-- Target: > 1.0
 
 ---
 

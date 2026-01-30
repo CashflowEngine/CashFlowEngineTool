@@ -1,6 +1,6 @@
 """
 AI Context Builder for CashFlow Engine
-Sammelt alle gecachten Daten und bereitet sie für die KI auf.
+Collects all cached data and prepares it for the AI.
 """
 
 import streamlit as st
@@ -13,108 +13,279 @@ from typing import Dict, Any, Optional
 # ============================================================================
 
 CASHFLOW_ENGINE_KNOWLEDGE = """
-## CASHFLOW ENGINE - BERECHNUNGSMETHODEN
+## CASHFLOW ENGINE - AI PORTFOLIO ANALYST
 
-Du bist der AI Portfolio Analyst für CashFlow Engine, eine Plattform für Options-Trader.
-Du analysierst Backtests und hilfst Tradern, ihr Portfolio zu optimieren.
+You are the AI Portfolio Analyst for CashFlow Engine, a platform for options traders.
+You analyze backtests and help traders optimize their portfolios.
+You are an expert in options trading, Monte Carlo simulation, and portfolio optimization.
 
-### METRIKEN-DEFINITIONEN
+---
 
-**MAR Ratio (Managed Account Ratio)**
-- Formel: CAGR / Maximum Drawdown
-- Zielwerte: > 2.0 (exzellent), 1.5-2.0 (gut), 1.0-1.5 (akzeptabel), < 1.0 (kritisch)
-- Interpretation: Wie viel Return bekomme ich pro Einheit Risiko?
+## METRICS DEFINITIONS
 
-**CAGR (Compound Annual Growth Rate)**
-- Formel: ((Endwert / Startwert) ^ (365 / Tage)) - 1
-- Annualisierte Rendite, macht Zeiträume vergleichbar
+### MAR Ratio (Managed Account Ratio)
+- Formula: CAGR / Maximum Drawdown
+- Target values: > 2.0 (excellent), 1.5-2.0 (good), 1.0-1.5 (acceptable), < 1.0 (critical)
+- Interpretation: How much return do I get per unit of risk?
+- This is one of the most important metrics for comparing strategies
 
-**Maximum Drawdown**
-- Formel: (Peak - Trough) / Peak
-- Der größte prozentuale Rückgang vom Höchststand
-- Kritisch wenn > 30%
+### CAGR (Compound Annual Growth Rate)
+- Formula: ((End Value / Start Value) ^ (365 / Days)) - 1
+- Annualized return, makes different time periods comparable
+- Important: Don't confuse with total return!
 
-**Sharpe Ratio**
-- Formel: (Portfolio Return - Risk Free Rate) / Standardabweichung
-- Risk Free Rate: 4% (US Treasury)
-- Zielwert: > 1.5 (gut), > 2.0 (sehr gut)
+### Maximum Drawdown
+- Formula: (Peak - Trough) / Peak
+- The largest percentage decline from a peak
+- Critical if > 30%
+- For options selling: Expect occasional large drawdowns (2-3x average)
 
-**Sortino Ratio**
-- Wie Sharpe, aber nur Downside-Volatilität berücksichtigt
-- Besser für asymmetrische Returns (Options!)
+### Sharpe Ratio
+- Formula: (Portfolio Return - Risk Free Rate) / Standard Deviation
+- Risk Free Rate: ~4-5% (current US Treasury)
+- Target: > 1.5 (good), > 2.0 (very good), > 3.0 (excellent)
+- Problem: Penalizes upside volatility equally
 
-**Profit Factor**
-- Formel: Summe Gewinne / |Summe Verluste|
-- Zielwert: > 1.5
+### Sortino Ratio
+- Like Sharpe, but only considers downside volatility
+- Better for asymmetric returns (options!)
+- Formula: (Return - Target) / Downside Deviation
+- Generally should be higher than Sharpe for good options strategies
 
-**Win Rate**
-- Formel: Gewinn-Trades / Gesamt-Trades
-- Bei Options oft 70-85% (aber kleine Gewinne, große Verluste möglich!)
+### Profit Factor
+- Formula: Sum of Wins / |Sum of Losses|
+- Target: > 1.5 for sustainable profitability
+- < 1.0 means losing money overall
+- Options selling typically: 1.2-2.5
 
-**Kelly Criterion**
-- Optimale Positionsgröße: (Win% * AvgWin - Loss% * AvgLoss) / AvgWin
-- Nutze 25-50% des Kelly für konservativeres Sizing
+### Win Rate
+- Formula: Winning Trades / Total Trades
+- Options selling often 70-85% (but small wins, large losses possible!)
+- Important: High win rate alone doesn't mean profitable
+- Must consider Win Rate × Avg Win vs Loss Rate × Avg Loss
 
-### STRATEGIE-KATEGORIEN
+### Kelly Criterion
+- Optimal position size for maximizing geometric growth
+- Formula: Kelly% = (Win% × Avg Win - Loss% × Avg Loss) / Avg Win
+- Alternative: Kelly% = Win% - (Loss% / (Avg Win / Avg Loss))
+- CRITICAL: Use 25-50% of full Kelly (Half-Kelly or Quarter-Kelly)
+- Full Kelly is too aggressive for real trading
+- Example: If Kelly says 20%, use 5-10% position size
+- Accounts for edge and bankroll management
 
-**WORKHORSE (60% Allocation)**
-- Stabile, konsistente Performer
+### Expected Value (EV)
+- Formula: (Win% × Avg Win) - (Loss% × Avg Loss)
+- Must be positive for profitable strategy
+- Higher EV = better edge
+
+### Calmar Ratio
+- Formula: CAGR / Max Drawdown (over 3 years)
+- Similar to MAR but specifically for 3-year periods
+- Target: > 1.0
+
+---
+
+## STRATEGY CATEGORIES (Portfolio Construction)
+
+### WORKHORSE (60% Allocation)
+- Stable, consistent performers
 - MAR > 1.5, Win Rate > 70%
-- Beispiele: Iron Condors, Credit Spreads auf Indizes
+- Examples: Iron Condors, Credit Spreads on indices (SPX, RUT)
+- Focus on high probability, defined risk
 
-**AIRBAG (25% Allocation)**
-- Hedging-Strategien, profitieren von Crashes
-- Negative Korrelation zum Markt gewünscht
-- Beispiele: Long Puts, Bear Call Spreads
+### AIRBAG (25% Allocation)
+- Hedging strategies, profit from crashes
+- Negative correlation to market desired
+- Examples: Long Puts, Bear Call Spreads, VIX calls
+- Purpose: Protect portfolio during black swan events
 
-**OPPORTUNIST (15% Allocation)**
+### OPPORTUNIST (15% Allocation)
 - High-Risk/High-Reward
-- Höhere Volatilität akzeptabel
-- Beispiele: Earnings Plays, Momentum Strategies
+- Higher volatility acceptable
+- Examples: Earnings Plays, Momentum Strategies, Straddles
+- Use when IV is favorable
 
-### RISIKO-WARNUNGEN
+---
 
-**Korrelation zwischen Strategien**
-- > 0.7: WARNUNG - Klumpenrisiko
-- > 0.85: KRITISCH - Strategien bewegen sich fast identisch
-- Empfehlung: Diversifiziere oder reduziere Allocation
+## RISK WARNINGS
 
-**Margin-Nutzung**
-- > 80%: WARNUNG - Wenig Puffer für Margin Calls
-- > 95%: KRITISCH - Margin Call wahrscheinlich bei Marktbewegung
+### Correlation Between Strategies
+- > 0.7: WARNING - Cluster risk
+- > 0.85: CRITICAL - Strategies move almost identically
+- Recommendation: Diversify or reduce allocation
+- Goal: Keep correlations < 0.5 for true diversification
 
-**Konzentration**
-- Eine Strategie > 40% des Portfolios: WARNUNG
-- Empfehlung: Max 25-30% pro Strategie
+### Margin Usage
+- > 80%: WARNING - Little buffer for margin calls
+- > 95%: CRITICAL - Margin call likely on market movement
+- Recommendation: Keep margin usage < 50% for safety buffer
 
-### MONTE CARLO INTERPRETATION
+### Concentration
+- One strategy > 40% of portfolio: WARNING
+- Recommendation: Max 25-30% per strategy
+- Exception: Index strategies can be slightly higher
 
-**Percentile-Bedeutung**
-- P5 (5. Perzentil): Worst Case (nur 5% sind schlechter)
-- P50 (Median): Erwartetes Ergebnis
-- P95: Best Case (nur 5% sind besser)
+### Tail Risk (Options Specific)
+- Options selling has negative skew
+- 1-2 standard deviation moves are fine
+- 3+ sigma events can wipe out months of gains
+- Always have defined risk or hedges in place
 
-**Profit-Wahrscheinlichkeit**
-- > 90%: Sehr robust
-- 70-90%: Akzeptabel
-- < 70%: Risikobehaftet
+---
 
-### ANTWORTSTIL
+## MONTE CARLO SIMULATION
 
-- Antworte in der Sprache des Users (Deutsch oder Englisch)
-- Sei konkret mit Zahlen und Referenzen
-- Gib actionable Empfehlungen
-- Warne proaktiv bei Risiken
-- Verweise auf spezifische Strategien wenn relevant
+### What It Does
+- Simulates thousands of possible future paths
+- Uses historical returns and their distribution
+- Accounts for randomness and sequence of returns
+- Shows probability distributions, not predictions
+
+### Percentile Meaning
+- P5 (5th percentile): Worst Case (only 5% are worse)
+- P25: Below average but realistic scenario
+- P50 (Median): Expected outcome
+- P75: Above average scenario
+- P95: Best Case (only 5% are better)
+
+### Profit Probability
+- > 90%: Very robust strategy
+- 70-90%: Acceptable
+- < 70%: Risky - proceed with caution
+- This shows % of simulations ending in profit
+
+### Simulation Parameters
+- Number of simulations: 1,000-10,000 typical
+- Time horizon: 12-36 months typical
+- Resampling method: Bootstrap from historical trades
+- Assumes past distribution continues
+
+### Interpreting Results
+- Don't focus on single paths
+- Look at the distribution (range of outcomes)
+- P5 is more important than P50 for risk management
+- Wide spread = high uncertainty = more caution needed
+
+---
+
+## OPTIONS TRADING TOOLS & PLATFORMS
+
+### Optionomega
+- Options backtesting platform
+- Tests strategies against historical data
+- Exports trade data compatible with CashFlow Engine
+- Key features: Strategy builder, Greeks analysis
+
+### Optionstrat
+- Options visualization tool
+- Shows P&L diagrams at various prices/dates
+- Useful for planning complex spreads
+- Real-time Greeks calculations
+
+### OptionsApp
+- Mobile-focused options tracking
+- Position monitoring on the go
+- Alerts for Greeks thresholds
+
+### Trade Automation Toolbox (TAT)
+- Automated options trading for TastyTrade
+- Sets up recurring trades based on rules
+- Manages positions automatically
+- Export capabilities for analysis
+
+### Tradestuart
+- Options backtesting focused on income strategies
+- Pre-built strategy templates
+- Rolling and adjustment analysis
+
+### Using These Tools with CashFlow Engine
+- Export trade history from any platform
+- Import CSV into CashFlow Engine
+- Analyze combined portfolio performance
+- Run Monte Carlo on aggregated data
+
+---
+
+## OPTIONS STRATEGY KNOWLEDGE
+
+### Credit Spreads
+- Sell premium, defined risk
+- Bull Put Spread: Bullish, collect credit
+- Bear Call Spread: Bearish, collect credit
+- Max loss = width - credit received
+- Best when IV is high
+
+### Iron Condor
+- Sell both sides (put spread + call spread)
+- Neutral strategy, profits from time decay
+- Works best in low volatility, range-bound markets
+- Manage when tested (typically at 21 DTE or 50% profit)
+
+### Strangles/Straddles
+- Undefined risk strategies
+- Higher premium collection
+- Require active management
+- Use on large accounts only
+
+### Wheel Strategy
+- Sell puts until assigned, then sell calls
+- Systematic approach to stock accumulation
+- Works best on stocks you want to own
+- Combines premium collection with ownership
+
+### Calendar/Diagonal Spreads
+- Exploit time decay differential
+- Long back month, short front month
+- Requires volatility forecasting
+- More complex management
+
+---
+
+## POSITION SIZING GUIDELINES
+
+### Fixed Percentage
+- Risk 1-2% of portfolio per trade
+- Simplest approach
+- Doesn't optimize for edge
+
+### Kelly-Based Sizing
+- Calculate Kelly percentage
+- Use fractional Kelly (25-50%)
+- Adjusts size based on strategy edge
+- Requires accurate win rate/average win-loss data
+
+### Volatility-Based
+- Smaller positions when IV is high
+- Larger when IV is low (cheaper)
+- Adjusts for market conditions
+
+### Optimal f
+- Mathematical optimization of position size
+- Maximizes geometric growth
+- Similar to Kelly but more aggressive
+- Use with extreme caution
+
+---
+
+## RESPONSE STYLE
+
+- Respond in the user's language (German if German question, English if English question)
+- Be specific with numbers and references
+- Give actionable recommendations
+- Proactively warn about risks
+- Reference specific strategies when relevant
+- Use the actual data from the portfolio context
+- Don't make up numbers - use what's provided
+- If data is missing, tell the user what analysis to run
 """
 
 
 class AIContextBuilder:
-    """Baut den kompletten Kontext für AI-Anfragen aus allen gecachten Daten."""
+    """Builds complete context for AI requests from all cached data."""
 
     @staticmethod
     def get_data_availability() -> Dict[str, bool]:
-        """Prüft welche Daten verfügbar sind."""
+        """Check which data is available."""
         return {
             'full_df': 'full_df' in st.session_state and st.session_state.get('full_df') is not None and not st.session_state['full_df'].empty,
             'live_df': 'live_df' in st.session_state and st.session_state.get('live_df') is not None and not st.session_state['live_df'].empty,
@@ -129,20 +300,20 @@ class AIContextBuilder:
 
     @staticmethod
     def get_availability_summary() -> str:
-        """Gibt eine lesbare Zusammenfassung der verfügbaren Daten."""
+        """Returns a readable summary of available data."""
         avail = AIContextBuilder.get_data_availability()
 
-        lines = ["## DATENVERFÜGBARKEIT\n"]
+        lines = ["## DATA AVAILABILITY\n"]
 
         status_map = {
-            'full_df': ('Backtest-Daten', 'Basis für alle Analysen'),
-            'live_df': ('Live-Trading-Daten', 'Für Backtest vs Live Vergleich'),
-            'strategy_base_stats': ('Strategie-Statistiken', 'Performance pro Strategie'),
-            'daily_pnl_series': ('Tägliche P&L', 'Für Drawdown und Volatilität'),
-            'correlation_matrix': ('Korrelationsmatrix', 'Risiko-Cluster erkennen'),
-            'spx_benchmark': ('SPX Benchmark', 'Alpha/Beta Berechnung'),
-            'mc_results': ('Monte Carlo Ergebnisse', 'Zukunftsszenarien'),
-            'portfolio_allocation': ('Portfolio-Allocation', 'Aktuelle Gewichtung'),
+            'full_df': ('Backtest Data', 'Foundation for all analyses'),
+            'live_df': ('Live Trading Data', 'For backtest vs live comparison'),
+            'strategy_base_stats': ('Strategy Statistics', 'Performance per strategy'),
+            'daily_pnl_series': ('Daily P&L', 'For drawdown and volatility'),
+            'correlation_matrix': ('Correlation Matrix', 'Identify risk clusters'),
+            'spx_benchmark': ('SPX Benchmark', 'Alpha/Beta calculation'),
+            'mc_results': ('Monte Carlo Results', 'Future scenarios'),
+            'portfolio_allocation': ('Portfolio Allocation', 'Current weights'),
         }
 
         for key, (name, desc) in status_map.items():
@@ -153,15 +324,15 @@ class AIContextBuilder:
 
     @staticmethod
     def build_portfolio_overview(df: pd.DataFrame) -> str:
-        """Baut Überblick aus den Rohdaten."""
+        """Build overview from raw data."""
         if df is None or df.empty:
-            return "Keine Daten verfügbar."
+            return "No data available."
 
         strategies = df['strategy'].unique() if 'strategy' in df.columns else []
         total_pnl = df['pnl'].sum() if 'pnl' in df.columns else 0
         total_trades = len(df)
 
-        # Zeitraum
+        # Time period
         if 'timestamp' in df.columns:
             start_date = df['timestamp'].min().strftime('%Y-%m-%d')
             end_date = df['timestamp'].max().strftime('%Y-%m-%d')
@@ -170,22 +341,52 @@ class AIContextBuilder:
             start_date = end_date = "N/A"
             days = 0
 
-        return f"""
-## PORTFOLIO ÜBERSICHT
+        # Portfolio-level metrics
+        pnl = df['pnl'] if 'pnl' in df.columns else pd.Series([0])
+        wins = pnl[pnl > 0]
+        losses = pnl[pnl <= 0]
+        portfolio_win_rate = len(wins) / len(pnl) if len(pnl) > 0 else 0
+        portfolio_pf = wins.sum() / abs(losses.sum()) if losses.sum() != 0 else float('inf')
 
-- **Strategien**: {len(strategies)} ({', '.join(strategies[:5])}{'...' if len(strategies) > 5 else ''})
-- **Trades gesamt**: {total_trades:,}
-- **Zeitraum**: {start_date} bis {end_date} ({days} Tage)
+        # Drawdown
+        cumulative = pnl.cumsum()
+        running_max = cumulative.cummax()
+        drawdown = running_max - cumulative
+        max_dd = drawdown.max()
+        max_dd_pct = max_dd / (running_max.max() + 100000) if running_max.max() > 0 else 0
+
+        # CAGR and MAR
+        years = max(days / 365.25, 0.1) if days > 0 else 1
+        cagr = ((100000 + total_pnl) / 100000) ** (1/years) - 1 if total_pnl > -100000 else -1
+        mar = cagr / max_dd_pct if max_dd_pct > 0 else 0
+
+        return f"""
+## PORTFOLIO OVERVIEW
+
+- **Strategies**: {len(strategies)} ({', '.join(strategies[:5])}{'...' if len(strategies) > 5 else ''})
+- **Total Trades**: {total_trades:,}
+- **Period**: {start_date} to {end_date} ({days} days, {years:.1f} years)
 - **Total P&L**: ${total_pnl:,.0f}
+
+### Portfolio-Level Metrics
+- **Win Rate**: {portfolio_win_rate*100:.1f}%
+- **Profit Factor**: {portfolio_pf:.2f}
+- **CAGR**: {cagr*100:.1f}%
+- **Max Drawdown**: {max_dd_pct*100:.1f}%
+- **MAR Ratio**: {mar:.2f}
 """
 
     @staticmethod
     def build_strategy_performance(df: pd.DataFrame) -> str:
-        """Baut Performance-Tabelle pro Strategie."""
+        """Build performance table per strategy."""
         if df is None or df.empty or 'strategy' not in df.columns:
-            return ""
+            return "No strategy data available."
 
-        lines = ["\n## STRATEGIE PERFORMANCE\n"]
+        lines = ["\n## STRATEGY PERFORMANCE\n"]
+        lines.append(f"**Number of strategies in portfolio: {len(df['strategy'].unique())}**\n")
+
+        # Collect stats for ranking
+        strategy_stats = []
 
         for strategy in sorted(df['strategy'].unique()):
             strat_df = df[df['strategy'] == strategy]
@@ -208,7 +409,7 @@ class AIContextBuilder:
             max_dd_abs = drawdown.max()
             max_dd_pct = max_dd_abs / (running_max.max() + 100000) if running_max.max() > 0 else 0
 
-            # MAR (vereinfacht)
+            # MAR (simplified)
             days = (strat_df['timestamp'].max() - strat_df['timestamp'].min()).days if 'timestamp' in strat_df.columns else 365
             years = max(days / 365.25, 0.1)
             cagr = ((100000 + total_pnl) / 100000) ** (1/years) - 1 if total_pnl > -100000 else -1
@@ -217,128 +418,175 @@ class AIContextBuilder:
             # Margin
             avg_margin = strat_df['margin'].mean() if 'margin' in strat_df.columns else 0
 
+            # Kelly Criterion
+            loss_rate = 1 - win_rate
+            if avg_win > 0 and avg_loss > 0:
+                kelly = (win_rate * avg_win - loss_rate * avg_loss) / avg_win
+                kelly_pct = max(0, min(kelly, 1)) * 100  # Cap at 100%
+            else:
+                kelly_pct = 0
+
+            # Expected Value per trade
+            ev = (win_rate * avg_win) - (loss_rate * avg_loss)
+
             lines.append(f"""
 ### {strategy}
 - **P&L**: ${total_pnl:,.0f} | **Trades**: {trades}
 - **Win Rate**: {win_rate*100:.0f}% | **Profit Factor**: {profit_factor:.2f}
 - **Avg Win**: ${avg_win:,.0f} | **Avg Loss**: ${avg_loss:,.0f}
 - **Max Drawdown**: {max_dd_pct*100:.1f}% | **MAR**: {mar:.2f}
+- **Kelly Criterion**: {kelly_pct:.1f}% | **Expected Value**: ${ev:,.0f}/trade
 - **Avg Margin**: ${avg_margin:,.0f}
+""")
+            # Store for ranking
+            strategy_stats.append({
+                'name': strategy,
+                'pnl': total_pnl,
+                'mar': mar,
+                'win_rate': win_rate,
+                'profit_factor': profit_factor,
+                'kelly': kelly_pct,
+                'ev': ev
+            })
+
+        # Add ranking summary
+        if strategy_stats:
+            best_pnl = max(strategy_stats, key=lambda x: x['pnl'])
+            worst_pnl = min(strategy_stats, key=lambda x: x['pnl'])
+            best_mar = max(strategy_stats, key=lambda x: x['mar'])
+            worst_mar = min(strategy_stats, key=lambda x: x['mar'])
+            best_ev = max(strategy_stats, key=lambda x: x['ev'])
+            best_kelly = max(strategy_stats, key=lambda x: x['kelly'])
+
+            lines.append(f"""
+## STRATEGY RANKING
+
+**Best Strategy (by P&L)**: {best_pnl['name']} with ${best_pnl['pnl']:,.0f}
+**Worst Strategy (by P&L)**: {worst_pnl['name']} with ${worst_pnl['pnl']:,.0f}
+**Best Strategy (by MAR)**: {best_mar['name']} with MAR {best_mar['mar']:.2f}
+**Worst Strategy (by MAR)**: {worst_mar['name']} with MAR {worst_mar['mar']:.2f}
+**Best Strategy (by EV)**: {best_ev['name']} with ${best_ev['ev']:,.0f}/trade
+**Highest Kelly Sizing**: {best_kelly['name']} suggests {best_kelly['kelly']:.1f}% (use 25-50% of this)
 """)
 
         return "\n".join(lines)
 
     @staticmethod
     def build_correlation_context() -> str:
-        """Baut Korrelations-Kontext aus gecachten Daten."""
-        if 'correlation_matrix' not in st.session_state:
+        """Build correlation context - from cache or computed."""
+        # Try cache first
+        corr = st.session_state.get('correlation_matrix')
+
+        # If no cache, try to compute from DataFrame
+        if corr is None:
+            df = st.session_state.get('full_df', pd.DataFrame())
+            if df is not None and not df.empty and 'strategy' in df.columns and 'timestamp' in df.columns:
+                try:
+                    pivot = df.pivot_table(
+                        index=df['timestamp'].dt.date,
+                        columns='strategy',
+                        values='pnl',
+                        aggfunc='sum'
+                    ).fillna(0)
+                    if len(pivot.columns) >= 2:
+                        corr = pivot.corr()
+                except Exception:
+                    pass
+
+        if corr is None or not isinstance(corr, pd.DataFrame):
             return ""
 
-        corr = st.session_state['correlation_matrix']
+        # Find high correlations
+        high_corr = []
+        for i, col1 in enumerate(corr.columns):
+            for j, col2 in enumerate(corr.columns):
+                if i < j:
+                    val = corr.loc[col1, col2]
+                    if abs(val) > 0.7:
+                        risk = "CRITICAL" if abs(val) > 0.85 else "WARNING"
+                        high_corr.append(f"- {col1} ↔ {col2}: {val:.2f} ({risk})")
 
-        if isinstance(corr, pd.DataFrame):
-            # Finde hohe Korrelationen
-            high_corr = []
-            for i, col1 in enumerate(corr.columns):
-                for j, col2 in enumerate(corr.columns):
-                    if i < j:
-                        val = corr.loc[col1, col2]
-                        if abs(val) > 0.7:
-                            risk = "KRITISCH" if abs(val) > 0.85 else "WARNUNG"
-                            high_corr.append(f"- {col1} ↔ {col2}: {val:.2f} ({risk})")
+        if high_corr:
+            return f"""
+## CORRELATION ANALYSIS
 
-            if high_corr:
-                return f"""
-## KORRELATIONS-ANALYSE
-
-**Hohe Korrelationen gefunden:**
+**High correlations found:**
 {chr(10).join(high_corr)}
 
-⚠️ Hohe Korrelation bedeutet Klumpenrisiko - bei Marktbewegung verlieren mehrere Strategien gleichzeitig!
+⚠️ High correlation means cluster risk - multiple strategies lose simultaneously during market moves!
 """
         return ""
 
     @staticmethod
     def build_monte_carlo_context() -> str:
-        """Baut Monte Carlo Kontext aus gecachten Ergebnissen."""
+        """Build Monte Carlo context from cached results."""
         mc = st.session_state.get('mc_results')
         if not mc:
-            return "\n## MONTE CARLO\n❌ Noch nicht ausgeführt. Gehe zu 'Monte Carlo Punisher' für Simulation."
+            return "\n## MONTE CARLO\n❌ Not yet executed. Go to 'Monte Carlo Punisher' to run simulation."
 
         return f"""
 ## MONTE CARLO SIMULATION
 
-**Konfiguration**: {mc.get('n_sims', 'N/A')} Simulationen, {mc.get('sim_months', 'N/A')} Monate
+**Configuration**: {mc.get('n_sims', 'N/A')} simulations, {mc.get('sim_months', 'N/A')} months
 
-**Return-Szenarien**:
+**Return Scenarios**:
 - Worst Case (P5): ${mc.get('p05', 0):,.0f}
 - Expected (P50): ${mc.get('p50', 0):,.0f}
 - Best Case (P95): ${mc.get('p95', 0):,.0f}
 
-**Drawdown-Szenarien**:
+**Drawdown Scenarios**:
 - Best Case DD: {mc.get('d05', 0)*100:.1f}%
 - Typical DD: {mc.get('d50', 0)*100:.1f}%
 - Worst Case DD: {mc.get('d95', 0)*100:.1f}%
 
 **Key Metrics**:
-- CAGR (erwartet): {mc.get('cagr', 0)*100:.1f}%
+- CAGR (expected): {mc.get('cagr', 0)*100:.1f}%
 - MAR Ratio: {mc.get('mar', 0):.2f}
-- Profit-Wahrscheinlichkeit: {mc.get('prob_profit', 0)*100:.0f}%
+- Profit Probability: {mc.get('prob_profit', 0)*100:.0f}%
 """
 
     @staticmethod
     def build_full_context(current_page: Optional[str] = None) -> str:
         """
-        Baut den kompletten Kontext für eine AI-Anfrage.
-        Nutzt vorberechnete Daten wenn verfügbar.
+        Build complete context for an AI request.
+        ALWAYS directly from DataFrame for reliability.
 
         Args:
-            current_page: Die aktuelle Seite (für kontextspezifische Hilfe)
+            current_page: The current page (for context-specific help)
 
         Returns:
-            Vollständiger Kontext-String für den AI-Prompt
+            Complete context string for the AI prompt
         """
-        # Check if precomputed data is available
-        import precompute
-
         df = st.session_state.get('full_df', pd.DataFrame())
-        if precompute.is_cache_valid(df):
-            # Use precomputed data for faster context building
-            context_parts = [
-                AIContextBuilder._build_precomputed_context(),
-                AIContextBuilder.build_monte_carlo_context(),
-            ]
-        else:
-            # Fallback: compute on the fly
-            df = st.session_state.get('full_df', pd.DataFrame())
-            context_parts = [
-                AIContextBuilder.get_availability_summary(),
-                AIContextBuilder.build_portfolio_overview(df),
-                AIContextBuilder.build_strategy_performance(df),
-                AIContextBuilder.build_correlation_context(),
-                AIContextBuilder.build_monte_carlo_context(),
-            ]
 
-        # Seiten-spezifischer Kontext
+        # ALWAYS build context directly from DataFrame for reliability
+        context_parts = [
+            AIContextBuilder.build_portfolio_overview(df),
+            AIContextBuilder.build_strategy_performance(df),
+            AIContextBuilder.build_correlation_context(),
+            AIContextBuilder.build_monte_carlo_context(),
+        ]
+
+        # Page-specific context
         if current_page:
-            context_parts.append(f"\n## AKTUELLER KONTEXT\nUser ist auf der Seite: **{current_page}**")
+            context_parts.append(f"\n## CURRENT CONTEXT\nUser is on page: **{current_page}**")
 
         return "\n".join(context_parts)
 
     @staticmethod
     def _build_precomputed_context() -> str:
-        """Baut Kontext aus vorberechneten Daten."""
+        """Build context from precomputed data."""
         import precompute
 
-        lines = ["## VORBERECHNETE PORTFOLIO-DATEN\n"]
+        lines = ["## PRECOMPUTED PORTFOLIO DATA\n"]
 
         # Basic metrics
         basic = precompute.get_cached('basic_metrics', {})
         if basic:
-            lines.append(f"""### Übersicht
-- Strategien: {basic.get('strategy_count', 0)}
+            lines.append(f"""### Overview
+- Strategies: {basic.get('strategy_count', 0)}
 - Trades: {basic.get('total_trades', 0):,}
-- Zeitraum: {basic.get('days', 0)} Tage
+- Period: {basic.get('days', 0)} days
 - Total P&L: ${basic.get('total_pnl', 0):,.0f}
 - CAGR: {basic.get('cagr', 0)*100:.1f}%
 - Sharpe: {basic.get('sharpe', 0):.2f}
@@ -349,7 +597,7 @@ class AIContextBuilder:
         # Strategy stats
         strat_stats = precompute.get_cached('strategy_stats', {})
         if strat_stats:
-            lines.append("### Strategie-Performance\n")
+            lines.append("### Strategy Performance\n")
             for name, stats in strat_stats.items():
                 lines.append(f"""**{name}**
 - P&L: ${stats.get('total_pnl', 0):,.0f} | Trades: {stats.get('trades', 0)}
@@ -366,13 +614,13 @@ class AIContextBuilder:
                     if i < j and abs(corr.loc[col1, col2]) > 0.7:
                         high_corr.append(f"- {col1} ↔ {col2}: {corr.loc[col1, col2]:.2f}")
             if high_corr:
-                lines.append("### Korrelations-Warnungen\n" + "\n".join(high_corr))
+                lines.append("### Correlation Warnings\n" + "\n".join(high_corr))
 
         return "\n".join(lines)
 
     @staticmethod
     def get_quick_stats() -> Dict[str, Any]:
-        """Schnelle Stats für Sidebar-Anzeige."""
+        """Quick stats for sidebar display."""
         df = st.session_state.get('full_df', pd.DataFrame())
 
         if df is None or df.empty:

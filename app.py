@@ -888,15 +888,6 @@ else:
 
         st.markdown("---")
 
-        # AI Assistant Widget (on all pages) - ABOVE Analysis Manager
-        try:
-            from modules.ai_analyst import render_ai_sidebar_widget
-            render_ai_sidebar_widget(current_page=current_page_val)
-        except Exception as e:
-            st.caption(f"AI: {e}")
-
-        st.markdown("---")
-
         # Analysis Manager - larger text for visibility
         st.markdown("""
             <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;

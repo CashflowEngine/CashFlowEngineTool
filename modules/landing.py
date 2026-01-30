@@ -189,6 +189,19 @@ def show_landing_page():
         </p>
     """, unsafe_allow_html=True)
 
+    # Mapping from internal page values to radio button display keys
+    # (needed for pages where the display name differs from internal value)
+    page_to_radio_key = {
+        "Start & Data": "Start & Data",
+        "Portfolio Analytics": "Portfolio Analytics",
+        "Portfolio Builder": "Portfolio Builder",
+        "Monte Carlo": "Monte Carlo",
+        "Live vs. Backtest": "Reality Check",
+        "MEIC Deep Dive": "MEIC Deep Dive",
+        "MEIC Optimizer": "MEIC Optimizer (Beta)",
+        "AI Analyst": "AI Analyst (Coming Soon)"
+    }
+
     def render_tile(col, title, desc, target_page, coming_soon=False):
         """Render a feature tile with a styled text link."""
         with col:
@@ -225,6 +238,9 @@ def show_landing_page():
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
+                            # Also update radio button state for proper sync
+                            radio_key = page_to_radio_key.get(target_page, target_page)
+                            st.session_state["main_nav_radio"] = radio_key
                             st.rerun()
                         else:
                             st.session_state.show_data_warning = True

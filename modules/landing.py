@@ -253,7 +253,7 @@ def show_landing_page():
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
-                            # Note: Don't set main_nav_radio directly - it will be synced on rerun
+                            st.session_state["_programmatic_nav"] = True
                             st.rerun()
                         else:
                             st.session_state.show_data_warning = True

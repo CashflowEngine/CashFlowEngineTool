@@ -155,9 +155,13 @@ def page_portfolio_builder(full_df):
         </div>
         """, unsafe_allow_html=True)
 
-        if 'portfolio_allocation' not in st.session_state: st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
-        if 'category_overrides' not in st.session_state: st.session_state.category_overrides = {}
-        if 'option_strategy_overrides' not in st.session_state: st.session_state.option_strategy_overrides = {}
+        # Basic initialization - detailed initialization happens after function definitions below
+        if 'portfolio_allocation' not in st.session_state:
+            st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
+        if 'category_overrides' not in st.session_state:
+            st.session_state.category_overrides = {}
+        if 'option_strategy_overrides' not in st.session_state:
+            st.session_state.option_strategy_overrides = {}
         if 'kelly_pct' not in st.session_state: st.session_state.kelly_pct = 20
         if 'mart_min_pnl' not in st.session_state: st.session_state.mart_min_pnl = 0
 
@@ -222,7 +226,9 @@ def page_portfolio_builder(full_df):
             name_upper = strat_name.upper()
 
             # Reverse Iron Condor (check before Iron Condor)
-            if 'REVERSE IRON' in name_upper or 'RIC' in name_upper:
+            # Use word boundary check for RIC to avoid false positives
+            import re
+            if 'REVERSE IRON' in name_upper or re.search(r'\bRIC\b', name_upper):
                 return "Reverse Iron Condor"
 
             # Long positions (check first as they're specific)
@@ -283,14 +289,21 @@ def page_portfolio_builder(full_df):
             - Delta-neutral strategies: Workhorse
             - Delta-Long strategies: Opportunist
             - Delta-Short strategies: Airbag
-            - Double Calendars and RICs: Airbag
+            - Double Calendars and RICs: Airbag (ALWAYS)
             - METF strategies: Workhorse
             """
+            import re
             name_upper = strat_name.upper()
 
-            # Specific overrides based on strategy type
-            # Double Calendars and RICs are Airbag
+            # FORCE Airbag for Double Calendar and RIC strategies
+            # Check both option strategy type AND strategy name patterns
             if opt_strat in ["Double Calendar", "Reverse Iron Condor"]:
+                return "Airbag"
+
+            # Also check strategy name directly for DC/RIC patterns
+            if 'DOUBLE CALENDAR' in name_upper or 'DC' in name_upper or 'CALENDAR' in name_upper:
+                return "Airbag"
+            if 'REVERSE IRON' in name_upper or re.search(r'\bRIC\b', name_upper):
                 return "Airbag"
 
             # METF strategies are Workhorse
@@ -312,22 +325,36 @@ def page_portfolio_builder(full_df):
             # Default to Workhorse
             return "Workhorse"
 
+        # Pre-populate overrides for all strategies BEFORE building the DataFrame
+        # This prevents value jumping when editing the data_editor
+        for strat in strategies:
+            if strat not in strategy_base_stats:
+                continue
+
+            # Ensure portfolio allocation exists
+            if strat not in st.session_state.portfolio_allocation:
+                st.session_state.portfolio_allocation[strat] = 1.0
+
+            # Detect and set option strategy if not already set
+            if strat not in st.session_state.option_strategy_overrides:
+                strat_data_for_init = filtered_df[filtered_df['strategy'] == strat] if strat in filtered_df['strategy'].values else None
+                detected_opt_strat = detect_option_strategy_from_legs(strat, strat_data_for_init)
+                st.session_state.option_strategy_overrides[strat] = detected_opt_strat
+
+            # Set category based on option strategy if not already set
+            if strat not in st.session_state.category_overrides:
+                opt_strat = st.session_state.option_strategy_overrides[strat]
+                st.session_state.category_overrides[strat] = get_default_category_for_strategy(strat, opt_strat)
+
         allocation_data = []
         for strat in strategies:
             if strat not in strategy_base_stats: continue
             stats = strategy_base_stats[strat]
 
-            # Auto-detect option strategy first (needed for default category)
-            strat_data_for_detection = filtered_df[filtered_df['strategy'] == strat] if strat in filtered_df['strategy'].values else None
-            opt_strat = st.session_state.option_strategy_overrides.get(strat, detect_option_strategy_from_legs(strat, strat_data_for_detection))
-
-            # Get category - use override, or calculate default based on strategy type
-            if strat in st.session_state.category_overrides:
-                cat = st.session_state.category_overrides[strat]
-            else:
-                # Use new logic for default category based on strategy characteristics
-                cat = get_default_category_for_strategy(strat, opt_strat)
-
+            # Get values from session_state (which were initialized above)
+            # This ensures consistency and prevents value jumping
+            opt_strat = st.session_state.option_strategy_overrides.get(strat, "Other")
+            cat = st.session_state.category_overrides.get(strat, "Workhorse")
             mult = st.session_state.portfolio_allocation.get(strat, 1.0)
 
             allocation_data.append({
@@ -434,25 +461,10 @@ def page_portfolio_builder(full_df):
             st.session_state.category_overrides[full_strat] = row['Category']
             st.session_state.option_strategy_overrides[full_strat] = row['OptStrategy']
 
-        # === BUTTON LAYOUT: Reset/Set to 0 on top, Calculate | Kelly | MART below on same level ===
+        # === BUTTON LAYOUT: Section headers, then Reset/Kelly%/MinPL, then action buttons ===
         st.markdown("")
 
-        # Row 1: Reset and Set to Zero buttons
-        reset_col1, reset_col2, reset_col3 = st.columns([1, 1, 2])
-        with reset_col1:
-            if st.button("Reset", key="reset_btn", type="tertiary", use_container_width=True):
-                st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
-                st.session_state.calculate_kpis = False
-                st.rerun()
-        with reset_col2:
-            if st.button("Set to 0", key="zero_btn", type="tertiary", use_container_width=True):
-                st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
-                st.session_state.calculate_kpis = False
-                st.rerun()
-
-        st.markdown("")
-
-        # Row 2: Section headers for all three buttons
+        # Row 1: Section headers for all three columns
         calc_col, kelly_col, mart_col = st.columns([1, 1, 1])
 
         with calc_col:
@@ -476,11 +488,22 @@ def page_portfolio_builder(full_df):
                 </div>
             """, unsafe_allow_html=True)
 
-        # Row 3: Input fields row (Kelly % and Min P/L)
+        # Row 2: Reset/Set to 0 links under PORTFOLIO METRICS, Kelly% and Min P/L inputs
         input_col1, input_col2, input_col3 = st.columns([1, 1, 1])
 
         with input_col1:
-            st.markdown("<div style='height: 38px;'></div>", unsafe_allow_html=True)  # Spacer for alignment
+            # Reset and Set to 0 links under PORTFOLIO METRICS
+            reset_sub1, reset_sub2 = st.columns(2)
+            with reset_sub1:
+                if st.button("Reset", key="reset_btn", type="tertiary", use_container_width=True):
+                    st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
+            with reset_sub2:
+                if st.button("Set to 0", key="zero_btn", type="tertiary", use_container_width=True):
+                    st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
 
         with input_col2:
             kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input")
@@ -490,7 +513,7 @@ def page_portfolio_builder(full_df):
             mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input")
             st.session_state.mart_min_pnl = mart_min_pnl
 
-        # Row 4: Buttons row - all three on same level
+        # Row 3: Buttons row - all three on same level
         btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
 
         with btn_col1:

@@ -50,9 +50,13 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
     # === SECTION 0: STRATEGY MAPPING OVERVIEW (Card) ===
     with st.container(border=True):
         ui.section_header("Strategy Mapping Overview",
-            description="Review and map all strategies between your live trading and backtest data.")
+            description="Review and map all strategies between your live trading and backtest data. Use the dropdowns to manually assign backtest strategies.")
 
-        # Build automatic mapping
+        # Initialize strategy mapping in session state
+        if 'strategy_mapping' not in st.session_state:
+            st.session_state.strategy_mapping = {}
+
+        # Build automatic mapping (for suggestions)
         auto_mapping = {}
         unmapped_live = []
         unmapped_bt = list(bt_strategies)
@@ -81,47 +85,89 @@ def page_comparison(bt_df_arg=None, live_df_arg=None):
             else:
                 unmapped_live.append(live_s)
 
-        # Display mapping table
-        mapping_data = []
+        # Initialize session state mapping from auto_mapping if not set
         for live_s in live_strategies:
-            bt_match = auto_mapping.get(live_s, "Not Matched")
-            status = "Matched" if live_s in auto_mapping else "Unmapped"
-            mapping_data.append({
-                'Live Strategy': live_s,
-                'Backtest Strategy': bt_match,
-                'Status': status
-            })
+            if live_s not in st.session_state.strategy_mapping:
+                st.session_state.strategy_mapping[live_s] = auto_mapping.get(live_s, None)
 
-        mapping_df = pd.DataFrame(mapping_data)
+        # Dropdown options: backtest strategies + "Not Matched" option
+        bt_options = ["-- Not Matched --"] + list(bt_strategies)
 
-        # Style the status column
-        def color_status(val):
-            if val == "Matched":
-                return 'background-color: rgba(0, 210, 190, 0.2); color: #065F46'
-            else:
-                return 'background-color: rgba(255, 46, 77, 0.2); color: #991B1B'
+        # Display mapping with dropdowns for each strategy
+        st.markdown("**Matched Strategies**")
+        st.markdown("<small style='color: #6B7280;'>Use the dropdown to change the backtest strategy mapping</small>", unsafe_allow_html=True)
 
-        st.dataframe(
-            mapping_df.style.map(color_status, subset=['Status']),
-            use_container_width=True,
-            hide_index=True,
-            height=min(300, 35 + len(mapping_df) * 35)
-        )
+        matched_strategies = [s for s in live_strategies if st.session_state.strategy_mapping.get(s) is not None]
 
-        # Show warnings for unmapped strategies
-        if unmapped_live:
-            st.warning(f"**Unmapped Live Strategies:** {', '.join(unmapped_live)}")
-            st.markdown("""
-            <div style='background-color: #FEF3C7; padding: 12px 16px; border-radius: 8px; margin-top: 8px; font-size: 12px;'>
-                <strong>Suggestions for unmapped strategies:</strong><br>
-                • Verify strategy names match between live and backtest data<br>
-                • Check for typos or different naming conventions<br>
-                • Some live strategies may not have backtest equivalents (new strategies)
-            </div>
-            """, unsafe_allow_html=True)
+        if matched_strategies:
+            for live_s in matched_strategies:
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    st.markdown(f"**{live_s}**")
+                with col2:
+                    current_bt = st.session_state.strategy_mapping.get(live_s)
+                    default_idx = bt_options.index(current_bt) if current_bt in bt_options else 0
 
-        if unmapped_bt:
-            st.info(f"**Backtest strategies without live matches:** {', '.join(unmapped_bt)}")
+                    new_bt = st.selectbox(
+                        f"Map {live_s}",
+                        options=bt_options,
+                        index=default_idx,
+                        key=f"mapping_{live_s}",
+                        label_visibility="collapsed"
+                    )
+
+                    # Update session state
+                    if new_bt == "-- Not Matched --":
+                        st.session_state.strategy_mapping[live_s] = None
+                    else:
+                        st.session_state.strategy_mapping[live_s] = new_bt
+        else:
+            st.info("No automatically matched strategies found.")
+
+        # Unmatched strategies in expander (hidden by default)
+        unmatched_strategies = [s for s in live_strategies if st.session_state.strategy_mapping.get(s) is None]
+
+        if unmatched_strategies:
+            with st.expander(f"Unmatched Live Strategies ({len(unmatched_strategies)})", expanded=False):
+                st.markdown("""
+                <div style='background-color: #FEF3C7; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 12px;'>
+                    <strong>These strategies need manual mapping:</strong><br>
+                    • Select a backtest strategy from the dropdown to create a mapping<br>
+                    • Or leave as "Not Matched" if there's no equivalent backtest
+                </div>
+                """, unsafe_allow_html=True)
+
+                for live_s in unmatched_strategies:
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        st.markdown(f"**{live_s}**")
+                    with col2:
+                        new_bt = st.selectbox(
+                            f"Map {live_s}",
+                            options=bt_options,
+                            index=0,  # Default to "Not Matched"
+                            key=f"mapping_unmatched_{live_s}",
+                            label_visibility="collapsed"
+                        )
+
+                        # Update session state
+                        if new_bt == "-- Not Matched --":
+                            st.session_state.strategy_mapping[live_s] = None
+                        else:
+                            st.session_state.strategy_mapping[live_s] = new_bt
+
+        # Show unused backtest strategies in expander
+        used_bt = set(v for v in st.session_state.strategy_mapping.values() if v is not None)
+        unused_bt = [s for s in bt_strategies if s not in used_bt]
+
+        if unused_bt:
+            with st.expander(f"Unused Backtest Strategies ({len(unused_bt)})", expanded=False):
+                st.markdown("<small style='color: #6B7280;'>These backtest strategies are not mapped to any live strategy</small>", unsafe_allow_html=True)
+                for bt_s in unused_bt:
+                    st.markdown(f"• {bt_s}")
+
+        # Update auto_mapping from session state for use below
+        auto_mapping = {k: v for k, v in st.session_state.strategy_mapping.items() if v is not None}
 
     # === SECTION 0.5: DATA MISMATCH ANALYSIS (Card) ===
     with st.container(border=True):

@@ -41,12 +41,50 @@ def show_login_page():
     # --- CUSTOM LOGIN PAGE STYLES (Full-height right panel layout) ---
     st.markdown("""
     <style>
-        /* Hide default Streamlit elements on login page */
-        [data-testid="stSidebar"] { display: none !important; }
-        section[data-testid="stSidebar"] { display: none !important; }
+        /* CRITICAL: Hide ALL Streamlit UI elements on login page */
+        /* Hide sidebar */
+        [data-testid="stSidebar"],
+        section[data-testid="stSidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Hide Streamlit header, toolbar, and menu - COMPLETELY */
+        header[data-testid="stHeader"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        .stDeployButton,
+        #MainMenu,
+        button[kind="header"],
+        [data-testid="baseButton-header"],
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"],
+        .viewerBadge_container__r5tak,
+        .stApp > header,
+        header {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Hide the running/loading indicator */
+        [data-testid="stStatusWidget"],
+        .stSpinner,
+        [data-testid="stSpinner"],
+        div[data-testid="stStatusWidget"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
 
         /* Remove ALL padding/margin from Streamlit containers for full-height layout */
-        .stApp > header { display: none !important; }
         .stApp {
             margin: 0 !important;
             padding: 0 !important;

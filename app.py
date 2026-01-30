@@ -1128,69 +1128,8 @@ st.markdown("""
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // --- MOBILE HAMBURGER MENU ---
-    function initMobileMenu() {
-        // Only run on mobile
-        if (window.innerWidth > 480) return;
-
-        // Check if hamburger already exists
-        if (document.querySelector('.hamburger-menu')) return;
-
-        // Create hamburger button
-        const hamburger = document.createElement('button');
-        hamburger.className = 'hamburger-menu';
-        hamburger.setAttribute('aria-label', 'Toggle navigation menu');
-        hamburger.innerHTML = '<span></span><span></span><span></span>';
-
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'mobile-sidebar-overlay';
-
-        // Add to body
-        document.body.appendChild(hamburger);
-        document.body.appendChild(overlay);
-
-        // Toggle function
-        function toggleSidebar() {
-            document.body.classList.toggle('mobile-sidebar-open');
-        }
-
-        // Event listeners
-        hamburger.addEventListener('click', toggleSidebar);
-        overlay.addEventListener('click', toggleSidebar);
-
-        // Close sidebar when a menu item is clicked
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        if (sidebar) {
-            sidebar.addEventListener('click', function(e) {
-                // Check if clicked on a radio button (menu item)
-                if (e.target.closest('label') && e.target.closest('[role="radiogroup"]')) {
-                    setTimeout(function() {
-                        document.body.classList.remove('mobile-sidebar-open');
-                    }, 100);
-                }
-            });
-        }
-    }
-
-    // Run mobile menu init
-    document.addEventListener('DOMContentLoaded', initMobileMenu);
-    setTimeout(initMobileMenu, 500);
-    setTimeout(initMobileMenu, 1000);
-
-    // Re-init on resize
-    window.addEventListener('resize', function() {
-        const hamburger = document.querySelector('.hamburger-menu');
-        const overlay = document.querySelector('.mobile-sidebar-overlay');
-        if (window.innerWidth > 480) {
-            document.body.classList.remove('mobile-sidebar-open');
-            if (hamburger) hamburger.style.display = 'none';
-            if (overlay) overlay.style.display = 'none';
-        } else {
-            if (hamburger) hamburger.style.display = 'flex';
-            initMobileMenu();
-        }
-    });
+    // Mobile hamburger menu is injected via HTML below (for authenticated users only)
+    // This ensures the button exists in DOM before any JS tries to attach listeners
 </script>
 """, unsafe_allow_html=True)
 
@@ -1443,7 +1382,7 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
-                st.session_state["main_nav_radio"] = "Start & Data"
+                # Note: main_nav_radio will be synced in app.py before widget renders on next rerun
                 st.rerun()
         # Don't use st.stop() - allow sidebar navigation to work
 

@@ -1308,14 +1308,18 @@ else:
 
         st.write("")
 
-        # Sync radio button with navigate_to_page BEFORE rendering widget
-        # This ensures programmatic navigation (from landing page links) updates the radio
+        # Determine which key the radio should show
         target_radio_key = current_key  # current_key is derived from navigate_to_page
+
+        # Initialize radio state if not exists
         if "main_nav_radio" not in st.session_state:
             st.session_state["main_nav_radio"] = target_radio_key
-        elif st.session_state.get("main_nav_radio") != target_radio_key:
-            # navigate_to_page was changed programmatically, sync the radio
+
+        # Check if there was a PROGRAMMATIC navigation (flag set by other code)
+        if st.session_state.get("_programmatic_nav"):
+            # Sync radio to match programmatic navigation
             st.session_state["main_nav_radio"] = target_radio_key
+            st.session_state["_programmatic_nav"] = False
 
         # Navigation with current page indicator
         selected_key = st.radio(
@@ -1382,7 +1386,7 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
-                # Note: main_nav_radio will be synced in app.py before widget renders on next rerun
+                st.session_state["_programmatic_nav"] = True
                 st.rerun()
         # Don't use st.stop() - allow sidebar navigation to work
 

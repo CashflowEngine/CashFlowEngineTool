@@ -238,9 +238,7 @@ def show_landing_page():
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
-                            # Set radio button to matching display key
-                            radio_key = page_to_radio_key.get(target_page, target_page)
-                            st.session_state["main_nav_radio"] = radio_key
+                            # Note: Don't set main_nav_radio directly - it will be synced on rerun
                             st.rerun()
                         else:
                             st.session_state.show_data_warning = True

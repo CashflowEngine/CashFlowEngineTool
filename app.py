@@ -1276,19 +1276,58 @@ current_page_val = st.session_state.navigate_to_page
 # Inject hamburger button for authenticated users (mobile only, hidden via CSS on desktop)
 if st.session_state.is_authenticated:
     st.markdown("""
-    <button class="hamburger-menu" onclick="document.body.classList.toggle('mobile-sidebar-open')" aria-label="Menu">
+    <button class="hamburger-menu" id="mobileMenuBtn" aria-label="Menu">
         <span></span><span></span><span></span>
     </button>
-    <div class="mobile-sidebar-overlay" onclick="document.body.classList.remove('mobile-sidebar-open')"></div>
+    <div class="mobile-sidebar-overlay" id="mobileOverlay"></div>
     <script>
-        // Close sidebar when menu item clicked
-        document.addEventListener('click', function(e) {
-            if (e.target.closest && e.target.closest('[data-testid="stSidebar"] label')) {
-                setTimeout(function() {
-                    document.body.classList.remove('mobile-sidebar-open');
-                }, 150);
+        // Wait for DOM to be ready, then attach event listeners
+        (function() {
+            function setupMobileMenu() {
+                var btn = document.getElementById('mobileMenuBtn');
+                var overlay = document.getElementById('mobileOverlay');
+
+                if (btn && !btn.hasAttribute('data-initialized')) {
+                    btn.setAttribute('data-initialized', 'true');
+
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        document.body.classList.toggle('mobile-sidebar-open');
+                        console.log('Hamburger clicked, sidebar open:', document.body.classList.contains('mobile-sidebar-open'));
+                    });
+
+                    btn.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        document.body.classList.toggle('mobile-sidebar-open');
+                    });
+                }
+
+                if (overlay && !overlay.hasAttribute('data-initialized')) {
+                    overlay.setAttribute('data-initialized', 'true');
+
+                    overlay.addEventListener('click', function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    });
+                }
             }
-        });
+
+            // Run immediately
+            setupMobileMenu();
+
+            // Also run after short delays to ensure elements are in DOM
+            setTimeout(setupMobileMenu, 100);
+            setTimeout(setupMobileMenu, 500);
+
+            // Close sidebar when menu item clicked
+            document.addEventListener('click', function(e) {
+                if (e.target.closest && e.target.closest('[data-testid="stSidebar"] label')) {
+                    setTimeout(function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    }, 150);
+                }
+            });
+        })();
     </script>
     """, unsafe_allow_html=True)
 
@@ -1330,12 +1369,16 @@ else:
 
         st.write("")
 
-        # Initialize radio button state if not exists
+        # Sync radio button with navigate_to_page BEFORE rendering widget
+        # This ensures programmatic navigation (from landing page links) updates the radio
+        target_radio_key = current_key  # current_key is derived from navigate_to_page
         if "main_nav_radio" not in st.session_state:
-            st.session_state["main_nav_radio"] = current_key
+            st.session_state["main_nav_radio"] = target_radio_key
+        elif st.session_state.get("main_nav_radio") != target_radio_key:
+            # navigate_to_page was changed programmatically, sync the radio
+            st.session_state["main_nav_radio"] = target_radio_key
 
         # Navigation with current page indicator
-        # NOTE: Programmatic navigation must set BOTH navigate_to_page AND main_nav_radio directly
         selected_key = st.radio(
             "Navigation",
             menu_items,

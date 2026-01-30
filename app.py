@@ -1078,7 +1078,7 @@ if _auth_code and not _access_token:
                 st.session_state['refresh_token'] = response.session.refresh_token
                 st.query_params.clear()
                 st.session_state.navigate_to_page = "Start & Data"
-                # Note: main_nav_radio will be synced before widget creation
+                st.session_state._pending_nav_sync = "Start & Data"
                 st.rerun()
         except Exception as e:
             import logging
@@ -1091,7 +1091,7 @@ if _access_token and _refresh_token:
     if handle_auth_callback(_access_token, _refresh_token):
         st.query_params.clear()
         st.session_state.navigate_to_page = "Start & Data"
-        # Note: main_nav_radio will be synced before widget creation
+        st.session_state._pending_nav_sync = "Start & Data"
         st.rerun()
 
 # Verify session on page load (refresh tokens if needed)
@@ -1164,12 +1164,13 @@ else:
         st.write("")
 
         # Sync main_nav_radio from navigate_to_page BEFORE the widget is created
-        # This ensures programmatic navigation works correctly
-        if st.session_state.navigate_to_page in page_map.values():
-            target_key = list(page_map.keys())[list(page_map.values()).index(st.session_state.navigate_to_page)]
-            # Only update if different to avoid unnecessary state changes
-            if st.session_state.get("main_nav_radio") != target_key:
-                st.session_state["main_nav_radio"] = target_key
+        # Use a one-shot flag to avoid overriding user's manual radio clicks
+        pending_nav = st.session_state.pop('_pending_nav_sync', None)
+        if pending_nav and pending_nav in page_map.values():
+            target_key = list(page_map.keys())[list(page_map.values()).index(pending_nav)]
+            st.session_state["main_nav_radio"] = target_key
+            # Also update navigate_to_page to stay in sync
+            st.session_state.navigate_to_page = pending_nav
         elif "main_nav_radio" not in st.session_state:
             st.session_state["main_nav_radio"] = current_key
 
@@ -1185,7 +1186,7 @@ else:
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:
             st.session_state.navigate_to_page = target_val
-            st.rerun()
+            # No rerun needed - Streamlit already handles radio button state changes
 
         # Spacer to push content to bottom
         st.markdown("<div style='flex-grow: 1; min-height: 100px;'></div>", unsafe_allow_html=True)
@@ -1238,9 +1239,9 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
-                # Note: main_nav_radio will be synced in sidebar before widget creation
+                st.session_state._pending_nav_sync = "Start & Data"
                 st.rerun()
-        st.stop()  # Stop execution here - don't render page content
+        # Don't use st.stop() - allow sidebar navigation to work
 
     else:
         if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)

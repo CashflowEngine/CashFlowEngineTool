@@ -683,7 +683,7 @@ def page_portfolio_builder(full_df):
         st.session_state.mc_from_builder = True
         st.session_state.mc_new_from_builder = True
         st.session_state.navigate_to_page = "Monte Carlo"
-        # Note: main_nav_radio will be synced in app.py before widget creation
+        st.session_state._pending_nav_sync = "Monte Carlo"
         st.rerun()
 
     # === VISUALIZATION TABS ===

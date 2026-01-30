@@ -1443,7 +1443,7 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
-                st.session_state["main_nav_radio"] = "Start & Data"
+                # Note: main_nav_radio will be synced in app.py before widget renders on next rerun
                 st.rerun()
         # Don't use st.stop() - allow sidebar navigation to work
 

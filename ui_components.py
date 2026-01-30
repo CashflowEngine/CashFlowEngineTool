@@ -421,7 +421,7 @@ def _load_with_feedback(analysis_id, name):
         st.success(f"✓ Loaded successfully!")
         time.sleep(0.5)
         st.session_state.navigate_to_page = "Portfolio Analytics"
-        st.session_state["main_nav_radio"] = "Portfolio Analytics"
+        # Note: main_nav_radio will be synced in app.py before widget renders
         st.rerun()
     else:
         st.error("Failed to load. Please try again.")

@@ -164,7 +164,6 @@ def page_portfolio_builder(full_df):
             st.session_state.option_strategy_overrides = {}
         if 'kelly_pct' not in st.session_state: st.session_state.kelly_pct = 20
         if 'mart_min_pnl' not in st.session_state: st.session_state.mart_min_pnl = 0
-        if 'allocation_editor_version' not in st.session_state: st.session_state.allocation_editor_version = 0
 
         # Option strategy types for dropdown
         OPTION_STRATEGIES = ["Iron Condor", "Reverse Iron Condor", "Double Calendar", "Bull Put Spread", "Bear Call Spread",
@@ -437,7 +436,7 @@ def page_portfolio_builder(full_df):
                 )
             },
             use_container_width=True,
-            key=f"allocation_editor_v{st.session_state.allocation_editor_version}",
+            key="allocation_editor_v22",
             hide_index=True
         )
 
@@ -499,13 +498,11 @@ def page_portfolio_builder(full_df):
                 if st.button("Reset", key="reset_btn", type="tertiary", use_container_width=True):
                     st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
                     st.session_state.calculate_kpis = False
-                    st.session_state.allocation_editor_version += 1
                     st.rerun()
             with reset_sub2:
                 if st.button("Set to 0", key="zero_btn", type="tertiary", use_container_width=True):
                     st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
                     st.session_state.calculate_kpis = False
-                    st.session_state.allocation_editor_version += 1
                     st.rerun()
 
         with input_col2:
@@ -536,8 +533,6 @@ def page_portfolio_builder(full_df):
                     )
                     st.session_state.portfolio_allocation = optimized
                     st.session_state.calculate_kpis = True
-                    # Increment editor version to force data_editor to refresh with new values
-                    st.session_state.allocation_editor_version += 1
                 finally:
                     placeholder.empty()
                 st.rerun()
@@ -550,13 +545,10 @@ def page_portfolio_builder(full_df):
                     optimized = calc.mart_optimize_allocation(
                         strategy_base_stats, target_margin, account_size,
                         st.session_state.category_overrides, full_date_range, filtered_df,
-                        min_pnl=mart_min_pnl,
-                        max_iterations=100  # Reasonable iteration count for optimization
+                        min_pnl=mart_min_pnl
                     )
                     st.session_state.portfolio_allocation = optimized
                     st.session_state.calculate_kpis = True
-                    # Increment editor version to force data_editor to refresh with new values
-                    st.session_state.allocation_editor_version += 1
                 finally:
                     placeholder.empty()
                 st.rerun()

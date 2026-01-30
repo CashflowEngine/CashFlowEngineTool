@@ -514,38 +514,27 @@ def kelly_optimize_allocation(strategy_base_stats, target_margin, kelly_fraction
 
         # Calculate total weighted Kelly for category
         total_kelly_weight = 0
-        total_margin = 0
         for strat, stats in cat_strategies:
             kelly = stats.get('kelly', 0)
-            kelly = max(0.01, min(kelly * kelly_fraction, 1))  # Minimum 0.01 to avoid all-zero
-            margin_per = stats.get('margin_per_contract', 0)
-            total_kelly_weight += kelly * margin_per
-            total_margin += margin_per
+            kelly = max(0, min(kelly * kelly_fraction, 1))  # Apply fraction and cap at 1
+            total_kelly_weight += kelly * stats.get('margin_per_contract', 0)
 
-        # Allocate based on Kelly weights (with fallback to equal allocation)
+        # Allocate based on Kelly weights
         for strat, stats in cat_strategies:
             kelly = stats.get('kelly', 0)
-            kelly = max(0.01, min(kelly * kelly_fraction, 1))  # Minimum 0.01
+            kelly = max(0, min(kelly * kelly_fraction, 1))
             margin_per = stats.get('margin_per_contract', 0)
 
-            if margin_per > 0:
-                if total_kelly_weight > 0:
-                    # Weight by Kelly value
-                    strat_budget = cat_budget * (kelly * margin_per / total_kelly_weight)
-                elif total_margin > 0:
-                    # Fallback: equal allocation by margin
-                    strat_budget = cat_budget * (margin_per / total_margin)
-                else:
-                    # Last resort: equal split
-                    strat_budget = cat_budget / len(cat_strategies)
-
+            if total_kelly_weight > 0 and margin_per > 0:
+                # Weight by Kelly value
+                strat_budget = cat_budget * (kelly * margin_per / total_kelly_weight)
                 multiplier = strat_budget / margin_per
                 # Cap at reasonable values
-                multiplier = max(0.5, min(multiplier, 10))  # Minimum 0.5
+                multiplier = max(0, min(multiplier, 10))
                 # Round to 0.5 increments
                 multiplier = round(multiplier * 2) / 2
             else:
-                multiplier = 1.0  # Default to 1x if no margin data
+                multiplier = 0
 
             result[strat] = multiplier
 
@@ -554,13 +543,13 @@ def kelly_optimize_allocation(strategy_base_stats, target_margin, kelly_fraction
 
 def mart_optimize_allocation(strategy_base_stats, target_margin, account_size,
                              category_overrides, full_date_range, filtered_df,
-                             min_pnl=0, max_iterations=100):
+                             min_pnl=0, max_iterations=50):
     """
     Optimize portfolio allocation to maximize MART ratio.
 
     MART = CAGR / (Max Drawdown $ / Account Size)
 
-    This function uses a simulated annealing approach to find the allocation that
+    This function uses an iterative approach to find the allocation that
     maximizes the portfolio's MART ratio while respecting margin constraints.
 
     Args:
@@ -583,118 +572,83 @@ def mart_optimize_allocation(strategy_base_stats, target_margin, account_size,
     if n_strats == 0:
         return {}
 
-    # Pre-compute daily PnL arrays for faster calculation
-    daily_pnl_arrays = {}
-    for strat in strategies:
-        if strat in strategy_base_stats:
-            series = strategy_base_stats[strat].get('daily_pnl_series')
-            if series is not None:
-                # Reindex and convert to numpy array for speed
-                aligned = series.reindex(full_date_range, fill_value=0)
-                daily_pnl_arrays[strat] = aligned.values
-            else:
-                daily_pnl_arrays[strat] = np.zeros(len(full_date_range))
-
-    def calculate_mart(allocation):
-        """Calculate MART for a given allocation using numpy for speed."""
-        port_pnl = np.zeros(len(full_date_range))
-        for strat, mult in allocation.items():
-            if mult > 0 and strat in daily_pnl_arrays:
-                port_pnl += daily_pnl_arrays[strat] * mult
-
-        total_pnl = port_pnl.sum()
-
-        # Check minimum P/L constraint
-        if total_pnl < min_pnl:
-            return -999
-
-        port_equity = account_size + np.cumsum(port_pnl)
-        peak = np.maximum.accumulate(port_equity)
-        max_dd_usd = abs(np.min(port_equity - peak))
-
-        if max_dd_usd > 0:
-            days = len(port_pnl)
-            if days > 0 and total_pnl > -account_size:
-                cagr = (1 + total_pnl / account_size) ** (365 / days) - 1
-                mart = cagr / (max_dd_usd / account_size)
-                return mart
-        return 0
+    # Initialize multipliers
+    best_allocation = {s: 1.0 for s in strategies}
+    best_mart = -999
 
     # Calculate initial allocation based on margin constraint
     total_margin_at_1x = sum(stats.get('margin_per_contract', 0) for stats in strategy_base_stats.values())
 
     if total_margin_at_1x > 0:
         base_multiplier = target_margin / total_margin_at_1x
-        base_multiplier = max(0.1, min(base_multiplier, 5))
+        base_multiplier = max(0.1, min(base_multiplier, 5))  # Cap between 0.1 and 5
     else:
         base_multiplier = 1.0
 
     # Initialize with base multiplier
-    current_allocation = {s: round(base_multiplier * 2) / 2 for s in strategies}
-    current_mart = calculate_mart(current_allocation)
+    current_allocation = {s: base_multiplier for s in strategies}
 
-    best_allocation = current_allocation.copy()
-    best_mart = current_mart
-
-    # Early termination counter - stop if no improvement for many iterations
-    no_improvement_count = 0
-    max_no_improvement = 20
-
-    # Simulated annealing-style optimization
-    temperature = 1.0
-    cooling_rate = 0.95
-
+    # Simple iterative optimization
     for iteration in range(max_iterations):
-        # Generate neighbor allocation
-        new_allocation = {}
-        for strat in strategies:
-            # Perturbation scaled by temperature
-            adjustment = 1.0 + (np.random.random() - 0.5) * 0.4 * temperature
-            new_mult = current_allocation[strat] * adjustment
-            new_mult = max(0, min(new_mult, 10))
-            new_mult = round(new_mult * 2) / 2
-            new_allocation[strat] = new_mult
+        # Calculate portfolio metrics for current allocation
+        port_pnl = pd.Series(0.0, index=full_date_range)
 
-        # Check margin constraint and scale if needed
-        total_new_margin = sum(
-            strategy_base_stats.get(s, {}).get('margin_per_contract', 0) * new_allocation[s]
-            for s in strategies
-        )
+        for strat, mult in current_allocation.items():
+            if strat in strategy_base_stats and mult > 0:
+                stats = strategy_base_stats[strat]
+                daily_pnl = stats.get('daily_pnl_series')
+                if daily_pnl is not None:
+                    port_pnl = port_pnl.add(daily_pnl * mult, fill_value=0)
 
-        if total_new_margin > target_margin * 1.1:
-            scale = target_margin / total_new_margin
-            new_allocation = {s: max(0, round(m * scale * 2) / 2) for s, m in new_allocation.items()}
+        # Calculate MART
+        total_pnl = port_pnl.sum()
+        port_equity = account_size + port_pnl.cumsum()
+        peak = port_equity.cummax()
+        max_dd_usd = abs((port_equity - peak).min())
 
-        new_mart = calculate_mart(new_allocation)
-
-        # Accept if better, or probabilistically accept worse solutions (simulated annealing)
-        accept = False
-        if new_mart > current_mart:
-            accept = True
-        elif temperature > 0.01 and new_mart > -999:
-            # Probabilistically accept worse solutions early on
-            delta = (current_mart - new_mart) / max(abs(current_mart), 1)
-            accept_prob = np.exp(-delta / temperature)
-            accept = np.random.random() < accept_prob
-
-        if accept:
-            current_allocation = new_allocation
-            current_mart = new_mart
-
-            if current_mart > best_mart:
-                best_mart = current_mart
-                best_allocation = current_allocation.copy()
-                no_improvement_count = 0
+        if max_dd_usd > 0:
+            days = len(port_pnl)
+            if days > 0 and total_pnl > -account_size:
+                cagr = (1 + total_pnl / account_size) ** (365 / days) - 1
+                mart = cagr / (max_dd_usd / account_size) if max_dd_usd > 0 else 0
             else:
-                no_improvement_count += 1
+                mart = -999
         else:
-            no_improvement_count += 1
+            mart = 0
 
-        # Cool down
-        temperature *= cooling_rate
+        # Check minimum P/L constraint
+        if total_pnl < min_pnl:
+            mart = -999
 
-        # Early termination if no improvement
-        if no_improvement_count >= max_no_improvement:
-            break
+        # Update best if improved
+        if mart > best_mart:
+            best_mart = mart
+            best_allocation = current_allocation.copy()
+
+        # Generate next allocation by random perturbation
+        if iteration < max_iterations - 1:
+            new_allocation = {}
+            for strat in strategies:
+                # Random adjustment between -20% and +20%
+                adjustment = 1.0 + (np.random.random() - 0.5) * 0.4
+                new_mult = current_allocation[strat] * adjustment
+                new_mult = max(0, min(new_mult, 10))  # Cap between 0 and 10
+                new_mult = round(new_mult * 2) / 2  # Round to 0.5 increments
+                new_allocation[strat] = new_mult
+
+            # Check margin constraint
+            total_new_margin = sum(
+                strategy_base_stats[s].get('margin_per_contract', 0) * new_allocation[s]
+                for s in strategies if s in strategy_base_stats
+            )
+
+            # Scale if over target margin
+            if total_new_margin > target_margin * 1.1:  # Allow 10% overage
+                scale = target_margin / total_new_margin
+                new_allocation = {s: m * scale for s, m in new_allocation.items()}
+                # Re-round after scaling
+                new_allocation = {s: round(m * 2) / 2 for s, m in new_allocation.items()}
+
+            current_allocation = new_allocation
 
     return best_allocation

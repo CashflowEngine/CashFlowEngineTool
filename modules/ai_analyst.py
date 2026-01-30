@@ -87,46 +87,74 @@ def page_ai_analyst(full_df):
     with st.expander("Available Data for Analysis", expanded=False):
         st.markdown(AIContextBuilder.get_availability_summary())
 
-    # --- QUICK ACTIONS ---
+    # --- QUICK ACTIONS as text links ---
+    st.markdown("""
+    <style>
+    .quick-action-link {
+        color: #302BFF !important;
+        text-decoration: none;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 0;
+        display: inline-block;
+    }
+    .quick-action-link:hover {
+        text-decoration: underline;
+    }
+    .quick-action-category {
+        font-weight: 600;
+        font-size: 13px;
+        color: #6B7280;
+        margin-top: 12px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     with st.container(border=True):
         ui.section_header("QUICK ACTIONS", "Click a link for instant analysis")
 
         # Define quick actions with categories
         quick_actions = {
             "Portfolio Overview": [
-                ("📊 Portfolio Summary", "Give me a comprehensive overview of my portfolio. What are the key metrics, total P&L, and overall health?"),
-                ("📈 Best Performing Strategies", "Which strategies in my portfolio are performing best? Rank them by MAR ratio and explain why they're successful."),
-                ("📉 Underperforming Strategies", "Identify the worst performing strategies in my portfolio. What's dragging down performance?"),
+                ("Portfolio Summary", "Give me a comprehensive overview of my portfolio. What are the key metrics, total P&L, and overall health?"),
+                ("Top Performers by P&L", "Which strategies have the highest total P&L? List the top 5 and explain their characteristics."),
+                ("Top Performers by MAR", "Which strategies have the best MAR ratio? Rank them and explain why they're efficient."),
+                ("Underperforming Strategies", "Identify the worst performing strategies. What's dragging down performance?"),
             ],
             "Risk Analysis": [
-                ("⚠️ Find Weaknesses", "Analyze my portfolio for weaknesses. Which strategies perform poorly and where are the biggest risks?"),
-                ("🔗 Correlation Risks", "Analyze the correlations between my strategies. Are there cluster risks I should be aware of?"),
-                ("💥 Drawdown Analysis", "What are my maximum drawdowns? Which strategies have the worst drawdown characteristics?"),
-                ("📊 Risk-Adjusted Returns", "Compare the risk-adjusted returns (Sharpe, Sortino, MAR) across all my strategies."),
+                ("Find Portfolio Weaknesses", "Analyze my portfolio for weaknesses and biggest risks."),
+                ("Correlation & Cluster Risks", "Analyze correlations between strategies. Are there cluster risks?"),
+                ("Drawdown Analysis", "What are my max drawdowns? Which strategies have worst drawdown characteristics?"),
+                ("Risk-Adjusted Returns", "Compare Sharpe, Sortino, and MAR across all strategies."),
             ],
             "Optimization": [
-                ("💡 Improvement Suggestions", "What concrete improvements would you recommend for my portfolio?"),
-                ("⚖️ Position Sizing Review", "Analyze my position sizing. Am I over- or under-allocated to any strategies?"),
-                ("🎯 Kelly Criterion Analysis", "Based on my win rates and profit factors, what would optimal Kelly Criterion sizing suggest?"),
-                ("🔄 Diversification Check", "How well diversified is my portfolio? What's missing for better risk distribution?"),
+                ("Improvement Suggestions", "What concrete improvements would you recommend?"),
+                ("Position Sizing Review", "Am I over- or under-allocated to any strategies?"),
+                ("Kelly Criterion Sizing", "What would optimal Kelly Criterion sizing suggest?"),
+                ("Diversification Check", "How well diversified is my portfolio?"),
             ],
-            "Monte Carlo & Projections": [
-                ("🎲 Monte Carlo Summary", "Summarize my Monte Carlo simulation results. What are the probability distributions for future returns?"),
-                ("📉 Worst Case Scenarios", "Based on Monte Carlo simulations, what are the worst-case scenarios I should prepare for?"),
-                ("🎯 Probability of Targets", "What's the probability of reaching my target returns based on historical performance?"),
+            "Monte Carlo": [
+                ("MC Results Summary", "Summarize Monte Carlo results and probability distributions."),
+                ("Worst Case Scenarios", "What worst-case scenarios should I prepare for?"),
+                ("Target Probability", "What's the probability of reaching my target returns?"),
             ],
         }
 
-        # Render quick actions as clickable text links
+        # Render quick actions as text links in a compact format
         for category, actions in quick_actions.items():
-            st.markdown(f"**{category}**")
-            cols = st.columns(len(actions))
+            st.markdown(f'<div class="quick-action-category">{category}</div>', unsafe_allow_html=True)
+
+            # Create columns for text link buttons
+            link_cols = st.columns(len(actions))
             for idx, (label, prompt) in enumerate(actions):
-                with cols[idx]:
-                    if st.button(label, key=f"qa_{category}_{idx}", use_container_width=True, type="secondary"):
+                with link_cols[idx]:
+                    # Use a minimal button styled as text
+                    if st.button(f"→ {label}", key=f"qa_{category}_{idx}", type="tertiary"):
                         st.session_state.pending_quick_action = prompt
                         st.rerun()
-            st.markdown("")  # Spacer
 
     # --- PROCESS PENDING QUICK ACTION ---
     if st.session_state.pending_quick_action and client_status['available']:

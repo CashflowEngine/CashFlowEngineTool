@@ -550,12 +550,9 @@ def rename_analysis_in_db(analysis_id, new_name):
         return False
 
 
-@st.cache_data(show_spinner=False)
 def load_analysis_from_db(analysis_id, _user_id=None, restore_calculations=True):
     """
     Load analysis from database.
-    CACHED: Expensive JSON parsing and dataframe creation is cached indefinitely for specific ID.
-    Note: _user_id prefixed with underscore to exclude from cache key but enables per-user caching.
 
     Returns: (bt_df, live_df, has_calculations)
     If restore_calculations=True, also restores calculation results to session_state.
@@ -572,16 +569,23 @@ def load_analysis_from_db(analysis_id, _user_id=None, restore_calculations=True)
             return None, None, False
 
     try:
-        # Get cached raw data
-        json_data = _load_analysis_data_cached(analysis_id, _user_id)
+        # Use authenticated client for RLS
+        client = get_authenticated_client() or supabase
 
-        if json_data is None:
-            return None, None
+        # Fetch data from database
+        response = client.table('analyses').select("data_json").eq('id', analysis_id).eq('user_id', _user_id).execute()
 
-        # Handle legacy list format
+        if not response.data:
+            logger.warning(f"No data found for analysis_id={analysis_id}")
+            return None, None, False
+
+        json_data = response.data[0]['data_json']
+        has_calculations = False
+
+        # Handle legacy list format (version 1)
         if isinstance(json_data, list):
             bt_df = pd.DataFrame(json_data)
-            return repair_df_dates(bt_df), None
+            return repair_df_dates(bt_df), None, False
 
         # Handle dict format (version 3+)
         elif isinstance(json_data, dict):
@@ -590,41 +594,18 @@ def load_analysis_from_db(analysis_id, _user_id=None, restore_calculations=True)
             bt_df = pd.DataFrame(bt_data) if bt_data else pd.DataFrame()
             live_df = pd.DataFrame(live_data) if live_data else None
 
-            # Restore analysis results (version 4+)
-            analysis_results = json_data.get('analysis_results', {})
-            if analysis_results:
-                _restore_analysis_results(analysis_results)
-                logger.info(f"Restored {len(analysis_results)} analysis result categories")
+            # Version 4+: Restore calculations if present
+            calculations = json_data.get('calculations', {})
+            if calculations and restore_calculations:
+                restore_calculation_results(calculations)
+                has_calculations = True
+                logger.info(f"Restored calculations: {list(calculations.keys())}")
 
-            return repair_df_dates(bt_df), repair_df_dates(live_df) if live_df is not None else None
-
-        if response.data:
-            json_data = response.data[0]['data_json']
-            has_calculations = False
-
-            if isinstance(json_data, list):
-                # Legacy format (version 1)
-                bt_df = pd.DataFrame(json_data)
-                return repair_df_dates(bt_df), None, False
-
-            elif isinstance(json_data, dict):
-                bt_data = json_data.get('backtest', [])
-                live_data = json_data.get('live', [])
-                bt_df = pd.DataFrame(bt_data) if bt_data else pd.DataFrame()
-                live_df = pd.DataFrame(live_data) if live_data else None
-
-                # Version 4+: Restore calculations if present
-                calculations = json_data.get('calculations', {})
-                if calculations and restore_calculations:
-                    restore_calculation_results(calculations)
-                    has_calculations = True
-                    logger.info(f"Restored calculations: {list(calculations.keys())}")
-
-                return (
-                    repair_df_dates(bt_df),
-                    repair_df_dates(live_df) if live_df is not None else None,
-                    has_calculations
-                )
+            return (
+                repair_df_dates(bt_df),
+                repair_df_dates(live_df) if live_df is not None else None,
+                has_calculations
+            )
 
         return None, None, False
     except Exception as e:

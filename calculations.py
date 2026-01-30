@@ -471,10 +471,8 @@ def kelly_optimize_allocation(strategy_stats, target_margin, kelly_pct,
     """
     Kelly Criterion optimization.
 
-    CONSTRAINTS:
-    - Select TOP 3 strategies by Kelly %
-    - Multipliers: 1, 2, or 3 only
-    - All other strategies get 0
+    ALL strategies can be selected, multipliers are 1, 2, or 3 only.
+    Distributes margin based on Kelly %, respecting margin budget.
 
     Returns:
         Dict of {strategy_name: multiplier}
@@ -492,8 +490,12 @@ def kelly_optimize_allocation(strategy_stats, target_margin, kelly_pct,
         kelly = stats.get('kelly', 0)
         margin_at_1x = stats.get('margin_per_contract', 0)
 
-        if margin_at_1x <= 0 or kelly <= 0:
+        if margin_at_1x <= 0:
             continue
+
+        # Give small kelly to strategies with 0 or negative kelly
+        if kelly <= 0:
+            kelly = 0.01
 
         strategy_list.append({
             'name': strat_name,
@@ -502,25 +504,27 @@ def kelly_optimize_allocation(strategy_stats, target_margin, kelly_pct,
             'pnl_at_1x': stats.get('total_pnl', 0)
         })
 
-    # Sort by Kelly % descending and take TOP 3
+    # Sort by Kelly % descending (best strategies first)
     strategy_list.sort(key=lambda x: x['kelly'], reverse=True)
-    top_strategies = strategy_list[:3]
 
-    logger.info(f"Kelly: Selected top {len(top_strategies)} strategies")
+    logger.info(f"Kelly: {len(strategy_list)} strategies available")
 
     # Initialize all to 0
     allocation = {strat_name: 0 for strat_name in strategy_stats.keys()}
 
-    if not top_strategies:
+    if not strategy_list:
         return allocation
 
-    # Calculate total Kelly of selected strategies
-    total_kelly = sum(s['kelly'] for s in top_strategies)
+    # Calculate total Kelly
+    total_kelly = sum(s['kelly'] for s in strategy_list)
 
-    # Assign multipliers proportionally, respecting margin budget
+    # Assign multipliers to ALL strategies, respecting margin budget
     remaining_margin = available_capital
 
-    for s in top_strategies:
+    for s in strategy_list:
+        if remaining_margin <= 0:
+            break
+
         # Weight by Kelly
         weight = s['kelly'] / total_kelly
         allocated_margin = available_capital * weight
@@ -528,24 +532,32 @@ def kelly_optimize_allocation(strategy_stats, target_margin, kelly_pct,
         # Calculate ideal multiplier
         raw_mult = allocated_margin / s['margin_at_1x']
 
-        # Round to 1, 2, or 3
-        mult = max(1, min(3, round(raw_mult)))
+        # Round to 1, 2, or 3 (0 if too small)
+        if raw_mult < 0.5:
+            mult = 0
+        else:
+            mult = max(1, min(3, round(raw_mult)))
+
+        if mult == 0:
+            continue
 
         # Check if we have margin budget
         margin_needed = s['margin_at_1x'] * mult
         if margin_needed <= remaining_margin * 1.1:  # Allow 10% overshoot
             allocation[s['name']] = mult
             remaining_margin -= margin_needed
-            logger.info(f"Kelly: {s['name'][:25]} -> {mult} (kelly={s['kelly']:.2f})")
+            logger.info(f"Kelly: {s['name'][:25]} -> {mult}")
         else:
-            # Try lower multiplier
+            # Try lower multipliers
             for m in [2, 1]:
-                if s['margin_at_1x'] * m <= remaining_margin * 1.1:
+                if m < mult and s['margin_at_1x'] * m <= remaining_margin * 1.1:
                     allocation[s['name']] = m
                     remaining_margin -= s['margin_at_1x'] * m
                     logger.info(f"Kelly: {s['name'][:25]} -> {m} (reduced)")
                     break
 
+    active_count = sum(1 for v in allocation.values() if v > 0)
+    logger.info(f"Kelly: {active_count} strategies selected")
     return allocation
 
 
@@ -555,16 +567,13 @@ def mart_optimize_allocation(strategy_stats, target_margin, account_size,
     """
     MART Ratio optimization - maximizes MART = CAGR / (MaxDD$ / Account).
 
-    CONSTRAINTS:
-    - Select TOP 3 strategies (by best MART contribution)
-    - Multipliers: 0, 1, 2, or 3 only
-    - Start with all at 0, try all combinations
+    ALL strategies can be selected, multipliers are 0, 1, 2, or 3 only.
+    Uses greedy algorithm: start at 0, incrementally add to best strategy.
 
     Returns:
         Dict of {strategy_name: multiplier}
     """
     import logging
-    from itertools import product
     logger = logging.getLogger(__name__)
 
     # Build strategy list
@@ -635,73 +644,45 @@ def mart_optimize_allocation(strategy_stats, target_margin, account_size,
 
         return mart, total_margin, total_pnl
 
-    # PHASE 1: Find best single strategy at each multiplier level
-    best_singles = []
-    for s in strategy_list:
-        for mult in [1, 2, 3]:
-            test_alloc = {name: 0 for name in allocation}
-            test_alloc[s['name']] = mult
+    # Greedy optimization: start at 0, add 1 to best strategy each iteration
+    best_mart = -999
+
+    for iteration in range(max_iterations):
+        best_improvement = -999
+        best_change = None
+
+        # Try incrementing each strategy by 1
+        for s in strategy_list:
+            current_mult = allocation[s['name']]
+
+            # Max multiplier is 3
+            if current_mult >= 3:
+                continue
+
+            new_mult = current_mult + 1
+
+            # Test this change
+            test_alloc = allocation.copy()
+            test_alloc[s['name']] = new_mult
+
             mart, margin, pnl = calc_mart(test_alloc)
-            if mart > -900:
-                best_singles.append({
-                    'name': s['name'],
-                    'mult': mult,
-                    'mart': mart,
-                    'margin': margin,
-                    'pnl': pnl,
-                    'strategy': s
-                })
 
-    # Sort by MART descending
-    best_singles.sort(key=lambda x: x['mart'], reverse=True)
+            # Is this better?
+            if mart > best_improvement:
+                best_improvement = mart
+                best_change = (s['name'], new_mult, mart, margin, pnl)
 
-    # Take top candidates (unique strategies)
-    seen_strategies = set()
-    top_candidates = []
-    for item in best_singles:
-        if item['name'] not in seen_strategies:
-            top_candidates.append(item['strategy'])
-            seen_strategies.add(item['name'])
-        if len(top_candidates) >= 5:  # Consider top 5 for combinations
+        # Apply best change if it improves MART
+        if best_change and best_improvement > best_mart:
+            allocation[best_change[0]] = best_change[1]
+            best_mart = best_change[2]
+            logger.info(f"MART iter {iteration}: {best_change[0][:20]} -> {best_change[1]}, MART={best_mart:.4f}, margin={best_change[3]:.0f}")
+        else:
+            logger.info(f"MART: No improvement at iteration {iteration}, stopping")
             break
 
-    logger.info(f"MART: Top candidates: {[s['name'][:20] for s in top_candidates]}")
-
-    # PHASE 2: Try all combinations of top 3 strategies with multipliers 0,1,2,3
-    best_mart = -999
-    best_allocation = allocation.copy()
-
-    # Select up to 3 strategies to combine
-    strategies_to_try = top_candidates[:3]
-
-    if len(strategies_to_try) == 0:
-        return allocation
-
-    # Generate all multiplier combinations (0, 1, 2, 3 for each)
-    multiplier_options = [0, 1, 2, 3]
-
-    for combo in product(multiplier_options, repeat=len(strategies_to_try)):
-        # Skip all-zeros
-        if all(m == 0 for m in combo):
-            continue
-
-        test_alloc = {name: 0 for name in allocation}
-        for i, s in enumerate(strategies_to_try):
-            test_alloc[s['name']] = combo[i]
-
-        mart, margin, pnl = calc_mart(test_alloc)
-
-        if mart > best_mart:
-            best_mart = mart
-            best_allocation = test_alloc.copy()
-            logger.info(f"MART: New best {combo} -> MART={mart:.4f}, margin={margin:.0f}, pnl={pnl:.0f}")
-
-    # Apply best allocation
-    for name, mult in best_allocation.items():
-        allocation[name] = mult
-
-    logger.info(f"MART: Final - MART={best_mart:.4f}")
     active = {k: v for k, v in allocation.items() if v > 0}
-    logger.info(f"MART: Active strategies: {active}")
+    logger.info(f"MART: Final MART={best_mart:.4f}, active={len(active)} strategies")
+    logger.info(f"MART: {active}")
 
     return allocation

@@ -158,33 +158,39 @@ def show_landing_page():
                         if st.button("LOAD ANALYSIS", use_container_width=True) and selected_option != "-- Select --":
                             ui.show_loading_overlay("LOADING FROM CLOUD", "Fetching portfolio data...")
 
-                            analysis_id = options[selected_option]
-                            user_id = db.get_current_user_id()
-                            bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+                            try:
+                                analysis_id = options[selected_option]
+                                user_id = db.get_current_user_id()
+                                bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
-                            if bt_df is not None:
-                                st.session_state['full_df'] = bt_df
-                                if live_df is not None:
-                                    st.session_state['live_df'] = live_df
+                                if bt_df is not None and not bt_df.empty:
+                                    st.session_state['full_df'] = bt_df
+                                    if live_df is not None:
+                                        st.session_state['live_df'] = live_df
 
-                                # Pre-compute statistics for faster page loads and AI assistant
-                                try:
-                                    ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
-                                    precompute.precompute_all(bt_df, live_df, account_size=100000)
-                                except Exception as e:
-                                    import logging
-                                    logging.error(f"Precompute failed: {e}")
-                                    st.warning(f"Analytics pre-computation skipped: {e}")
+                                    # Pre-compute statistics for faster page loads and AI assistant
+                                    try:
+                                        ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
+                                        precompute.precompute_all(bt_df, live_df, account_size=100000)
+                                    except Exception as e:
+                                        import logging
+                                        logging.error(f"Precompute failed: {e}")
+                                        st.warning(f"Analytics pre-computation skipped: {e}")
 
+                                    ui.hide_loading_overlay()
+
+                                    if has_calculations:
+                                        st.toast("Loaded with Monte Carlo & Portfolio Builder settings!")
+
+                                    st.rerun()
+                                else:
+                                    ui.hide_loading_overlay()
+                                    st.error("Failed to load analysis from database.")
+                            except Exception as e:
                                 ui.hide_loading_overlay()
-
-                                if has_calculations:
-                                    st.toast("Loaded with Monte Carlo & Portfolio Builder settings!")
-
-                                st.rerun()
-                            else:
-                                ui.hide_loading_overlay()
-                                st.error("Failed to load analysis from database.")
+                                import logging
+                                logging.error(f"Load from archive failed: {e}")
+                                st.error(f"Error loading analysis: {e}")
                 else:
                     st.info("No saved analyses found.")
             else:

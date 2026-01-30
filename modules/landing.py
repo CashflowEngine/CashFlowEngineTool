@@ -238,9 +238,8 @@ def show_landing_page():
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
-                            # Also update radio button state for proper sync
-                            radio_key = page_to_radio_key.get(target_page, target_page)
-                            st.session_state["main_nav_radio"] = radio_key
+                            # Note: Don't set main_nav_radio here - it will be synced in app.py
+                            # before the radio widget is created
                             st.rerun()
                         else:
                             st.session_state.show_data_warning = True

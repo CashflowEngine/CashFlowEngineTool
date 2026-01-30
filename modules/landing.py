@@ -165,11 +165,19 @@ def show_landing_page():
                                     st.session_state['live_df'] = live_df
 
                                 # Pre-compute statistics for faster page loads and AI assistant
-                                ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
-                                precompute.precompute_all(bt_df, live_df, account_size=100000)
+                                try:
+                                    ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
+                                    precompute.precompute_all(bt_df, live_df, account_size=100000)
+                                except Exception as e:
+                                    import logging
+                                    logging.error(f"Precompute failed: {e}")
+                                    st.warning(f"Analytics pre-computation skipped: {e}")
 
                                 ui.hide_loading_overlay()
                                 st.rerun()
+                            else:
+                                ui.hide_loading_overlay()
+                                st.error("Failed to load analysis from database.")
                 else:
                     st.info("No saved analyses found.")
             else:

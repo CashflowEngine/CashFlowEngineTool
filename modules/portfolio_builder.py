@@ -74,8 +74,17 @@ def page_portfolio_builder(full_df):
 
     # Check if we can use pre-computed stats (when using full date range)
     cached_stats = precompute.get_cached('strategy_base_stats')
+
+    # Validate cache has all required fields
+    cache_valid = False
+    if cached_stats is not None and len(cached_stats) > 0:
+        # Check first strategy for required fields
+        first_strat = next(iter(cached_stats.values()))
+        required_fields = ['kelly', 'margin_series', 'daily_pnl_series', 'total_pnl', 'margin_per_contract']
+        cache_valid = all(field in first_strat and first_strat[field] is not None for field in required_fields)
+
     use_cache = (
-        cached_stats is not None and
+        cache_valid and
         selected_dates[0] == min_d and
         selected_dates[1] == max_d and
         precompute.is_cache_valid(full_df)

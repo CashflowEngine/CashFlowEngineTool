@@ -514,27 +514,38 @@ def kelly_optimize_allocation(strategy_base_stats, target_margin, kelly_fraction
 
         # Calculate total weighted Kelly for category
         total_kelly_weight = 0
+        total_margin = 0
         for strat, stats in cat_strategies:
             kelly = stats.get('kelly', 0)
-            kelly = max(0, min(kelly * kelly_fraction, 1))  # Apply fraction and cap at 1
-            total_kelly_weight += kelly * stats.get('margin_per_contract', 0)
+            kelly = max(0.01, min(kelly * kelly_fraction, 1))  # Minimum 0.01 to avoid all-zero
+            margin_per = stats.get('margin_per_contract', 0)
+            total_kelly_weight += kelly * margin_per
+            total_margin += margin_per
 
-        # Allocate based on Kelly weights
+        # Allocate based on Kelly weights (with fallback to equal allocation)
         for strat, stats in cat_strategies:
             kelly = stats.get('kelly', 0)
-            kelly = max(0, min(kelly * kelly_fraction, 1))
+            kelly = max(0.01, min(kelly * kelly_fraction, 1))  # Minimum 0.01
             margin_per = stats.get('margin_per_contract', 0)
 
-            if total_kelly_weight > 0 and margin_per > 0:
-                # Weight by Kelly value
-                strat_budget = cat_budget * (kelly * margin_per / total_kelly_weight)
+            if margin_per > 0:
+                if total_kelly_weight > 0:
+                    # Weight by Kelly value
+                    strat_budget = cat_budget * (kelly * margin_per / total_kelly_weight)
+                elif total_margin > 0:
+                    # Fallback: equal allocation by margin
+                    strat_budget = cat_budget * (margin_per / total_margin)
+                else:
+                    # Last resort: equal split
+                    strat_budget = cat_budget / len(cat_strategies)
+
                 multiplier = strat_budget / margin_per
                 # Cap at reasonable values
-                multiplier = max(0, min(multiplier, 10))
+                multiplier = max(0.5, min(multiplier, 10))  # Minimum 0.5
                 # Round to 0.5 increments
                 multiplier = round(multiplier * 2) / 2
             else:
-                multiplier = 0
+                multiplier = 1.0  # Default to 1x if no margin data
 
             result[strat] = multiplier
 

@@ -885,7 +885,7 @@ else:
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:
             st.session_state.navigate_to_page = target_val
-            # No rerun needed - Streamlit already handles radio button state changes
+            st.rerun()  # MUST rerun because current_page_val was set before sidebar
 
         # Spacer to push content to bottom
         st.markdown("<div style='flex-grow: 1; min-height: 100px;'></div>", unsafe_allow_html=True)

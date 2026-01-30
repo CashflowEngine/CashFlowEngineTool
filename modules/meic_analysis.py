@@ -465,13 +465,16 @@ def page_meic_analysis(bt_df, live_df=None):
                     # Calculate required margin from the margin column
                     s_margin_series = calc.generate_daily_margin_series_optimized(strat_data)
                     s_max_margin = s_margin_series.max() if not s_margin_series.empty else 0
+                    # Calculate margin efficiency (P&L / Margin ratio)
+                    s_margin_efficiency = s_pnl / s_max_margin if s_max_margin > 0 else 0
                     strat_perf.append({
                         'Strategy': strat,
                         'Total P/L': s_pnl,
                         'Trades': s_trades,
                         'Win Rate': s_win_rate,
                         'Avg Trade': s_avg_pnl,
-                        'Required Margin': s_max_margin
+                        'Required Margin': s_max_margin,
+                        'Margin Efficiency': s_margin_efficiency
                     })
 
             if strat_perf:
@@ -481,7 +484,8 @@ def page_meic_analysis(bt_df, live_df=None):
                         'Total P/L': '${:,.0f}',
                         'Win Rate': '{:.1%}',
                         'Avg Trade': '${:,.0f}',
-                        'Required Margin': '${:,.0f}'
+                        'Required Margin': '${:,.0f}',
+                        'Margin Efficiency': '{:.2f}'
                     }),
                     use_container_width=True,
                     hide_index=True

@@ -54,21 +54,29 @@ def render_page_header(title, subtitle=None):
     """Render a consistent page header with Exo 2 font - uses h1 tag like original."""
     inject_fonts()
 
-    # Use h1 tag with explicit font-family using !important to override Streamlit defaults
-    # Also add a class for JavaScript targeting and font-size for consistency
+    # Use h1 tag with inline style using cssText pattern for maximum override
+    # Include Arial Black as fallback for when Exo 2 hasn't loaded yet
     header_html = f"""
-    <h1 class="page-main-header exo2-heading" style='color: #4B5563 !important;
-        font-family: "Exo 2", sans-serif !important; font-weight: 800 !important;
-        text-transform: uppercase !important; margin-bottom: 0 !important;
-        letter-spacing: 2px !important; font-size: 2rem !important;'>{title}</h1>
+    <style>
+        .page-main-header {{
+            font-family: 'Exo 2', 'Arial Black', sans-serif !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 2px !important;
+            font-size: 2rem !important;
+            color: #4B5563 !important;
+            margin-bottom: 0 !important;
+            font-synthesis: none !important;
+        }}
+    </style>
+    <h1 class="page-main-header exo2-heading">{title}</h1>
     <script>
-        // Immediately apply font to ensure it renders correctly
+        // Immediately apply font with highest priority
         (function() {{
-            var h1 = document.querySelector('.page-main-header');
-            if (h1) {{
-                h1.style.setProperty('font-family', '"Exo 2", sans-serif', 'important');
-                h1.style.setProperty('font-weight', '800', 'important');
-            }}
+            var headers = document.querySelectorAll('.page-main-header');
+            headers.forEach(function(h1) {{
+                h1.style.cssText = 'font-family: "Exo 2", "Arial Black", sans-serif !important; font-weight: 800 !important; text-transform: uppercase !important; letter-spacing: 2px !important; font-size: 2rem !important; color: #4B5563 !important; margin-bottom: 0 !important;';
+            }});
         }})();
     </script>
     """
@@ -122,21 +130,9 @@ def _render_text_fallback(centered=True):
     """, unsafe_allow_html=True)
 
 def render_data_required_overlay():
-    """Render a full-screen overlay for data required warning with close button."""
+    """Render overlay for data required warning - doesn't block sidebar navigation."""
     st.markdown(f"""
         <style>
-            .data-required-overlay {{
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(255, 255, 255, 0.95);
-                z-index: 9999;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }}
             .data-required-box {{
                 background: white;
                 padding: 60px 80px;
@@ -144,7 +140,7 @@ def render_data_required_overlay():
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
                 text-align: center;
                 max-width: 500px;
-                position: relative;
+                margin: 100px auto;
             }}
             .data-required-icon {{
                 font-size: 64px;
@@ -164,15 +160,15 @@ def render_data_required_overlay():
                 font-size: 16px;
                 color: #6B7280;
                 line-height: 1.6;
+                margin-bottom: 24px;
             }}
         </style>
-        <div class="data-required-overlay" id="dataRequiredOverlay">
-            <div class="data-required-box">
-                <div class="data-required-icon">📊</div>
-                <div class="data-required-title">Data Required</div>
-                <div class="data-required-text">
-                    To access the analytics engine, please import your trading data first via the Landing Page.
-                </div>
+        <div class="data-required-box">
+            <div class="data-required-icon">📊</div>
+            <div class="data-required-title">Data Required</div>
+            <div class="data-required-text">
+                To access the analytics engine, please import your trading data first.<br>
+                Use the sidebar menu to navigate to <strong>Start & Data</strong>, or click the button below.
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -425,6 +421,7 @@ def _load_with_feedback(analysis_id, name):
         st.success(f"✓ Loaded successfully!")
         time.sleep(0.5)
         st.session_state.navigate_to_page = "Portfolio Analytics"
+        st.session_state["main_nav_radio"] = "Portfolio Analytics"
         st.rerun()
     else:
         st.error("Failed to load. Please try again.")

@@ -110,58 +110,79 @@ st.markdown("""
 
     /* --- TYPOGRAPHY --- */
 
+    /* CSS Custom Properties for fonts */
+    :root {
+        --font-heading: 'Exo 2', 'Arial Black', sans-serif;
+        --font-body: 'Poppins', 'Segoe UI', sans-serif;
+    }
+
     /* Force Poppins for All Body Text */
     * {
-        font-family: 'Poppins', sans-serif;
+        font-family: var(--font-body);
     }
 
     html, body, [class*="css"], .stMarkdown, .stText, p, div, span, label, input, .stDataFrame, .stTable, .stSelectbox, .stNumberInput, button {
-        font-family: 'Poppins', sans-serif !important;
+        font-family: var(--font-body) !important;
         color: #4B5563;
     }
 
-    /* Force Exo 2 for ALL Headings - More specific selectors */
-    /* Force Exo 2 for ALL Headings and custom classes */
-    h1, h2, h3, h4, h5, h6,
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
-    [data-testid="stMarkdownContainer"] h1,
-    [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stMarkdownContainer"] h3,
-    .exo2-heading,
-    .card-title,
-    .stHeading,
-    .stMetricValue,
-    .page-header,
-    .section-title,
-    .hero-value,
-    .feature-title,
-    .data-required-title,
-    .loading-text {
-        font-family: 'Exo 2', sans-serif !important;
+    /* AGGRESSIVE Exo 2 Override for ALL Headings */
+    /* Use maximum specificity with html body prefix */
+    html body h1,
+    html body h2,
+    html body h3,
+    html body h4,
+    html body h5,
+    html body h6,
+    html body .stMarkdown h1,
+    html body .stMarkdown h2,
+    html body .stMarkdown h3,
+    html body [data-testid="stMarkdownContainer"] h1,
+    html body [data-testid="stMarkdownContainer"] h2,
+    html body [data-testid="stMarkdownContainer"] h3,
+    html body .exo2-heading,
+    html body .card-title,
+    html body .stHeading,
+    html body .stMetricValue,
+    html body .page-header,
+    html body .page-main-header,
+    html body .section-title,
+    html body .hero-value,
+    html body .feature-title,
+    html body .data-required-title,
+    html body .loading-text {
+        font-family: var(--font-heading) !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         color: #4B5563 !important;
         font-weight: 800 !important;
+        font-synthesis: none !important;
     }
 
-    /* Additional Streamlit heading overrides */
-    .main h1, .main h2, .main h3,
-    .element-container h1, .element-container h2,
-    [data-testid="stAppViewBlockContainer"] h1,
-    [data-testid="stAppViewBlockContainer"] h2 {
-        font-family: 'Exo 2', sans-serif !important;
+    /* Additional Streamlit heading overrides with maximum specificity */
+    html body .main h1,
+    html body .main h2,
+    html body .main h3,
+    html body .element-container h1,
+    html body .element-container h2,
+    html body [data-testid="stAppViewBlockContainer"] h1,
+    html body [data-testid="stAppViewBlockContainer"] h2 {
+        font-family: var(--font-heading) !important;
         font-weight: 800 !important;
+        font-synthesis: none !important;
     }
 
     /* Tagline styling - ensure Exo 2 */
-    .tagline, .tagline h2, .tagline span {
-        font-family: 'Exo 2', sans-serif !important;
+    html body .tagline,
+    html body .tagline h2,
+    html body .tagline span {
+        font-family: var(--font-heading) !important;
         font-weight: 800 !important;
         text-transform: uppercase !important;
     }
 
     /* Specific overrides for Streamlit elements to ensure font sticks */
-    .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
+    .stMetricLabel { font-family: var(--font-body) !important; font-weight: 600 !important; }
 
     /* --- SIDEBAR TOGGLE - COMPLETELY HIDDEN --- */
     /* Hide the entire collapse/expand button */
@@ -1038,29 +1059,68 @@ st.markdown("""
 
 </style>
 <script>
-    // Force Exo 2 font on all headings after page load
-    function applyExo2Fonts() {
-        const headings = document.querySelectorAll('.exo2-heading, .hero-value, .feature-title, .section-title, .data-required-title, .loading-text');
-        headings.forEach(function(el) {
-            el.style.setProperty('font-family', "'Exo 2', sans-serif", 'important');
-            el.style.setProperty('font-weight', '800', 'important');
-            el.style.setProperty('text-transform', 'uppercase', 'important');
+    // 4TH ATTEMPT: Use FontFace API to ensure Exo 2 is loaded before applying
+    (function() {
+        // Define the font we want to load
+        const exo2Font = new FontFace('Exo 2',
+            "url('https://fonts.gstatic.com/s/exo2/v21/7cH1v4okm5zmbvwkAx_sfcEuiD8j.woff2') format('woff2')",
+            { weight: '800', style: 'normal' }
+        );
+
+        // Add font to document
+        document.fonts.add(exo2Font);
+
+        // Load the font
+        exo2Font.load().then(function() {
+            console.log('Exo 2 font loaded successfully');
+            applyExo2Fonts();
+        }).catch(function(err) {
+            console.warn('Exo 2 font failed to load via FontFace API, using CSS fallback:', err);
+            applyExo2Fonts();
         });
-    }
 
-    // Run when fonts are ready
-    if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(applyExo2Fonts);
-    }
+        // Function to apply Exo 2 to all heading elements
+        function applyExo2Fonts() {
+            // Select ALL headings including custom classes
+            const selectors = [
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                '.exo2-heading', '.hero-value', '.feature-title',
+                '.section-title', '.data-required-title', '.loading-text',
+                '.page-main-header', '.page-header', '.card-title',
+                '[data-testid="stMarkdownContainer"] h1',
+                '[data-testid="stMarkdownContainer"] h2',
+                '[data-testid="stMarkdownContainer"] h3'
+            ];
 
-    // Run on DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', applyExo2Fonts);
+            const headings = document.querySelectorAll(selectors.join(', '));
+            headings.forEach(function(el) {
+                // Use cssText to override all existing styles
+                el.style.cssText += '; font-family: "Exo 2", "Arial Black", sans-serif !important; font-weight: 800 !important; text-transform: uppercase !important;';
+            });
+        }
 
-    // Run after delays to catch Streamlit's dynamic content
-    setTimeout(applyExo2Fonts, 100);
-    setTimeout(applyExo2Fonts, 500);
-    setTimeout(applyExo2Fonts, 1000);
-    setTimeout(applyExo2Fonts, 2000);
+        // Run when fonts are ready
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(applyExo2Fonts);
+        }
+
+        // Run on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', applyExo2Fonts);
+
+        // Run after delays to catch Streamlit's dynamic content (necessary for Streamlit re-renders)
+        setTimeout(applyExo2Fonts, 100);
+        setTimeout(applyExo2Fonts, 300);
+        setTimeout(applyExo2Fonts, 600);
+        setTimeout(applyExo2Fonts, 1000);
+        setTimeout(applyExo2Fonts, 2000);
+
+        // Use MutationObserver to catch new elements with debouncing
+        let debounceTimer = null;
+        const observer = new MutationObserver(function(mutations) {
+            // Debounce to avoid excessive calls
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(applyExo2Fonts, 50);
+        });
 
     // Use MutationObserver to catch any new elements
     const observer = new MutationObserver(function(mutations) {
@@ -1165,6 +1225,7 @@ if _auth_code and not _access_token:
                 st.session_state['refresh_token'] = response.session.refresh_token
                 st.query_params.clear()
                 st.session_state.navigate_to_page = "Start & Data"
+                st.session_state["main_nav_radio"] = "Start & Data"
                 st.rerun()
         except Exception as e:
             import logging
@@ -1177,6 +1238,7 @@ if _access_token and _refresh_token:
     if handle_auth_callback(_access_token, _refresh_token):
         st.query_params.clear()
         st.session_state.navigate_to_page = "Start & Data"
+        st.session_state["main_nav_radio"] = "Start & Data"
         st.rerun()
 
 # Verify session on page load (refresh tokens if needed)
@@ -1248,31 +1310,20 @@ else:
 
         st.write("")
 
-        # Sync radio button state with programmatic navigation BEFORE rendering
-        # This ensures landing page links work correctly by updating the radio button's stored value
-        if st.session_state.navigate_to_page in page_map.values():
-            target_display_key = list(page_map.keys())[list(page_map.values()).index(st.session_state.navigate_to_page)]
-            if "main_nav_radio" not in st.session_state or st.session_state.get("main_nav_radio") != target_display_key:
-                st.session_state["main_nav_radio"] = target_display_key
+        # Initialize radio button state if not exists
+        if "main_nav_radio" not in st.session_state:
+            st.session_state["main_nav_radio"] = current_key
 
         # Navigation with current page indicator
-        # Don't use index parameter when key is in session_state to avoid conflict
-        if "main_nav_radio" not in st.session_state:
-            selected_key = st.radio(
-                "Navigation",
-                menu_items,
-                index=menu_items.index(current_key),
-                label_visibility="collapsed",
-                key="main_nav_radio"
-            )
-        else:
-            selected_key = st.radio(
-                "Navigation",
-                menu_items,
-                label_visibility="collapsed",
-                key="main_nav_radio"
-            )
+        # NOTE: Programmatic navigation must set BOTH navigate_to_page AND main_nav_radio directly
+        selected_key = st.radio(
+            "Navigation",
+            menu_items,
+            label_visibility="collapsed",
+            key="main_nav_radio"
+        )
 
+        # Handle user selection from radio button - update navigate_to_page to match
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:
             st.session_state.navigate_to_page = target_val
@@ -1280,15 +1331,6 @@ else:
 
         # Spacer to push content to bottom
         st.markdown("<div style='flex-grow: 1; min-height: 100px;'></div>", unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        # AI Assistant Widget (on all pages) - ABOVE Analysis Manager
-        try:
-            from modules.ai_analyst import render_ai_sidebar_widget
-            render_ai_sidebar_widget(current_page=current_page_val)
-        except Exception as e:
-            st.caption(f"AI: {e}")
 
         st.markdown("---")
 
@@ -1338,8 +1380,9 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
+                st.session_state["main_nav_radio"] = "Start & Data"
                 st.rerun()
-        st.stop()  # Stop execution here - don't render page content
+        # Don't use st.stop() - allow sidebar navigation to work
 
     else:
         if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)

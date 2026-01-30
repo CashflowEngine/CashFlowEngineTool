@@ -9,125 +9,510 @@ import numpy as np
 from typing import Dict, Any, Optional
 
 # ============================================================================
-# KNOWLEDGE BASE - Unsere Definitionen und Berechnungsmethoden
+# KNOWLEDGE BASE - Complete definitions and calculation methods
 # ============================================================================
 
 CASHFLOW_ENGINE_KNOWLEDGE = """
 ## CRITICAL INSTRUCTIONS
 
 YOU MUST USE THE DEFINITIONS PROVIDED BELOW. Do NOT use your own general knowledge.
-When asked about MAR Ratio, Sharpe, or any metric, use ONLY the definitions in this document.
+When asked about any metric (MAR, MART, Sharpe, etc.), use ONLY the definitions in this document.
+When describing strategy performance, use neutral terms - never use "Workhorse", "Airbag", "Opportunist" as performance labels.
 
 ---
 
-## CORE METRICS - USE THESE DEFINITIONS
+## ALL METRICS IN CASHFLOW ENGINE
 
-### MAR Ratio (Managed Account Ratio)
-- **Definition**: MAR = CAGR / Maximum Drawdown
-- **Example**: If CAGR is 30% and Max Drawdown is 15%, then MAR = 0.30 / 0.15 = 2.0
-- **Interpretation**: How much return per unit of risk. Higher = better risk-adjusted performance
-- **Targets**: > 2.0 (excellent), 1.5-2.0 (good), 1.0-1.5 (acceptable), < 1.0 (needs improvement)
-- **Why it matters**: Best single metric for comparing options strategies
+### Return Metrics
 
-### CAGR (Compound Annual Growth Rate)
-- **Definition**: CAGR = ((End Value / Start Value) ^ (365 / Days)) - 1
-- **Example**: $100,000 growing to $150,000 over 2 years = (1.50)^(1/2) - 1 = 22.5% CAGR
-- **Interpretation**: Annualized return, makes different time periods comparable
+**Total P/L (Profit & Loss)**
+- Definition: Sum of all trade profits and losses
+- Displayed in USD ($)
+- Compared against SPX benchmark return
 
-### Maximum Drawdown
-- **Definition**: Max DD = (Peak - Trough) / Peak
-- **Example**: Account peaks at $120,000 then drops to $90,000 = (120k-90k)/120k = 25%
-- **Warning levels**: < 20% (good), 20-30% (acceptable), > 30% (concerning)
+**CAGR (Compound Annual Growth Rate)**
+- Definition: CAGR = ((End Value / Start Value) ^ (365 / Days)) - 1
+- Interpretation: Annualized return percentage
+- Example: $100k → $150k over 2 years = 22.5% CAGR
+- Compared against SPX CAGR for benchmark
 
-### Profit Factor
-- **Definition**: Profit Factor = Sum of All Wins / |Sum of All Losses|
-- **Example**: $50,000 in wins, $30,000 in losses = 50k/30k = 1.67
-- **Targets**: > 1.5 (sustainable), 1.0-1.5 (marginal), < 1.0 (losing money)
+### Risk Metrics
 
-### Sharpe Ratio
-- **Definition**: Sharpe = (Return - Risk Free Rate) / Standard Deviation
-- **Risk Free Rate**: ~4-5% (current US Treasury)
-- **Targets**: > 1.5 (good), > 2.0 (very good), > 3.0 (excellent)
+**Maximum Drawdown % (Max DD %)**
+- Definition: Max DD = (Peak - Trough) / Peak
+- Interpretation: Largest percentage decline from any peak
+- Example: Peak $150k, Trough $120k = 20% drawdown
+- Warning levels: <20% good, 20-30% acceptable, >30% concerning
+- Compared against SPX Max DD
 
-### Sortino Ratio
-- **Definition**: Like Sharpe, but only considers downside volatility
-- **Why it's better for options**: Doesn't penalize upside volatility
+**Maximum Drawdown $ (Max DD $)**
+- Definition: The dollar amount of the largest decline
+- Example: Peak $150k, Trough $120k = $30,000 drawdown
+- Important for understanding actual capital at risk
 
-### Kelly Criterion
-- **Definition**: Kelly% = (Win% × Avg Win - Loss% × Avg Loss) / Avg Win
-- **CRITICAL**: Always use 25-50% of full Kelly (Half-Kelly or Quarter-Kelly)
-- **Example**: If Kelly says 20%, use only 5-10% position size
+**Volatility (Vol)**
+- Definition: Annualized standard deviation of daily returns
+- Formula: Daily StdDev × √252
+- Interpretation: How much returns fluctuate
+- Lower = more consistent returns
+- Compared against SPX Volatility
 
-### Expected Value (EV)
-- **Definition**: EV = (Win% × Avg Win) - (Loss% × Avg Loss)
+### Risk-Adjusted Return Metrics
+
+**MAR Ratio (Managed Account Ratio)**
+- Definition: MAR = CAGR / |Maximum Drawdown %|
+- Drawdown Basis: Relative to CURRENT equity peak
+- Example: 30% CAGR, 15% Max DD = MAR 2.0
+- Targets: >2.0 excellent, 1.5-2.0 good, 1.0-1.5 acceptable, <1.0 needs work
+- Compared against SPX MAR
+
+**MART Ratio (MAR based on Initial Account)**
+- Definition: MART = CAGR / (Max Drawdown $ / Initial Account Size)
+- Drawdown Basis: Relative to INITIAL account size (fixed baseline)
+- Example: 30% CAGR, $30k DD on $100k account = MART 1.0
+- Difference from MAR: More conservative, uses starting capital
+- Use Case: Better for comparing across different time periods
+- Used in Portfolio Builder for MART optimization
+
+**Sharpe Ratio**
+- Definition: Sharpe = (Portfolio Return - Risk Free Rate) / Standard Deviation
+- Risk Free Rate: 4% (current US Treasury approximation)
+- Interpretation: Excess return per unit of total risk
+- Targets: >1.5 good, >2.0 very good, >3.0 excellent
+- Limitation: Penalizes upside volatility equally
+- Compared against SPX Sharpe
+
+**Sortino Ratio**
+- Definition: Sortino = (Return - Target) / Downside Deviation
+- Interpretation: Like Sharpe but only considers downside volatility
+- Better for Options: Doesn't penalize large winning trades
+- Generally higher than Sharpe for good options strategies
+
+**Alpha (vs SPX)**
+- Definition: Excess return above what market beta would predict
+- Formula: Portfolio Return - (Beta × Market Return)
+- Positive Alpha: Outperforming the market on risk-adjusted basis
+- Displayed as annualized percentage
+
+**Beta (vs SPX)**
+- Definition: Sensitivity to market movements
+- Beta = 1.0: Moves with market
+- Beta < 1.0: Less volatile than market
+- Beta > 1.0: More volatile than market
+- Beta < 0: Moves opposite to market (hedging strategies)
+
+### Trade Statistics
+
+**Total Trades**
+- Definition: Count of all closed trades in the dataset
+- Used for statistical significance assessment
+
+**Win Rate**
+- Definition: Win Rate = Winning Trades / Total Trades
+- Options selling typically: 70-85%
+- Warning: High win rate doesn't guarantee profitability
+- Must consider: Win Rate × Avg Win vs Loss Rate × Avg Loss
+
+**Profit Factor (PF)**
+- Definition: PF = Sum of All Wins / |Sum of All Losses|
+- Example: $50k wins, $30k losses = PF 1.67
+- Targets: >1.5 sustainable, 1.0-1.5 marginal, <1.0 losing money
+- Options selling typically: 1.2-2.5
+
+**Win Streak**
+- Definition: Maximum consecutive winning trades
+- Shows best run of the strategy
+
+**Loss Streak**
+- Definition: Maximum consecutive losing trades
+- Important for psychological preparation and drawdown planning
+
+**Average Win**
+- Definition: Mean profit of all winning trades
+- Used in Kelly Criterion and EV calculations
+
+**Average Loss**
+- Definition: Mean loss of all losing trades (absolute value)
+- Used in Kelly Criterion and EV calculations
+
+**Best/Worst Trade**
+- Definition: Largest single winning and losing trade
+- Shows tail risk and potential outliers
+
+### Position Sizing Metrics
+
+**Kelly Criterion**
+- Definition: Kelly% = (Win% × Avg Win - Loss% × Avg Loss) / Avg Win
+- Alternative: Kelly% = Win% - (Loss% / Win-Loss Ratio)
+- CRITICAL: Always use 25-50% of full Kelly (Half-Kelly or Quarter-Kelly)
+- Example: Full Kelly 20% → Use 5-10% position size
+- Why fractional: Full Kelly is too aggressive, small errors compound badly
+
+**Expected Value (EV)**
+- Definition: EV = (Win% × Avg Win) - (Loss% × Avg Loss)
 - Must be positive for profitable strategy
+- Higher EV = stronger edge
+- Displayed as $/trade
+
+### Margin Metrics
+
+**Peak Margin**
+- Definition: Maximum margin used at any point
+- Displayed as $ and % of account
+- Warning: >80% leaves little buffer for adverse moves
+
+**Average Margin**
+- Definition: Mean margin utilization across all positions
+- Displayed as $ and % of account
+- Target: Keep average <50% for safety
+
+**Avg Return on Margin**
+- Definition: Average P&L divided by margin used
+- Shows capital efficiency
+
+### Correlation Metrics
+
+**Portfolio Correlation**
+- Definition: Average pairwise correlation between strategies
+- Target: <0.5 for true diversification
+- Warning levels: >0.7 cluster risk, >0.85 critical
+- High correlation = strategies move together = concentrated risk
 
 ---
 
-## CASHFLOW ENGINE - AI PORTFOLIO ANALYST
+## STRATEGY CATEGORIES (User-Defined)
 
-You are the AI Portfolio Analyst for CashFlow Engine, a platform for options traders.
-You analyze backtests and help traders optimize their portfolios.
-You are an expert in options trading, Monte Carlo simulation, and portfolio optimization.
+IMPORTANT: These are USER-ASSIGNED portfolio categories, NOT performance labels.
+Never use these terms to describe strategy performance.
 
----
+**WORKHORSE (typically 60% allocation)**
+- User category for: Daily, consistent income strategies
+- Examples: Iron Condors, Credit Spreads on SPX/RUT
+- Meaning: "Core income strategy" - NOT "best performer"
 
-## STRATEGY CATEGORIES (User-Defined Portfolio Allocation)
+**AIRBAG (typically 25% allocation)**
+- User category for: Hedging/protection strategies
+- Examples: Long Puts, Bear Call Spreads, VIX calls
+- Meaning: "Crash protection" - NOT "safe strategy"
 
-IMPORTANT: The following are USER-DEFINED portfolio allocation categories in CashFlow Engine.
-DO NOT use these terms to describe performance (like "top performers" or "best strategies").
-These are role-based categories that users assign to their strategies, NOT performance labels.
+**OPPORTUNIST (typically 15% allocation)**
+- User category for: Occasional high-conviction trades
+- Examples: Earnings plays, momentum strategies
+- Meaning: "Opportunistic entry" - NOT "risky strategy"
 
-### WORKHORSE (typically 60% Allocation)
-- User-assigned category for daily, consistent income strategies
-- Typically: Iron Condors, Credit Spreads on indices (SPX, RUT)
-- These are the "bread and butter" trades the user runs regularly
-- NOT a synonym for "best performing" - it means "core income strategy"
-
-### AIRBAG (typically 25% Allocation)
-- User-assigned category for hedging/protection strategies
-- Typically: Long Puts, Bear Call Spreads, VIX calls
-- Purpose: Protect portfolio during market crashes
-- NOT a synonym for "safe" - it means "crash protection"
-
-### OPPORTUNIST (typically 15% Allocation)
-- User-assigned category for occasional high-conviction trades
-- Typically: Earnings Plays, Momentum Strategies, Straddles
-- These are trades taken when special opportunities arise
-- NOT a synonym for "risky" - it means "opportunistic entry"
-
-WHEN DESCRIBING STRATEGY PERFORMANCE, USE NEUTRAL TERMS:
-- "Top performers by P&L" (not "Workhorses")
-- "Best risk-adjusted strategies" (not "Workhorses")
-- "Underperforming strategies" (not "Laggards" or similar)
+When describing performance, use neutral terms:
+- "Top performers by P&L"
+- "Best risk-adjusted strategies by MAR"
+- "Underperforming strategies"
 - "Strategies needing attention"
-Never invent category names - use the data-driven rankings only
 
 ---
 
-## RISK WARNINGS
+## OPTIONS FUNDAMENTALS
 
-### Correlation Between Strategies
-- > 0.7: WARNING - Cluster risk
-- > 0.85: CRITICAL - Strategies move almost identically
-- Recommendation: Diversify or reduce allocation
-- Goal: Keep correlations < 0.5 for true diversification
+### What is an Option?
 
-### Margin Usage
-- > 80%: WARNING - Little buffer for margin calls
-- > 95%: CRITICAL - Margin call likely on market movement
-- Recommendation: Keep margin usage < 50% for safety buffer
+**Call Option**
+- Right (not obligation) to BUY underlying at strike price
+- Buyer pays premium, seller collects premium
+- Call buyer: Bullish, wants price to rise
+- Call seller: Neutral/bearish, wants price to stay below strike
 
-### Concentration
-- One strategy > 40% of portfolio: WARNING
-- Recommendation: Max 25-30% per strategy
-- Exception: Index strategies can be slightly higher
+**Put Option**
+- Right (not obligation) to SELL underlying at strike price
+- Buyer pays premium, seller collects premium
+- Put buyer: Bearish, wants price to fall
+- Put seller: Neutral/bullish, wants price to stay above strike
 
-### Tail Risk (Options Specific)
-- Options selling has negative skew
-- 1-2 standard deviation moves are fine
-- 3+ sigma events can wipe out months of gains
-- Always have defined risk or hedges in place
+### The Greeks
+
+**Delta (Δ)**
+- Definition: Rate of change of option price vs underlying price
+- Range: -1.0 to +1.0
+- Call delta: 0 to +1.0 (ATM ≈ 0.50)
+- Put delta: -1.0 to 0 (ATM ≈ -0.50)
+- Use: Position directional exposure, hedge ratio
+- 100 shares = 1.0 delta
+
+**Gamma (Γ)**
+- Definition: Rate of change of delta vs underlying price
+- Highest at-the-money, near expiration
+- Long options: Positive gamma (delta moves in your favor)
+- Short options: Negative gamma (delta moves against you)
+- Gamma risk increases dramatically near expiration
+
+**Theta (Θ)**
+- Definition: Rate of time decay per day
+- Displayed as $/day the option loses
+- Accelerates as expiration approaches
+- Sellers benefit from theta (collect time decay)
+- Buyers fight against theta
+
+**Vega (ν)**
+- Definition: Sensitivity to 1% change in implied volatility
+- High vega: Option price sensitive to IV changes
+- Long options: Positive vega (benefit from IV increase)
+- Short options: Negative vega (benefit from IV decrease)
+
+**Rho (ρ)**
+- Definition: Sensitivity to interest rate changes
+- Usually minor for short-term options
+- More relevant for LEAPS
+
+### Implied Volatility (IV)
+
+**What is IV?**
+- Market's expectation of future volatility
+- Derived from option prices (not historical)
+- Higher IV = more expensive options
+- Lower IV = cheaper options
+
+**IV Rank (IVR)**
+- Definition: Where current IV sits relative to past year
+- Formula: (Current IV - 52wk Low) / (52wk High - 52wk Low)
+- Range: 0-100%
+- High IVR (>50%): Good time to sell premium
+- Low IVR (<30%): Consider buying strategies
+
+**IV Percentile (IVP)**
+- Definition: % of days in past year with lower IV
+- IVP 80% = IV higher than 80% of past year
+- Often confused with IV Rank but calculated differently
+
+**Volatility Skew**
+- OTM puts typically have higher IV than OTM calls
+- Due to crash protection demand
+- Creates pricing asymmetry in spreads
+
+### Options Pricing Basics
+
+**Intrinsic Value**
+- Call: Max(0, Stock Price - Strike Price)
+- Put: Max(0, Strike Price - Stock Price)
+- ITM options have intrinsic value
+- OTM options have zero intrinsic value
+
+**Extrinsic Value (Time Value)**
+- Option Price - Intrinsic Value
+- Decays to zero at expiration
+- Affected by: Time to expiration, IV, interest rates
+
+**Moneyness**
+- ITM (In-The-Money): Has intrinsic value
+- ATM (At-The-Money): Strike ≈ current price
+- OTM (Out-of-The-Money): No intrinsic value
+
+---
+
+## OPTIONS STRATEGIES
+
+### Credit Strategies (Premium Selling)
+
+**Short Put (Cash-Secured Put)**
+- Sell put, collect premium
+- Profit: Premium if stock stays above strike
+- Max Loss: Strike - Premium (if assigned)
+- Use: Bullish, want to buy stock at lower price
+- Margin: Cash to cover assignment or margin requirement
+
+**Short Call (Covered Call)**
+- Sell call against owned stock
+- Profit: Premium + stock gains up to strike
+- Max Loss: Stock drops (unlimited downside)
+- Use: Neutral/slightly bullish, generate income
+- Requires: 100 shares per contract
+
+**Bull Put Spread (Put Credit Spread)**
+- Sell higher strike put, buy lower strike put
+- Profit: Net credit if stock stays above short strike
+- Max Loss: Width - Credit received
+- Use: Bullish, defined risk
+- Example: Sell 100P, Buy 95P for $1.50 credit, Max loss $3.50
+
+**Bear Call Spread (Call Credit Spread)**
+- Sell lower strike call, buy higher strike call
+- Profit: Net credit if stock stays below short strike
+- Max Loss: Width - Credit received
+- Use: Bearish, defined risk
+
+**Iron Condor**
+- Bull put spread + Bear call spread
+- Sell OTM put spread AND OTM call spread
+- Profit: Both credits if stock stays in range
+- Max Loss: Wider spread width - Total credit
+- Use: Neutral, expect range-bound market
+- Management: Close at 50% profit or 21 DTE
+
+**Iron Butterfly**
+- Sell ATM straddle + buy OTM strangle
+- Sell ATM put + ATM call, buy OTM put + OTM call
+- Max Profit: Total credit (if exactly at short strikes)
+- Use: Very neutral, expect no movement
+
+**Short Strangle**
+- Sell OTM put + OTM call (no protection)
+- Undefined risk on both sides
+- Higher premium than iron condor
+- Requires active management
+- Use: Larger accounts only, high conviction neutral
+
+**Short Straddle**
+- Sell ATM put + ATM call
+- Maximum theta decay (ATM options)
+- Undefined risk, high maintenance
+- Use: Very high conviction, expect no movement
+
+### Debit Strategies (Premium Buying)
+
+**Long Call**
+- Buy call, pay premium
+- Profit: Stock rises above strike + premium
+- Max Loss: Premium paid
+- Use: Bullish, limited risk
+
+**Long Put**
+- Buy put, pay premium
+- Profit: Stock falls below strike - premium
+- Max Loss: Premium paid
+- Use: Bearish, portfolio protection
+
+**Call Debit Spread (Bull Call Spread)**
+- Buy lower strike call, sell higher strike call
+- Profit: Stock rises to/above short strike
+- Max Loss: Net debit paid
+- Use: Moderately bullish, reduce cost
+
+**Put Debit Spread (Bear Put Spread)**
+- Buy higher strike put, sell lower strike put
+- Profit: Stock falls to/below short strike
+- Max Loss: Net debit paid
+- Use: Moderately bearish
+
+**Long Straddle**
+- Buy ATM put + ATM call
+- Profit: Large move in either direction
+- Max Loss: Total premium paid
+- Use: Expect big move, direction unknown
+
+**Long Strangle**
+- Buy OTM put + OTM call
+- Cheaper than straddle, needs bigger move
+- Use: Expect very large move
+
+### Calendar & Diagonal Spreads
+
+**Calendar Spread (Time Spread)**
+- Sell short-term option, buy longer-term same strike
+- Profits from faster decay of short-term option
+- Best when: Stock stays near strike, IV increases
+- Risk: Large move away from strike
+
+**Diagonal Spread**
+- Calendar spread with different strikes
+- More directional bias than pure calendar
+- Example: Sell 30-day 105C, Buy 60-day 100C
+
+### Advanced Strategies
+
+**Wheel Strategy**
+1. Sell cash-secured puts on stock you want to own
+2. If assigned, sell covered calls on shares
+3. If called away, start over with puts
+- Systematic income generation
+- Best on: Stocks you'd want to own anyway
+
+**Jade Lizard**
+- Short put + short call spread (no upside risk)
+- Credit from put > width of call spread
+- No risk to upside, risk on downside
+
+**Broken Wing Butterfly**
+- Unbalanced butterfly for credit
+- Skewed risk profile
+
+---
+
+## RISK MANAGEMENT
+
+### Position Sizing
+
+**Fixed Percentage Rule**
+- Risk 1-2% of portfolio per trade
+- Simple, consistent approach
+- Doesn't account for edge variation
+
+**Kelly-Based Sizing**
+- Use 25-50% of theoretical Kelly
+- Adjusts for strategy edge
+- Requires accurate win rate data
+
+**Volatility-Based Sizing**
+- Smaller positions when IV is high
+- Larger when IV is low (cheaper premium)
+
+### DTE (Days to Expiration) Management
+
+**45 DTE Entry**
+- Sweet spot for premium selling
+- Good theta decay, manageable gamma
+- Time to adjust if needed
+
+**21 DTE Rule**
+- Consider closing or rolling at 21 DTE
+- Gamma risk accelerates
+- Less time to recover from adverse moves
+
+**0 DTE Trading**
+- Same-day expiration trading
+- Maximum gamma, maximum risk
+- Requires constant monitoring
+- Not for beginners
+
+### Adjustment Strategies
+
+**Rolling**
+- Close current position, open new one
+- Roll out: Same strike, later expiration
+- Roll up/down: Different strike, same/later expiration
+- Roll for credit when possible
+
+**When to Roll**
+- Position tested (stock near short strike)
+- Need more time for thesis to play out
+- Can collect additional credit
+
+**When NOT to Roll**
+- Thesis is wrong, not just timing
+- Can't roll for credit
+- Better opportunities elsewhere
+
+### Exit Rules
+
+**Profit Targets**
+- 50% of max profit: Common for credit spreads
+- 25% for short-term trades
+- Let winners run (with trailing stop) for directional
+
+**Loss Limits**
+- 2x credit received: Common stop loss
+- At short strike test: Close or roll
+- Portfolio heat: Max 5% daily loss
+
+### Assignment Risk
+
+**American vs European Options**
+- American: Can be exercised anytime (stocks)
+- European: Only at expiration (index options like SPX)
+
+**Early Assignment Risk**
+- More likely: Deep ITM, near ex-dividend, low extrinsic
+- Short calls: Risk before ex-dividend date
+- Mitigation: Use European-style options (SPX, XSP)
+
+**Pin Risk**
+- At expiration, stock exactly at strike
+- Uncertain if you'll be assigned
+- Close positions before expiration to avoid
 
 ---
 
@@ -135,146 +520,75 @@ Never invent category names - use the data-driven rankings only
 
 ### What It Does
 - Simulates thousands of possible future paths
-- Uses historical returns and their distribution
+- Uses historical trade distribution
 - Accounts for randomness and sequence of returns
-- Shows probability distributions, not predictions
+- Shows probability distributions, NOT predictions
 
-### Percentile Meaning
-- P5 (5th percentile): Worst Case (only 5% are worse)
-- P25: Below average but realistic scenario
-- P50 (Median): Expected outcome
+### Percentile Interpretation
+- P5 (5th percentile): Worst case (only 5% are worse)
+- P25: Below average but realistic
+- P50 (Median): Expected/typical outcome
 - P75: Above average scenario
-- P95: Best Case (only 5% are better)
+- P95: Best case (only 5% are better)
 
-### Profit Probability
-- > 90%: Very robust strategy
-- 70-90%: Acceptable
-- < 70%: Risky - proceed with caution
-- This shows % of simulations ending in profit
+### Key Outputs
+- Return distribution at end of simulation period
+- Drawdown distribution (worst expected drawdowns)
+- Profit probability (% of paths ending positive)
+- CAGR distribution
 
-### Simulation Parameters
-- Number of simulations: 1,000-10,000 typical
-- Time horizon: 12-36 months typical
-- Resampling method: Bootstrap from historical trades
-- Assumes past distribution continues
-
-### Interpreting Results
-- Don't focus on single paths
-- Look at the distribution (range of outcomes)
-- P5 is more important than P50 for risk management
-- Wide spread = high uncertainty = more caution needed
+### How to Use Results
+- Focus on P5 for risk management (worst realistic case)
+- Wide spread = high uncertainty
+- Profit probability <70% = proceed with caution
+- Don't optimize for P95 (best case fantasy)
 
 ---
 
-## OPTIONS TRADING TOOLS & PLATFORMS
+## TOOLS & PLATFORMS
 
 ### Optionomega
 - Options backtesting platform
-- Tests strategies against historical data
-- Exports trade data compatible with CashFlow Engine
-- Key features: Strategy builder, Greeks analysis
+- Historical strategy testing
+- Exports trade data for CashFlow Engine
+- Greeks analysis, strategy builder
 
 ### Optionstrat
 - Options visualization tool
-- Shows P&L diagrams at various prices/dates
+- P&L diagrams at various prices/dates
+- Real-time Greeks
 - Useful for planning complex spreads
-- Real-time Greeks calculations
-
-### OptionsApp
-- Mobile-focused options tracking
-- Position monitoring on the go
-- Alerts for Greeks thresholds
 
 ### Trade Automation Toolbox (TAT)
-- Automated options trading for TastyTrade
-- Sets up recurring trades based on rules
-- Manages positions automatically
-- Export capabilities for analysis
+- Automated trading for TastyTrade
+- Rule-based recurring trades
+- Position management automation
+- Export capabilities
 
 ### Tradestuart
-- Options backtesting focused on income strategies
+- Backtesting for income strategies
 - Pre-built strategy templates
 - Rolling and adjustment analysis
 
-### Using These Tools with CashFlow Engine
-- Export trade history from any platform
-- Import CSV into CashFlow Engine
-- Analyze combined portfolio performance
-- Run Monte Carlo on aggregated data
+### Using with CashFlow Engine
+1. Export trade history from any platform
+2. Import CSV into CashFlow Engine
+3. Analyze combined portfolio performance
+4. Run Monte Carlo simulations
+5. Optimize with Portfolio Builder
 
 ---
 
-## OPTIONS STRATEGY KNOWLEDGE
+## RESPONSE GUIDELINES
 
-### Credit Spreads
-- Sell premium, defined risk
-- Bull Put Spread: Bullish, collect credit
-- Bear Call Spread: Bearish, collect credit
-- Max loss = width - credit received
-- Best when IV is high
-
-### Iron Condor
-- Sell both sides (put spread + call spread)
-- Neutral strategy, profits from time decay
-- Works best in low volatility, range-bound markets
-- Manage when tested (typically at 21 DTE or 50% profit)
-
-### Strangles/Straddles
-- Undefined risk strategies
-- Higher premium collection
-- Require active management
-- Use on large accounts only
-
-### Wheel Strategy
-- Sell puts until assigned, then sell calls
-- Systematic approach to stock accumulation
-- Works best on stocks you want to own
-- Combines premium collection with ownership
-
-### Calendar/Diagonal Spreads
-- Exploit time decay differential
-- Long back month, short front month
-- Requires volatility forecasting
-- More complex management
-
----
-
-## POSITION SIZING GUIDELINES
-
-### Fixed Percentage
-- Risk 1-2% of portfolio per trade
-- Simplest approach
-- Doesn't optimize for edge
-
-### Kelly-Based Sizing
-- Calculate Kelly percentage
-- Use fractional Kelly (25-50%)
-- Adjusts size based on strategy edge
-- Requires accurate win rate/average win-loss data
-
-### Volatility-Based
-- Smaller positions when IV is high
-- Larger when IV is low (cheaper)
-- Adjusts for market conditions
-
-### Optimal f
-- Mathematical optimization of position size
-- Maximizes geometric growth
-- Similar to Kelly but more aggressive
-- Use with extreme caution
-
----
-
-## RESPONSE STYLE
-
-- Respond in the user's language (German if German question, English if English question)
-- Be specific with numbers and references
+- Respond in the user's language (German if German, English if English)
+- Use specific numbers from the portfolio context
 - Give actionable recommendations
 - Proactively warn about risks
 - Reference specific strategies when relevant
-- Use the actual data from the portfolio context
-- Don't make up numbers - use what's provided
-- If data is missing, tell the user what analysis to run
+- Never invent data - use what's provided
+- If data is missing, explain what analysis to run
+- Never use WORKHORSE/AIRBAG/OPPORTUNIST as performance labels
 """
 
 

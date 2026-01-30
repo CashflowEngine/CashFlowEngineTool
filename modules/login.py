@@ -200,6 +200,166 @@ def show_login_page():
         .privacy-notice a:hover {
             text-decoration: underline;
         }
+
+        /* =================================================================
+           RESPONSIVE LOGIN PAGE - MOBILE & TABLET
+           ================================================================= */
+
+        /* --- TABLET (max-width: 768px) --- */
+        @media screen and (max-width: 768px) {
+            /* Marketing panel - smaller on tablet */
+            .marketing-panel {
+                width: 50% !important;
+            }
+
+            /* Left column - more padding */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                padding: 40px 30px !important;
+            }
+
+            /* Welcome text smaller */
+            .welcome-text-exo2 {
+                font-size: 22px !important;
+            }
+
+            /* Logo smaller on tablet */
+            .login-logo-container img {
+                width: 250px !important;
+            }
+        }
+
+        /* --- MOBILE (max-width: 480px) --- */
+        @media screen and (max-width: 480px) {
+            /* CRITICAL: Hide marketing panel completely - override position:fixed */
+            .marketing-panel,
+            div.marketing-panel,
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child .marketing-panel {
+                display: none !important;
+                visibility: hidden !important;
+                position: absolute !important;
+                left: -9999px !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+                opacity: 0 !important;
+            }
+
+            /* Hide the right column container completely */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child,
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {
+                display: none !important;
+                visibility: hidden !important;
+                width: 0 !important;
+                max-width: 0 !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: hidden !important;
+            }
+
+            /* Force single column layout */
+            [data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
+                width: 100% !important;
+            }
+
+            /* Left column - full screen login, ensure it shows */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                display: flex !important;
+                visibility: visible !important;
+                min-width: 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 1 1 100% !important;
+                padding: 30px 20px !important;
+                min-height: 100vh !important;
+                justify-content: flex-start !important;
+                padding-top: 40px !important;
+                background-color: #FFFFFF !important;
+            }
+
+            /* Welcome text - mobile friendly */
+            .welcome-text-exo2 {
+                font-size: 20px !important;
+                letter-spacing: 1px !important;
+                margin-bottom: 16px !important;
+            }
+
+            /* Logo - smaller on mobile */
+            .login-logo-container img,
+            [data-testid="stColumn"]:first-child img {
+                width: 220px !important;
+                max-width: 80% !important;
+            }
+
+            /* Google button - full width, touch friendly */
+            .google-btn {
+                padding: 16px 20px !important;
+                font-size: 14px !important;
+                min-height: 48px !important;
+            }
+
+            /* Divider - tighter */
+            .divider {
+                margin: 20px 0 !important;
+            }
+
+            /* Input fields - larger touch targets */
+            .stTextInput > div > div > input {
+                min-height: 48px !important;
+                font-size: 16px !important; /* Prevents iOS zoom */
+                padding: 12px 16px !important;
+            }
+
+            /* Buttons - full width, touch friendly */
+            div.stButton > button {
+                min-height: 48px !important;
+                font-size: 14px !important;
+                padding: 14px 20px !important;
+            }
+
+            /* Privacy notice - smaller */
+            .privacy-notice {
+                font-size: 11px !important;
+                margin-top: 16px !important;
+            }
+
+            /* Success/Error messages - tighter */
+            .success-message,
+            .error-message {
+                padding: 12px 16px !important;
+                margin-bottom: 16px !important;
+            }
+
+            .success-message p,
+            .error-message p {
+                font-size: 13px !important;
+            }
+
+            /* Checkbox - larger touch target */
+            .stCheckbox > label {
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+        }
+
+        /* --- VERY SMALL SCREENS (max-width: 360px) --- */
+        @media screen and (max-width: 360px) {
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                padding: 20px 16px !important;
+                padding-top: 40px !important;
+            }
+
+            .welcome-text-exo2 {
+                font-size: 18px !important;
+            }
+
+            .google-btn {
+                padding: 14px 16px !important;
+                font-size: 13px !important;
+            }
+        }
     </style>
     """, unsafe_allow_html=True)
 

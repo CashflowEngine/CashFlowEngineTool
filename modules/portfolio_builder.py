@@ -553,6 +553,57 @@ def page_portfolio_builder(full_df):
                     placeholder.empty()
                 st.rerun()
 
+    # === DEBUG SECTION ===
+    with st.expander("🔍 DEBUG: Daten vor der Kalkulation", expanded=False):
+        st.write("### 1. strategy_base_stats")
+        st.write(f"Anzahl Strategien: **{len(strategy_base_stats)}**")
+
+        if strategy_base_stats:
+            debug_stats = []
+            for strat_name, stats in strategy_base_stats.items():
+                daily_pnl = stats.get('daily_pnl_series', None)
+                margin_series = stats.get('margin_series', None)
+                debug_stats.append({
+                    'Strategy': strat_name[:30],
+                    'margin_per_contract': stats.get('margin_per_contract', 'FEHLT'),
+                    'total_pnl': stats.get('total_pnl', 'FEHLT'),
+                    'kelly': stats.get('kelly', 'FEHLT'),
+                    'daily_pnl_len': len(daily_pnl) if daily_pnl is not None else 'FEHLT',
+                    'daily_pnl_sum': daily_pnl.sum() if daily_pnl is not None else 'FEHLT',
+                    'margin_series_len': len(margin_series) if margin_series is not None else 'FEHLT',
+                })
+            st.dataframe(pd.DataFrame(debug_stats), use_container_width=True)
+        else:
+            st.error("strategy_base_stats ist LEER!")
+
+        st.write("### 2. portfolio_allocation (Multiplier)")
+        st.write(f"Anzahl: **{len(st.session_state.portfolio_allocation)}**")
+        alloc_debug = []
+        for strat, mult in st.session_state.portfolio_allocation.items():
+            in_stats = strat in strategy_base_stats
+            alloc_debug.append({
+                'Strategy': strat[:30],
+                'Multiplier': mult,
+                'In strategy_base_stats?': '✅' if in_stats else '❌'
+            })
+        st.dataframe(pd.DataFrame(alloc_debug), use_container_width=True)
+
+        st.write("### 3. Test-Kalkulation")
+        test_total_pnl = 0
+        test_active = 0
+        for strat, mult in st.session_state.portfolio_allocation.items():
+            if strat in strategy_base_stats and mult > 0:
+                test_active += 1
+                stats = strategy_base_stats[strat]
+                test_total_pnl += stats['total_pnl'] * mult
+        st.write(f"Aktive Strategien (mult > 0 UND in stats): **{test_active}**")
+        st.write(f"Test Total P/L: **${test_total_pnl:,.0f}**")
+
+        st.write("### 4. full_date_range")
+        st.write(f"Start: {full_date_range[0] if len(full_date_range) > 0 else 'LEER'}")
+        st.write(f"Ende: {full_date_range[-1] if len(full_date_range) > 0 else 'LEER'}")
+        st.write(f"Anzahl Tage: {len(full_date_range)}")
+
     if not st.session_state.get('calculate_kpis', False):
         st.info("Adjust allocations and click CALCULATE to see projected performance.")
         return

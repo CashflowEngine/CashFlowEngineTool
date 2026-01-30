@@ -167,9 +167,14 @@ def show_landing_page():
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
 
-                                # Merge global DNA (if not already loaded from calculations)
-                                if not has_calculations:
-                                    db.merge_global_dna_to_session()
+                                # Pre-compute statistics for faster page loads and AI assistant
+                                try:
+                                    ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
+                                    precompute.precompute_all(bt_df, live_df, account_size=100000)
+                                except Exception as e:
+                                    import logging
+                                    logging.error(f"Precompute failed: {e}")
+                                    st.warning(f"Analytics pre-computation skipped: {e}")
 
                                 ui.hide_loading_overlay()
 
@@ -177,6 +182,9 @@ def show_landing_page():
                                     st.toast("Loaded with Monte Carlo & Portfolio Builder settings!")
 
                                 st.rerun()
+                            else:
+                                ui.hide_loading_overlay()
+                                st.error("Failed to load analysis from database.")
                 else:
                     st.info("No saved analyses found.")
             else:

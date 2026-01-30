@@ -120,6 +120,7 @@ def precompute_all(df: pd.DataFrame, live_df: pd.DataFrame = None, account_size:
 def _precompute_strategy_stats(df: pd.DataFrame, account_size: int):
     """Pre-compute per-strategy statistics."""
     strategies = sorted(df['strategy'].unique())
+    logger.info(f"Pre-computing stats for {len(strategies)} strategies...")
 
     # Get full date range
     min_ts = df['timestamp'].min()
@@ -128,68 +129,84 @@ def _precompute_strategy_stats(df: pd.DataFrame, account_size: int):
 
     strategy_base_stats = {}
 
-    for strat in strategies:
-        s_df = df[df['strategy'] == strat].copy()
-        if s_df.empty:
+    for i, strat in enumerate(strategies):
+        try:
+            s_df = df[df['strategy'] == strat].copy()
+            if s_df.empty:
+                continue
+
+            # Daily P&L series
+            daily_pnl = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+
+            # Calculate stats
+            total_pnl = s_df['pnl'].sum()
+
+            # Equity and drawdown
+            equity = account_size + daily_pnl.cumsum()
+            peak = equity.cummax()
+            dd = equity - peak
+            max_dd = dd.min()
+
+            # Contracts per day
+            contracts_per_day = s_df['contracts'].sum() / max(1, len(full_idx)) if 'contracts' in s_df.columns else 1.0
+
+            # Margin series (daily margin usage) - with fallback
+            try:
+                margin_series_raw = calc.generate_daily_margin_series_optimized(s_df)
+                if margin_series_raw is not None and len(margin_series_raw) > 0:
+                    margin_series = margin_series_raw.reindex(full_idx, fill_value=0)
+                    margin_per_contract = margin_series.max()
+                else:
+                    # Fallback: use simple margin calculation
+                    margin_per_contract = s_df['margin'].max() if 'margin' in s_df.columns else 5000
+                    margin_series = pd.Series(0.0, index=full_idx)
+            except Exception as e:
+                logger.warning(f"Margin series failed for {strat}: {e}")
+                margin_per_contract = s_df['margin'].max() if 'margin' in s_df.columns else 5000
+                margin_series = pd.Series(0.0, index=full_idx)
+
+            # Category detection
+            category = calc.categorize_strategy(strat)
+
+            # Win rate and Kelly criterion
+            wins = s_df[s_df['pnl'] > 0]['pnl']
+            losses = s_df[s_df['pnl'] <= 0]['pnl']
+            win_rate = len(wins) / len(s_df) if len(s_df) > 0 else 0
+            avg_win = wins.mean() if len(wins) > 0 else 0
+            avg_loss = abs(losses.mean()) if len(losses) > 0 else 0
+
+            kelly = 0
+            if avg_loss > 0 and avg_win > 0:
+                b = avg_win / avg_loss
+                kelly = (win_rate * b - (1 - win_rate)) / b
+                kelly = max(0, min(kelly, 1))
+
+            # DNA (Greek exposure)
+            dna = calc.get_cached_dna(strat, s_df)
+
+            strategy_base_stats[strat] = {
+                'total_pnl': total_pnl,
+                'max_dd': abs(max_dd) if max_dd < 0 else 0,
+                'contracts_per_day': max(0.5, round(contracts_per_day * 2) / 2),
+                'margin_per_contract': margin_per_contract if margin_per_contract > 0 else 5000,
+                'daily_pnl_series': daily_pnl,
+                'margin_series': margin_series,
+                'category': category,
+                'dna': dna,
+                'trade_count': len(s_df),
+                'win_rate': win_rate,
+                'kelly': kelly
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to compute stats for strategy {strat}: {e}")
             continue
-
-        # Daily P&L series
-        daily_pnl = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
-
-        # Calculate stats
-        total_pnl = s_df['pnl'].sum()
-
-        # Equity and drawdown
-        equity = account_size + daily_pnl.cumsum()
-        peak = equity.cummax()
-        dd = equity - peak
-        max_dd = dd.min()
-
-        # Contracts per day
-        contracts_per_day = s_df['contracts'].sum() / max(1, len(full_idx)) if 'contracts' in s_df.columns else 1.0
-
-        # Margin series (daily margin usage)
-        margin_series = calc.generate_daily_margin_series_optimized(s_df).reindex(full_idx, fill_value=0)
-        margin_per_contract = margin_series.max() if len(margin_series) > 0 else 5000
-
-        # Category detection
-        category = calc.categorize_strategy(strat)
-
-        # Win rate and Kelly criterion
-        wins = s_df[s_df['pnl'] > 0]['pnl']
-        losses = s_df[s_df['pnl'] <= 0]['pnl']
-        win_rate = len(wins) / len(s_df) if len(s_df) > 0 else 0
-        avg_win = wins.mean() if len(wins) > 0 else 0
-        avg_loss = abs(losses.mean()) if len(losses) > 0 else 0
-
-        kelly = 0
-        if avg_loss > 0 and avg_win > 0:
-            b = avg_win / avg_loss
-            kelly = (win_rate * b - (1 - win_rate)) / b
-            kelly = max(0, min(kelly, 1))
-
-        # DNA (Greek exposure)
-        dna = calc.get_cached_dna(strat, s_df)
-
-        strategy_base_stats[strat] = {
-            'total_pnl': total_pnl,
-            'max_dd': abs(max_dd) if max_dd < 0 else 0,
-            'contracts_per_day': max(0.5, round(contracts_per_day * 2) / 2),
-            'margin_per_contract': margin_per_contract,
-            'daily_pnl_series': daily_pnl,
-            'margin_series': margin_series,
-            'category': category,
-            'dna': dna,
-            'trade_count': len(s_df),
-            'win_rate': win_rate,
-            'kelly': kelly
-        }
 
     set_cached('strategy_base_stats', strategy_base_stats)
     set_cached('full_date_index', full_idx)
     set_cached('strategies', strategies)
 
-    logger.info(f"Pre-computed stats for {len(strategies)} strategies")
+    logger.info(f"Pre-computed stats for {len(strategy_base_stats)} strategies")
 
 
 def _precompute_spx_benchmark(df: pd.DataFrame):

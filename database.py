@@ -535,3 +535,194 @@ def load_analysis_legacy(analysis_id, _user_id=None):
     """
     bt_df, live_df, _ = load_analysis_from_db(analysis_id, _user_id)
     return bt_df, live_df
+
+
+# ============================================================
+# GLOBAL STRATEGY DNA DATABASE
+# Shared classifications across all users
+# ============================================================
+
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes
+def load_global_strategy_dna():
+    """
+    Load all strategy DNA from the global database.
+    Returns a dict: {strategy_name: {category, option_strategy, deltas, etc.}}
+    This is shared across all users.
+    """
+    if not DB_AVAILABLE:
+        return {}
+
+    try:
+        client = get_authenticated_client() or supabase
+        response = client.table('strategy_dna').select("*").execute()
+
+        dna_dict = {}
+        for item in response.data:
+            strategy_name = item.get('strategy_name')
+            if strategy_name:
+                dna_dict[strategy_name] = {
+                    'category': item.get('category'),
+                    'option_strategy': item.get('option_strategy'),
+                    'delta_long': item.get('delta_long'),
+                    'delta_short': item.get('delta_short'),
+                    'gamma_exposure': item.get('gamma_exposure'),
+                    'theta_exposure': item.get('theta_exposure'),
+                    'vega_exposure': item.get('vega_exposure'),
+                    'avg_dte': item.get('avg_dte'),
+                    'typical_margin': item.get('typical_margin'),
+                    'notes': item.get('notes'),
+                    'confidence_score': item.get('confidence_score', 1),
+                }
+
+        logger.info(f"Loaded {len(dna_dict)} strategies from global DNA database")
+        return dna_dict
+
+    except Exception as e:
+        logger.error(f"Failed to load global DNA: {e}")
+        return {}
+
+
+def save_strategy_dna(strategy_name, category=None, option_strategy=None,
+                      delta_long=None, delta_short=None, gamma_exposure=None,
+                      theta_exposure=None, vega_exposure=None, avg_dte=None,
+                      typical_margin=None, notes=None):
+    """
+    Save or update a strategy's DNA in the global database.
+    If the strategy exists, updates it and increments confidence_score.
+    """
+    if not DB_AVAILABLE:
+        return False
+
+    user_id = get_current_user_id()
+    if not user_id:
+        logger.warning("Cannot save DNA - no user logged in")
+        return False
+
+    try:
+        client = get_authenticated_client() or supabase
+
+        # Check if strategy already exists
+        existing = client.table('strategy_dna').select("id, confidence_score").eq(
+            'strategy_name', strategy_name
+        ).execute()
+
+        dna_data = {
+            'strategy_name': strategy_name,
+            'updated_by': user_id,
+        }
+
+        # Only add non-None values
+        if category is not None:
+            dna_data['category'] = category
+        if option_strategy is not None:
+            dna_data['option_strategy'] = option_strategy
+        if delta_long is not None:
+            dna_data['delta_long'] = float(delta_long)
+        if delta_short is not None:
+            dna_data['delta_short'] = float(delta_short)
+        if gamma_exposure is not None:
+            dna_data['gamma_exposure'] = float(gamma_exposure)
+        if theta_exposure is not None:
+            dna_data['theta_exposure'] = float(theta_exposure)
+        if vega_exposure is not None:
+            dna_data['vega_exposure'] = float(vega_exposure)
+        if avg_dte is not None:
+            dna_data['avg_dte'] = int(avg_dte)
+        if typical_margin is not None:
+            dna_data['typical_margin'] = float(typical_margin)
+        if notes is not None:
+            dna_data['notes'] = notes
+
+        if existing.data:
+            # Update existing - increment confidence score
+            current_confidence = existing.data[0].get('confidence_score', 1)
+            dna_data['confidence_score'] = current_confidence + 1
+            client.table('strategy_dna').update(dna_data).eq(
+                'strategy_name', strategy_name
+            ).execute()
+            logger.info(f"Updated DNA for '{strategy_name}' (confidence: {dna_data['confidence_score']})")
+        else:
+            # Insert new
+            dna_data['created_by'] = user_id
+            dna_data['confidence_score'] = 1
+            client.table('strategy_dna').insert(dna_data).execute()
+            logger.info(f"Created new DNA entry for '{strategy_name}'")
+
+        # Clear cache to reflect changes
+        load_global_strategy_dna.clear()
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to save strategy DNA: {e}")
+        return False
+
+
+def save_bulk_strategy_dna(dna_dict):
+    """
+    Save multiple strategy DNAs at once.
+    dna_dict: {strategy_name: {category, option_strategy, ...}}
+    """
+    if not DB_AVAILABLE or not dna_dict:
+        return False
+
+    success_count = 0
+    for strategy_name, dna in dna_dict.items():
+        if save_strategy_dna(
+            strategy_name=strategy_name,
+            category=dna.get('category'),
+            option_strategy=dna.get('option_strategy'),
+            delta_long=dna.get('delta_long'),
+            delta_short=dna.get('delta_short'),
+            gamma_exposure=dna.get('gamma_exposure'),
+            theta_exposure=dna.get('theta_exposure'),
+            vega_exposure=dna.get('vega_exposure'),
+            avg_dte=dna.get('avg_dte'),
+            typical_margin=dna.get('typical_margin'),
+            notes=dna.get('notes'),
+        ):
+            success_count += 1
+
+    logger.info(f"Bulk saved {success_count}/{len(dna_dict)} strategy DNAs")
+    return success_count > 0
+
+
+def merge_global_dna_to_session():
+    """
+    Load global DNA and merge it into session_state.dna_cache.
+    Global DNA provides defaults, user's local cache takes precedence.
+    Call this when loading new data or starting a new session.
+    """
+    global_dna = load_global_strategy_dna()
+
+    if not global_dna:
+        return
+
+    # Initialize dna_cache if not exists
+    if 'dna_cache' not in st.session_state:
+        st.session_state.dna_cache = {}
+
+    # Merge: global DNA as base, user's cache overwrites
+    merged = {}
+    for strategy_name, dna in global_dna.items():
+        merged[strategy_name] = dna.copy()
+
+    # User's local cache takes precedence
+    for strategy_name, dna in st.session_state.dna_cache.items():
+        if strategy_name in merged:
+            merged[strategy_name].update(dna)
+        else:
+            merged[strategy_name] = dna
+
+    st.session_state.dna_cache = merged
+    logger.info(f"Merged {len(global_dna)} global DNA entries into session (total: {len(merged)})")
+
+
+def sync_session_dna_to_global():
+    """
+    Sync the user's local DNA cache to the global database.
+    Call this when user saves an analysis or explicitly syncs.
+    """
+    if 'dna_cache' not in st.session_state or not st.session_state.dna_cache:
+        return False
+
+    return save_bulk_strategy_dna(st.session_state.dna_cache)

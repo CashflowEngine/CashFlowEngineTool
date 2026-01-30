@@ -384,6 +384,10 @@ def _save_with_feedback(name, bt_df, live_df, description):
     # Perform save
     success = db.save_analysis_to_db_enhanced(name, bt_df, live_df, description)
 
+    # Also sync strategy DNA to global database
+    if success and 'dna_cache' in st.session_state and st.session_state.dna_cache:
+        db.sync_session_dna_to_global()
+
     # Hide overlay
     hide_loading_overlay()
 
@@ -401,6 +405,10 @@ def _load_with_feedback(analysis_id, name):
 
     user_id = db.get_current_user_id()
     bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+
+    # Merge global DNA if not already loaded from calculations
+    if not has_calculations:
+        db.merge_global_dna_to_session()
 
     hide_loading_overlay()
 

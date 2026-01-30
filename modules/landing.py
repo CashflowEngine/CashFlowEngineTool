@@ -118,6 +118,9 @@ def show_landing_page():
                         st.session_state['full_df'] = pd.concat(dfs, ignore_index=True)
                         st.session_state['bt_filenames'] = ", ".join([f.name for f in bt_files])
 
+                        # Load global strategy DNA and merge into session
+                        db.merge_global_dna_to_session()
+
                     if live_files:
                         dfs_live = []
                         for f in live_files:
@@ -154,6 +157,10 @@ def show_landing_page():
                                 st.session_state['full_df'] = bt_df
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
+
+                                # Merge global DNA (if not already loaded from calculations)
+                                if not has_calculations:
+                                    db.merge_global_dna_to_session()
 
                                 ui.hide_loading_overlay()
 

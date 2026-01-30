@@ -679,6 +679,12 @@ st.markdown("""
        These styles only apply on smaller screens and do not affect desktop
        ================================================================= */
 
+    /* Default: Hide mobile-only elements on all screens */
+    .hamburger-menu,
+    .mobile-sidebar-overlay {
+        display: none !important;
+    }
+
     /* --- TABLET BREAKPOINT (max-width: 768px) --- */
     @media screen and (max-width: 768px) {
         /* Sidebar - narrower on tablet */
@@ -760,22 +766,96 @@ st.markdown("""
 
     /* --- MOBILE BREAKPOINT (max-width: 480px) --- */
     @media screen and (max-width: 480px) {
-        /* Sidebar - COMPLETELY HIDDEN on mobile by default */
+        /* Sidebar - Hidden by default, shown when .mobile-sidebar-open is added to body */
         section[data-testid="stSidebar"],
         [data-testid="stSidebar"] {
-            display: none !important;
-            visibility: hidden !important;
-            width: 0 !important;
-            min-width: 0 !important;
-            max-width: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: hidden !important;
-            position: absolute !important;
-            left: -9999px !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+            height: 100vh !important;
+            z-index: 10000 !important;
+            background-color: #F9FAFB !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease !important;
+            box-shadow: none !important;
+            overflow-y: auto !important;
         }
 
-        /* Hide ALL sidebar toggle buttons on mobile */
+        /* Show sidebar when toggle is active */
+        body.mobile-sidebar-open section[data-testid="stSidebar"],
+        body.mobile-sidebar-open [data-testid="stSidebar"] {
+            transform: translateX(0) !important;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
+        }
+
+        /* Mobile overlay when sidebar is open */
+        .mobile-sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.mobile-sidebar-open .mobile-sidebar-overlay {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Hamburger Menu Button */
+        .hamburger-menu {
+            display: flex !important;
+            position: fixed !important;
+            top: 12px !important;
+            left: 12px !important;
+            z-index: 10001 !important;
+            width: 44px !important;
+            height: 44px !important;
+            background-color: #302BFF !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 5px !important;
+            box-shadow: 0 2px 8px rgba(48, 43, 255, 0.3) !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .hamburger-menu:hover {
+            background-color: #2521c9 !important;
+        }
+
+        .hamburger-menu span {
+            display: block !important;
+            width: 20px !important;
+            height: 2px !important;
+            background-color: #FFFFFF !important;
+            border-radius: 2px !important;
+            transition: all 0.3s ease !important;
+        }
+
+        /* Hamburger animation when open */
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px) !important;
+        }
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(2) {
+            opacity: 0 !important;
+        }
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px) !important;
+        }
+
+        /* Hide Streamlit's own sidebar toggle */
         [data-testid="stSidebarCollapseButton"],
         [data-testid="collapsedControl"],
         [data-testid="stSidebarCollapsedControl"],
@@ -799,6 +879,7 @@ st.markdown("""
         [data-testid="stAppViewBlockContainer"] {
             padding-left: 16px !important;
             padding-right: 16px !important;
+            padding-top: 60px !important; /* Space for hamburger menu */
             max-width: 100% !important;
             margin-left: 0 !important;
             padding-bottom: 80px !important; /* Space for footer */
@@ -947,6 +1028,12 @@ st.markdown("""
         .mobile-info-banner {
             display: none !important;
         }
+        .hamburger-menu {
+            display: none !important;
+        }
+        .mobile-sidebar-overlay {
+            display: none !important;
+        }
     }
 
     /* --- VERY SMALL SCREENS (max-width: 360px) --- */
@@ -1035,15 +1122,75 @@ st.markdown("""
             debounceTimer = setTimeout(applyExo2Fonts, 50);
         });
 
-        // Start observing when DOM is ready
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        } else {
-            document.addEventListener('DOMContentLoaded', function() {
-                observer.observe(document.body, { childList: true, subtree: true });
+    // Use MutationObserver to catch any new elements
+    const observer = new MutationObserver(function(mutations) {
+        applyExo2Fonts();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // --- MOBILE HAMBURGER MENU ---
+    function initMobileMenu() {
+        // Only run on mobile
+        if (window.innerWidth > 480) return;
+
+        // Check if hamburger already exists
+        if (document.querySelector('.hamburger-menu')) return;
+
+        // Create hamburger button
+        const hamburger = document.createElement('button');
+        hamburger.className = 'hamburger-menu';
+        hamburger.setAttribute('aria-label', 'Toggle navigation menu');
+        hamburger.innerHTML = '<span></span><span></span><span></span>';
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'mobile-sidebar-overlay';
+
+        // Add to body
+        document.body.appendChild(hamburger);
+        document.body.appendChild(overlay);
+
+        // Toggle function
+        function toggleSidebar() {
+            document.body.classList.toggle('mobile-sidebar-open');
+        }
+
+        // Event listeners
+        hamburger.addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', toggleSidebar);
+
+        // Close sidebar when a menu item is clicked
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {
+            sidebar.addEventListener('click', function(e) {
+                // Check if clicked on a radio button (menu item)
+                if (e.target.closest('label') && e.target.closest('[role="radiogroup"]')) {
+                    setTimeout(function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    }, 100);
+                }
             });
         }
-    })();
+    }
+
+    // Run mobile menu init
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+    setTimeout(initMobileMenu, 500);
+    setTimeout(initMobileMenu, 1000);
+
+    // Re-init on resize
+    window.addEventListener('resize', function() {
+        const hamburger = document.querySelector('.hamburger-menu');
+        const overlay = document.querySelector('.mobile-sidebar-overlay');
+        if (window.innerWidth > 480) {
+            document.body.classList.remove('mobile-sidebar-open');
+            if (hamburger) hamburger.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
+        } else {
+            if (hamburger) hamburger.style.display = 'flex';
+            initMobileMenu();
+        }
+    });
 </script>
 """, unsafe_allow_html=True)
 

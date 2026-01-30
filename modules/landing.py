@@ -119,6 +119,9 @@ def show_landing_page():
                         st.session_state['full_df'] = pd.concat(dfs, ignore_index=True)
                         st.session_state['bt_filenames'] = ", ".join([f.name for f in bt_files])
 
+                        # Load global strategy DNA and merge into session
+                        db.merge_global_dna_to_session()
+
                     if live_files:
                         dfs_live = []
                         for f in live_files:
@@ -157,18 +160,22 @@ def show_landing_page():
 
                             analysis_id = options[selected_option]
                             user_id = db.get_current_user_id()
-                            bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+                            bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
                             if bt_df is not None:
                                 st.session_state['full_df'] = bt_df
                                 if live_df is not None:
                                     st.session_state['live_df'] = live_df
 
-                                # Pre-compute statistics for faster page loads and AI assistant
-                                ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics...")
-                                precompute.precompute_all(bt_df, live_df, account_size=100000)
+                                # Merge global DNA (if not already loaded from calculations)
+                                if not has_calculations:
+                                    db.merge_global_dna_to_session()
 
                                 ui.hide_loading_overlay()
+
+                                if has_calculations:
+                                    st.toast("Loaded with Monte Carlo & Portfolio Builder settings!")
+
                                 st.rerun()
                 else:
                     st.info("No saved analyses found.")

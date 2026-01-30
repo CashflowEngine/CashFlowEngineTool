@@ -100,11 +100,18 @@ def rename_analysis_in_db(analysis_id, new_name):
     import database as db
     return db.rename_analysis_in_db(analysis_id, new_name)
 
-def load_analysis_from_db(analysis_id):
-    """Load analysis from database (delegates to database.py for auth)."""
+def load_analysis_from_db(analysis_id, restore_calculations=True):
+    """
+    Load analysis from database (delegates to database.py for auth).
+    Returns (bt_df, live_df) for backward compatibility.
+    Calculations are automatically restored to session_state if present.
+    """
     import database as db
     user_id = db.get_current_user_id()
-    return db.load_analysis_from_db(analysis_id, _user_id=user_id)
+    bt_df, live_df, has_calculations = db.load_analysis_from_db(
+        analysis_id, _user_id=user_id, restore_calculations=restore_calculations
+    )
+    return bt_df, live_df
 
 # --- DATA LOADING FUNCTIONS ---
 

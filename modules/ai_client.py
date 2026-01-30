@@ -1,11 +1,14 @@
 """
 Gemini AI Client for CashFlow Engine
 Handles communication with Gemini 3 Flash API.
+Includes token tracking and usage limits.
 """
 
 import streamlit as st
-from typing import Generator, Optional, List, Dict
+from typing import Generator, Optional, List, Dict, Tuple
 import os
+import re
+from datetime import datetime, timedelta
 
 # Try to import the new google-genai SDK
 try:
@@ -24,6 +27,125 @@ if not GENAI_AVAILABLE:
         GENAI_OLD_AVAILABLE = False
 else:
     GENAI_OLD_AVAILABLE = False
+
+
+# =============================================================================
+# TOKEN USAGE TRACKING AND LIMITS
+# =============================================================================
+
+# Gemini Flash pricing (approximate):
+# Input: $0.075 per 1M tokens
+# Output: $0.30 per 1M tokens
+PRICE_PER_INPUT_TOKEN = 0.075 / 1_000_000
+PRICE_PER_OUTPUT_TOKEN = 0.30 / 1_000_000
+
+# Monthly budget limit per user
+MONTHLY_BUDGET_LIMIT = 1.00  # $1.00 per user per month
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count (roughly 4 chars = 1 token for English)."""
+    if not text:
+        return 0
+    return len(text) // 4
+
+
+def get_user_usage_key() -> str:
+    """Get the session state key for current user's token usage."""
+    user_id = st.session_state.get('user_id', 'anonymous')
+    month_key = datetime.now().strftime('%Y-%m')
+    return f"ai_usage_{user_id}_{month_key}"
+
+
+def get_user_monthly_usage() -> Dict:
+    """Get current user's monthly token usage."""
+    key = get_user_usage_key()
+    if key not in st.session_state:
+        st.session_state[key] = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'total_cost': 0.0,
+            'request_count': 0,
+            'last_reset': datetime.now().isoformat()
+        }
+    return st.session_state[key]
+
+
+def track_token_usage(input_tokens: int, output_tokens: int):
+    """Track token usage for the current user."""
+    usage = get_user_monthly_usage()
+    usage['input_tokens'] += input_tokens
+    usage['output_tokens'] += output_tokens
+    usage['total_cost'] = (
+        usage['input_tokens'] * PRICE_PER_INPUT_TOKEN +
+        usage['output_tokens'] * PRICE_PER_OUTPUT_TOKEN
+    )
+    usage['request_count'] += 1
+
+
+def check_usage_limit() -> Tuple[bool, str]:
+    """
+    Check if user is within usage limits.
+
+    Returns:
+        Tuple of (is_allowed, message)
+    """
+    usage = get_user_monthly_usage()
+    remaining = MONTHLY_BUDGET_LIMIT - usage['total_cost']
+
+    if remaining <= 0:
+        return False, f"Monthly AI budget exhausted (${MONTHLY_BUDGET_LIMIT:.2f}/month). Resets next month."
+
+    if remaining < 0.10:
+        return True, f"Warning: Only ${remaining:.2f} remaining this month."
+
+    return True, ""
+
+
+def get_usage_display() -> Dict:
+    """Get usage stats for display."""
+    usage = get_user_monthly_usage()
+    return {
+        'requests': usage['request_count'],
+        'cost': usage['total_cost'],
+        'remaining': max(0, MONTHLY_BUDGET_LIMIT - usage['total_cost']),
+        'limit': MONTHLY_BUDGET_LIMIT,
+        'percent_used': min(100, (usage['total_cost'] / MONTHLY_BUDGET_LIMIT) * 100)
+    }
+
+
+# =============================================================================
+# RESPONSE CLEANING
+# =============================================================================
+
+def clean_response(text: str) -> str:
+    """
+    Clean AI response to fix common markdown issues.
+    """
+    if not text:
+        return text
+
+    # Fix broken bold markers: ** text** or **text ** -> **text**
+    text = re.sub(r'\*\*\s+', '**', text)
+    text = re.sub(r'\s+\*\*', '**', text)
+
+    # Fix broken italic markers: * text* -> *text*
+    text = re.sub(r'(?<!\*)\*\s+', '*', text)
+    text = re.sub(r'\s+\*(?!\*)', '*', text)
+
+    # Fix orphaned asterisks (single * not part of markdown)
+    text = re.sub(r'(?<!\*)\*(?!\*)', '', text)
+
+    # Fix double spaces
+    text = re.sub(r'  +', ' ', text)
+
+    # Fix broken list items
+    text = re.sub(r'\n\s*-\s*\n', '\n', text)
+
+    # Ensure proper spacing around headers
+    text = re.sub(r'(#{1,6})\s*([^\n]+)', r'\1 \2', text)
+
+    return text.strip()
 
 
 class GeminiClient:
@@ -137,15 +259,35 @@ class GeminiClient:
             The generated response text
         """
         if not self.is_available:
-            return f"AI nicht verfügbar: {self.error_message}"
+            return f"AI not available: {self.error_message}"
+
+        # Check usage limit
+        allowed, limit_msg = check_usage_limit()
+        if not allowed:
+            return limit_msg
 
         try:
+            # Estimate input tokens
+            input_text = (system_instruction or "") + prompt
+            if chat_history:
+                input_text += " ".join(msg.get("content", "") for msg in chat_history)
+            input_tokens = estimate_tokens(input_text)
+
+            # Generate response
             if self.is_new_sdk:
-                return self._generate_new_sdk(prompt, system_instruction, chat_history, temperature, max_tokens)
+                response = self._generate_new_sdk(prompt, system_instruction, chat_history, temperature, max_tokens)
             else:
-                return self._generate_old_sdk(prompt, system_instruction, chat_history, temperature, max_tokens)
+                response = self._generate_old_sdk(prompt, system_instruction, chat_history, temperature, max_tokens)
+
+            # Track usage
+            output_tokens = estimate_tokens(response)
+            track_token_usage(input_tokens, output_tokens)
+
+            # Clean and return response
+            return clean_response(response)
+
         except Exception as e:
-            return f"Fehler bei der AI-Anfrage: {str(e)}"
+            return f"Error processing AI request: {str(e)}"
 
     def _generate_new_sdk(
         self,

@@ -7,7 +7,7 @@ import streamlit as st
 import ui_components as ui
 from typing import List, Dict
 from modules.ai_context import AIContextBuilder, CASHFLOW_ENGINE_KNOWLEDGE
-from modules.ai_client import get_gemini_client, GeminiClient
+from modules.ai_client import get_gemini_client, GeminiClient, get_usage_display, check_usage_limit
 
 
 def page_ai_analyst(full_df):
@@ -37,7 +37,7 @@ def page_ai_analyst(full_df):
 
     # --- STATUS BAR ---
     with st.container(border=True):
-        col_status, col_model, col_data = st.columns([2, 2, 2])
+        col_status, col_model, col_data, col_usage = st.columns([2, 2, 2, 2])
 
         with col_status:
             if client_status['available']:
@@ -59,6 +59,15 @@ def page_ai_analyst(full_df):
                 st.success(f"**Data**: {stats['strategies']} strategies, {stats['trades']:,} trades")
             else:
                 st.warning("**Data**: No data loaded")
+
+        with col_usage:
+            usage = get_usage_display()
+            if usage['percent_used'] >= 90:
+                st.error(f"**Budget**: ${usage['remaining']:.2f} left")
+            elif usage['percent_used'] >= 70:
+                st.warning(f"**Budget**: ${usage['remaining']:.2f} left")
+            else:
+                st.info(f"**Budget**: ${usage['remaining']:.2f} / ${usage['limit']:.2f}")
 
     # --- API KEY INPUT (if not configured) ---
     if not client_status['has_api_key']:
@@ -233,12 +242,15 @@ def _process_user_input(user_input: str, client: GeminiClient, full_df):
 
 ---
 
-IMPORTANT:
-- Respond in the user's language (German if German question, English if English question)
-- Reference the specific data and numbers from the context
-- Provide concrete, actionable recommendations
-- If data is missing, explain which analysis the user should run
-- Format your response clearly with Markdown
+RESPONSE FORMAT RULES:
+- Respond in the user's language (German if German, English if English)
+- Use simple formatting only: headers with ##, lists with -, bold with **text**
+- NO complex markdown, NO tables, NO code blocks unless showing code
+- Write numbers clearly: $100,000 not $100.000
+- Keep responses concise and scannable
+- Use bullet points for lists
+- Reference specific data from the context above
+- If data is missing, explain which analysis to run
 """
 
     # Convert chat history for API

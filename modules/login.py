@@ -230,33 +230,52 @@ def show_login_page():
 
         /* --- MOBILE (max-width: 480px) --- */
         @media screen and (max-width: 480px) {
-            /* Force single column - hide marketing panel */
+            /* CRITICAL: Hide marketing panel completely - override position:fixed */
+            .marketing-panel,
+            div.marketing-panel,
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child .marketing-panel {
+                display: none !important;
+                visibility: hidden !important;
+                position: absolute !important;
+                left: -9999px !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+                opacity: 0 !important;
+            }
+
+            /* Hide the right column container completely */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child,
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {
+                display: none !important;
+                visibility: hidden !important;
+                width: 0 !important;
+                max-width: 0 !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: hidden !important;
+            }
+
+            /* Force single column layout */
             [data-testid="stHorizontalBlock"] {
                 flex-direction: column !important;
+                width: 100% !important;
             }
 
-            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            /* Left column - full screen login, ensure it shows */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                display: flex !important;
+                visibility: visible !important;
                 min-width: 100% !important;
                 width: 100% !important;
+                max-width: 100% !important;
                 flex: 1 1 100% !important;
-            }
-
-            /* Hide marketing panel completely on mobile */
-            .marketing-panel {
-                display: none !important;
-            }
-
-            /* Also hide the right column container */
-            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
-                display: none !important;
-            }
-
-            /* Left column - full screen login */
-            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
                 padding: 30px 20px !important;
                 min-height: 100vh !important;
                 justify-content: flex-start !important;
-                padding-top: 60px !important;
+                padding-top: 40px !important;
+                background-color: #FFFFFF !important;
             }
 
             /* Welcome text - mobile friendly */

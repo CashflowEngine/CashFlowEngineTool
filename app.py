@@ -739,56 +739,62 @@ st.markdown("""
 
     /* --- MOBILE BREAKPOINT (max-width: 480px) --- */
     @media screen and (max-width: 480px) {
-        /* Sidebar - completely hidden on mobile, show toggle */
-        section[data-testid="stSidebar"] {
-            transform: translateX(-100%) !important;
-            position: fixed !important;
-            z-index: 9999 !important;
-            width: 280px !important;
-            min-width: 280px !important;
-            transition: transform 0.3s ease !important;
+        /* Sidebar - COMPLETELY HIDDEN on mobile by default */
+        section[data-testid="stSidebar"],
+        [data-testid="stSidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
         }
 
-        /* When sidebar is expanded on mobile */
-        section[data-testid="stSidebar"][aria-expanded="true"] {
-            transform: translateX(0) !important;
-        }
-
-        /* Show sidebar toggle button on mobile */
+        /* Hide ALL sidebar toggle buttons on mobile */
         [data-testid="stSidebarCollapseButton"],
         [data-testid="collapsedControl"],
-        button[kind="header"] {
-            display: flex !important;
-            visibility: visible !important;
-            position: fixed !important;
-            top: 10px !important;
-            left: 10px !important;
-            z-index: 10000 !important;
-            background-color: #302BFF !important;
-            border-radius: 8px !important;
-            padding: 8px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+        [data-testid="stSidebarCollapsedControl"],
+        button[kind="header"],
+        [data-testid="baseButton-header"] {
+            display: none !important;
+            visibility: hidden !important;
         }
 
-        [data-testid="stSidebarCollapseButton"] svg,
-        [data-testid="collapsedControl"] svg,
-        button[kind="header"] svg {
-            color: #FFFFFF !important;
-            fill: #FFFFFF !important;
+        /* Main content - full width on mobile, no sidebar margin */
+        .main,
+        .stMain,
+        [data-testid="stMain"] {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+            width: 100% !important;
         }
 
-        /* Main content - full width on mobile */
-        .main .block-container {
+        .main .block-container,
+        .stMainBlockContainer,
+        [data-testid="stAppViewBlockContainer"] {
             padding-left: 16px !important;
             padding-right: 16px !important;
             max-width: 100% !important;
+            margin-left: 0 !important;
+            padding-bottom: 80px !important; /* Space for footer */
         }
 
-        /* Footer - full width on mobile */
+        /* Footer - static position on mobile, not overlaying content */
         .footer {
+            position: fixed !important;
+            bottom: 0 !important;
             left: 0 !important;
+            right: 0 !important;
             width: 100% !important;
-            padding: 10px 16px !important;
+            padding: 8px 16px !important;
+            background-color: #F9FAFB !important;
+            border-top: 1px solid #E5E7EB !important;
+            z-index: 999 !important;
+            font-size: 9px !important;
         }
 
         /* Hero cards - stacked full width */

@@ -133,7 +133,7 @@ def page_ai_analyst(full_df):
                     content = message.get("content", "")
 
                     if role == "user":
-                        with st.chat_message("user"):
+                        with st.chat_message("user", avatar="👤"):
                             st.markdown(content)
                     else:
                         with st.chat_message("assistant", avatar="🤖"):

@@ -183,9 +183,13 @@ class AIContextBuilder:
     def build_strategy_performance(df: pd.DataFrame) -> str:
         """Baut Performance-Tabelle pro Strategie."""
         if df is None or df.empty or 'strategy' not in df.columns:
-            return ""
+            return "Keine Strategie-Daten verfügbar."
 
         lines = ["\n## STRATEGIE PERFORMANCE\n"]
+        lines.append(f"**Anzahl Strategien im Portfolio: {len(df['strategy'].unique())}**\n")
+
+        # Collect stats for ranking
+        strategy_stats = []
 
         for strategy in sorted(df['strategy'].unique()):
             strat_df = df[df['strategy'] == strategy]
@@ -225,30 +229,70 @@ class AIContextBuilder:
 - **Max Drawdown**: {max_dd_pct*100:.1f}% | **MAR**: {mar:.2f}
 - **Avg Margin**: ${avg_margin:,.0f}
 """)
+            # Store for ranking
+            strategy_stats.append({
+                'name': strategy,
+                'pnl': total_pnl,
+                'mar': mar,
+                'win_rate': win_rate,
+                'profit_factor': profit_factor
+            })
+
+        # Add ranking summary
+        if strategy_stats:
+            best_pnl = max(strategy_stats, key=lambda x: x['pnl'])
+            worst_pnl = min(strategy_stats, key=lambda x: x['pnl'])
+            best_mar = max(strategy_stats, key=lambda x: x['mar'])
+            worst_mar = min(strategy_stats, key=lambda x: x['mar'])
+
+            lines.append(f"""
+## STRATEGIE-RANKING
+
+**Beste Strategie (nach P&L)**: {best_pnl['name']} mit ${best_pnl['pnl']:,.0f}
+**Schlechteste Strategie (nach P&L)**: {worst_pnl['name']} mit ${worst_pnl['pnl']:,.0f}
+**Beste Strategie (nach MAR)**: {best_mar['name']} mit MAR {best_mar['mar']:.2f}
+**Schlechteste Strategie (nach MAR)**: {worst_mar['name']} mit MAR {worst_mar['mar']:.2f}
+""")
 
         return "\n".join(lines)
 
     @staticmethod
     def build_correlation_context() -> str:
-        """Baut Korrelations-Kontext aus gecachten Daten."""
-        if 'correlation_matrix' not in st.session_state:
+        """Baut Korrelations-Kontext - aus Cache oder berechnet."""
+        # Try cache first
+        corr = st.session_state.get('correlation_matrix')
+
+        # If no cache, try to compute from DataFrame
+        if corr is None:
+            df = st.session_state.get('full_df', pd.DataFrame())
+            if df is not None and not df.empty and 'strategy' in df.columns and 'timestamp' in df.columns:
+                try:
+                    pivot = df.pivot_table(
+                        index=df['timestamp'].dt.date,
+                        columns='strategy',
+                        values='pnl',
+                        aggfunc='sum'
+                    ).fillna(0)
+                    if len(pivot.columns) >= 2:
+                        corr = pivot.corr()
+                except Exception:
+                    pass
+
+        if corr is None or not isinstance(corr, pd.DataFrame):
             return ""
 
-        corr = st.session_state['correlation_matrix']
+        # Finde hohe Korrelationen
+        high_corr = []
+        for i, col1 in enumerate(corr.columns):
+            for j, col2 in enumerate(corr.columns):
+                if i < j:
+                    val = corr.loc[col1, col2]
+                    if abs(val) > 0.7:
+                        risk = "KRITISCH" if abs(val) > 0.85 else "WARNUNG"
+                        high_corr.append(f"- {col1} ↔ {col2}: {val:.2f} ({risk})")
 
-        if isinstance(corr, pd.DataFrame):
-            # Finde hohe Korrelationen
-            high_corr = []
-            for i, col1 in enumerate(corr.columns):
-                for j, col2 in enumerate(corr.columns):
-                    if i < j:
-                        val = corr.loc[col1, col2]
-                        if abs(val) > 0.7:
-                            risk = "KRITISCH" if abs(val) > 0.85 else "WARNUNG"
-                            high_corr.append(f"- {col1} ↔ {col2}: {val:.2f} ({risk})")
-
-            if high_corr:
-                return f"""
+        if high_corr:
+            return f"""
 ## KORRELATIONS-ANALYSE
 
 **Hohe Korrelationen gefunden:**
@@ -290,7 +334,7 @@ class AIContextBuilder:
     def build_full_context(current_page: Optional[str] = None) -> str:
         """
         Baut den kompletten Kontext für eine AI-Anfrage.
-        Nutzt vorberechnete Daten wenn verfügbar.
+        IMMER direkt aus DataFrame für Zuverlässigkeit.
 
         Args:
             current_page: Die aktuelle Seite (für kontextspezifische Hilfe)
@@ -298,26 +342,15 @@ class AIContextBuilder:
         Returns:
             Vollständiger Kontext-String für den AI-Prompt
         """
-        # Check if precomputed data is available
-        import precompute
-
         df = st.session_state.get('full_df', pd.DataFrame())
-        if precompute.is_cache_valid(df):
-            # Use precomputed data for faster context building
-            context_parts = [
-                AIContextBuilder._build_precomputed_context(),
-                AIContextBuilder.build_monte_carlo_context(),
-            ]
-        else:
-            # Fallback: compute on the fly
-            df = st.session_state.get('full_df', pd.DataFrame())
-            context_parts = [
-                AIContextBuilder.get_availability_summary(),
-                AIContextBuilder.build_portfolio_overview(df),
-                AIContextBuilder.build_strategy_performance(df),
-                AIContextBuilder.build_correlation_context(),
-                AIContextBuilder.build_monte_carlo_context(),
-            ]
+
+        # ALWAYS build context directly from DataFrame for reliability
+        context_parts = [
+            AIContextBuilder.build_portfolio_overview(df),
+            AIContextBuilder.build_strategy_performance(df),
+            AIContextBuilder.build_correlation_context(),
+            AIContextBuilder.build_monte_carlo_context(),
+        ]
 
         # Seiten-spezifischer Kontext
         if current_page:

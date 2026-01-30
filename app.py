@@ -1272,6 +1272,26 @@ else:
 
 current_page_val = st.session_state.navigate_to_page
 
+# --- MOBILE HAMBURGER MENU (HTML) ---
+# Inject hamburger button for authenticated users (mobile only, hidden via CSS on desktop)
+if st.session_state.is_authenticated:
+    st.markdown("""
+    <button class="hamburger-menu" onclick="document.body.classList.toggle('mobile-sidebar-open')" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="mobile-sidebar-overlay" onclick="document.body.classList.remove('mobile-sidebar-open')"></div>
+    <script>
+        // Close sidebar when menu item clicked
+        document.addEventListener('click', function(e) {
+            if (e.target.closest && e.target.closest('[data-testid="stSidebar"] label')) {
+                setTimeout(function() {
+                    document.body.classList.remove('mobile-sidebar-open');
+                }, 150);
+            }
+        });
+    </script>
+    """, unsafe_allow_html=True)
+
 # --- SIDEBAR LOGIC ---
 # Hide sidebar ONLY on login page (not authenticated) - show on landing and all other pages
 if not st.session_state.is_authenticated:

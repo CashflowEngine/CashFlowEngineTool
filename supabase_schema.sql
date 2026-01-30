@@ -218,3 +218,79 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.analyses TO authenticated;
 -- ============================================================
 -- Your database is now configured for multi-user authentication.
 -- Each user will only see their own data.
+
+
+-- ============================================================
+-- STEP 9: Global Strategy DNA Table (shared across all users)
+-- ============================================================
+
+-- Create strategy_dna table for shared strategy classifications
+CREATE TABLE IF NOT EXISTS public.strategy_dna (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    strategy_name TEXT NOT NULL UNIQUE,  -- Unique strategy identifier
+    category TEXT,                        -- Workhorse, Airbag, Opportunist
+    option_strategy TEXT,                 -- Iron Condor, Butterfly, etc.
+    delta_long NUMERIC,                   -- Delta exposure long
+    delta_short NUMERIC,                  -- Delta exposure short
+    gamma_exposure NUMERIC,               -- Gamma exposure
+    theta_exposure NUMERIC,               -- Theta exposure
+    vega_exposure NUMERIC,                -- Vega exposure
+    avg_dte INTEGER,                      -- Average days to expiration
+    typical_margin NUMERIC,               -- Typical margin requirement
+    notes TEXT,                           -- Additional notes
+    created_by UUID REFERENCES auth.users(id),  -- Who first added this
+    updated_by UUID REFERENCES auth.users(id),  -- Who last updated this
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    confidence_score INTEGER DEFAULT 1    -- How many users confirmed this classification
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_strategy_dna_name ON public.strategy_dna(strategy_name);
+CREATE INDEX IF NOT EXISTS idx_strategy_dna_category ON public.strategy_dna(category);
+
+-- Comments for documentation
+COMMENT ON TABLE public.strategy_dna IS 'Global strategy DNA classifications shared across all users';
+COMMENT ON COLUMN public.strategy_dna.confidence_score IS 'Number of users who confirmed this classification';
+
+-- Enable RLS on strategy_dna (but allow reads for all authenticated users)
+ALTER TABLE public.strategy_dna ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can view strategy DNA" ON public.strategy_dna;
+DROP POLICY IF EXISTS "Authenticated users can insert strategy DNA" ON public.strategy_dna;
+DROP POLICY IF EXISTS "Authenticated users can update strategy DNA" ON public.strategy_dna;
+
+-- Everyone can read the global DNA database
+CREATE POLICY "Anyone can view strategy DNA"
+    ON public.strategy_dna FOR SELECT
+    USING (true);
+
+-- Authenticated users can add new strategies
+CREATE POLICY "Authenticated users can insert strategy DNA"
+    ON public.strategy_dna FOR INSERT
+    WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Authenticated users can update strategies
+CREATE POLICY "Authenticated users can update strategy DNA"
+    ON public.strategy_dna FOR UPDATE
+    USING (auth.uid() IS NOT NULL);
+
+-- Grant permissions
+GRANT SELECT ON public.strategy_dna TO anon, authenticated;
+GRANT INSERT, UPDATE ON public.strategy_dna TO authenticated;
+
+-- Function to update timestamp on strategy_dna changes
+CREATE OR REPLACE FUNCTION public.handle_strategy_dna_updated()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for strategy_dna updates
+DROP TRIGGER IF EXISTS on_strategy_dna_updated ON public.strategy_dna;
+CREATE TRIGGER on_strategy_dna_updated
+    BEFORE UPDATE ON public.strategy_dna
+    FOR EACH ROW EXECUTE FUNCTION public.handle_strategy_dna_updated();

@@ -119,6 +119,9 @@ def show_landing_page():
                         st.session_state['full_df'] = pd.concat(dfs, ignore_index=True)
                         st.session_state['bt_filenames'] = ", ".join([f.name for f in bt_files])
 
+                        # Load global strategy DNA and merge into session
+                        db.merge_global_dna_to_session()
+
                     if live_files:
                         dfs_live = []
                         for f in live_files:
@@ -157,7 +160,7 @@ def show_landing_page():
 
                             analysis_id = options[selected_option]
                             user_id = db.get_current_user_id()
-                            bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+                            bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
                             if bt_df is not None:
                                 st.session_state['full_df'] = bt_df
@@ -174,6 +177,10 @@ def show_landing_page():
                                     st.warning(f"Analytics pre-computation skipped: {e}")
 
                                 ui.hide_loading_overlay()
+
+                                if has_calculations:
+                                    st.toast("Loaded with Monte Carlo & Portfolio Builder settings!")
+
                                 st.rerun()
                             else:
                                 ui.hide_loading_overlay()
@@ -246,9 +253,7 @@ def show_landing_page():
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
-                            # Set radio button to matching display key
-                            radio_key = page_to_radio_key.get(target_page, target_page)
-                            st.session_state["main_nav_radio"] = radio_key
+                            # Note: Don't set main_nav_radio directly - it will be synced on rerun
                             st.rerun()
                         else:
                             st.session_state.show_data_warning = True

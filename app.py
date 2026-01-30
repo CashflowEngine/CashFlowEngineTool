@@ -38,6 +38,11 @@ st.set_page_config(
 # Google OAuth uses PKCE code exchange which is handled later in the file.
 
 # --- 2. CORPORATE IDENTITY CSS ---
+# Viewport Meta Tag for responsive design (CRITICAL for mobile)
+st.markdown("""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+""", unsafe_allow_html=True)
+
 # SEO Meta Tags
 st.markdown("""
 <meta name="description" content="Professional options trading analytics platform. Backtest 0DTE strategies, run Monte Carlo simulations, analyze Iron Condors & Credit Spreads. Free options backtesting software for SPX, SPY, QQQ traders.">
@@ -669,6 +674,389 @@ st.markdown("""
         visibility: hidden !important;
     }
 
+    /* =================================================================
+       RESPONSIVE DESIGN - MOBILE & TABLET VIEWS
+       These styles only apply on smaller screens and do not affect desktop
+       ================================================================= */
+
+    /* Default: Hide mobile-only elements on all screens */
+    .hamburger-menu,
+    .mobile-sidebar-overlay {
+        display: none !important;
+    }
+
+    /* --- TABLET BREAKPOINT (max-width: 768px) --- */
+    @media screen and (max-width: 768px) {
+        /* Sidebar - narrower on tablet */
+        section[data-testid="stSidebar"] {
+            width: 220px !important;
+            min-width: 220px !important;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            width: 220px !important;
+        }
+
+        /* Footer adjustment for narrower sidebar */
+        .footer {
+            left: 220px !important;
+            width: calc(100% - 220px) !important;
+        }
+
+        /* Hero cards - slightly smaller */
+        .hero-card {
+            height: 120px !important;
+            padding: 12px 10px !important;
+        }
+
+        .hero-value {
+            font-size: 22px !important;
+        }
+
+        .hero-label {
+            font-size: 10px !important;
+        }
+
+        /* Page headers smaller */
+        h1, .page-header, [data-testid="stMarkdownContainer"] h1 {
+            font-size: 1.5rem !important;
+        }
+
+        h2, [data-testid="stMarkdownContainer"] h2 {
+            font-size: 1.25rem !important;
+        }
+
+        /* Feature tiles - smaller */
+        .feature-tile {
+            height: 160px !important;
+            padding: 4px !important;
+        }
+
+        .feature-title {
+            font-size: 14px !important;
+            height: 32px !important;
+        }
+
+        .feature-desc {
+            font-size: 12px !important;
+        }
+
+        /* Streamlit columns - force 2 columns max on tablet */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 45% !important;
+            flex: 1 1 45% !important;
+        }
+
+        /* Container padding reduced */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 16px !important;
+            margin-bottom: 16px !important;
+        }
+
+        /* Buttons - touch friendly */
+        div.stButton > button {
+            min-height: 44px !important;
+            padding: 10px 16px !important;
+        }
+    }
+
+    /* --- MOBILE BREAKPOINT (max-width: 480px) --- */
+    @media screen and (max-width: 480px) {
+        /* Sidebar - Hidden by default, shown when .mobile-sidebar-open is added to body */
+        section[data-testid="stSidebar"],
+        [data-testid="stSidebar"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+            height: 100vh !important;
+            z-index: 10000 !important;
+            background-color: #F9FAFB !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease !important;
+            box-shadow: none !important;
+            overflow-y: auto !important;
+        }
+
+        /* Show sidebar when toggle is active */
+        body.mobile-sidebar-open section[data-testid="stSidebar"],
+        body.mobile-sidebar-open [data-testid="stSidebar"] {
+            transform: translateX(0) !important;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
+        }
+
+        /* Mobile overlay when sidebar is open */
+        .mobile-sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.mobile-sidebar-open .mobile-sidebar-overlay {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Hamburger Menu Button */
+        .hamburger-menu {
+            display: flex !important;
+            position: fixed !important;
+            top: 12px !important;
+            left: 12px !important;
+            z-index: 10001 !important;
+            width: 44px !important;
+            height: 44px !important;
+            background-color: #302BFF !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 5px !important;
+            box-shadow: 0 2px 8px rgba(48, 43, 255, 0.3) !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .hamburger-menu:hover {
+            background-color: #2521c9 !important;
+        }
+
+        .hamburger-menu span {
+            display: block !important;
+            width: 20px !important;
+            height: 2px !important;
+            background-color: #FFFFFF !important;
+            border-radius: 2px !important;
+            transition: all 0.3s ease !important;
+        }
+
+        /* Hamburger animation when open */
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px) !important;
+        }
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(2) {
+            opacity: 0 !important;
+        }
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px) !important;
+        }
+
+        /* Hide Streamlit's own sidebar toggle */
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"],
+        button[kind="header"],
+        [data-testid="baseButton-header"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Main content - full width on mobile, no sidebar margin */
+        .main,
+        .stMain,
+        [data-testid="stMain"] {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+            width: 100% !important;
+        }
+
+        .main .block-container,
+        .stMainBlockContainer,
+        [data-testid="stAppViewBlockContainer"] {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            padding-top: 60px !important; /* Space for hamburger menu */
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            padding-bottom: 80px !important; /* Space for footer */
+        }
+
+        /* Footer - static position on mobile, not overlaying content */
+        .footer {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            padding: 8px 16px !important;
+            background-color: #F9FAFB !important;
+            border-top: 1px solid #E5E7EB !important;
+            z-index: 999 !important;
+            font-size: 9px !important;
+        }
+
+        /* Hero cards - stacked full width */
+        .hero-card {
+            height: auto !important;
+            min-height: 100px !important;
+            padding: 16px !important;
+            margin-bottom: 12px !important;
+        }
+
+        .hero-value {
+            font-size: 24px !important;
+        }
+
+        .hero-label {
+            font-size: 11px !important;
+            margin-bottom: 6px !important;
+        }
+
+        /* Page headers - mobile friendly */
+        h1, .page-header, [data-testid="stMarkdownContainer"] h1 {
+            font-size: 1.25rem !important;
+            line-height: 1.3 !important;
+        }
+
+        h2, [data-testid="stMarkdownContainer"] h2 {
+            font-size: 1.1rem !important;
+        }
+
+        /* Feature tiles - vertical stack */
+        .feature-tile {
+            height: auto !important;
+            min-height: 120px !important;
+            padding: 16px !important;
+        }
+
+        .feature-title {
+            font-size: 14px !important;
+            height: auto !important;
+            margin-bottom: 8px !important;
+        }
+
+        /* Force single column layout on mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+            width: 100% !important;
+        }
+
+        /* Container padding - mobile */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 12px !important;
+            margin-bottom: 12px !important;
+            border-radius: 8px !important;
+        }
+
+        /* Buttons - larger touch targets */
+        div.stButton > button {
+            min-height: 48px !important;
+            padding: 12px 20px !important;
+            font-size: 14px !important;
+            width: 100% !important;
+        }
+
+        /* Input fields - larger on mobile */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div {
+            min-height: 44px !important;
+            font-size: 16px !important; /* Prevents iOS zoom */
+        }
+
+        /* Tabs - scrollable on mobile */
+        .stTabs [data-baseweb="tab-list"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+        }
+
+        /* Expanders - full width */
+        .streamlit-expanderHeader {
+            padding: 12px !important;
+        }
+
+        /* Metrics - stacked */
+        [data-testid="stMetric"] {
+            padding: 8px !important;
+        }
+
+        [data-testid="stMetricValue"] {
+            font-size: 20px !important;
+        }
+
+        /* DataFrames - horizontal scroll */
+        .stDataFrame {
+            overflow-x: auto !important;
+        }
+
+        /* Charts - responsive */
+        [data-testid="stPlotlyChart"] {
+            width: 100% !important;
+        }
+
+        /* Mobile info banner */
+        .mobile-info-banner {
+            display: block !important;
+            background: linear-gradient(135deg, #302BFF 0%, #7B2BFF 100%) !important;
+            color: #FFFFFF !important;
+            padding: 12px 16px !important;
+            border-radius: 8px !important;
+            margin-bottom: 16px !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 13px !important;
+            text-align: center !important;
+        }
+    }
+
+    /* Desktop: Hide mobile-only elements */
+    @media screen and (min-width: 481px) {
+        .mobile-info-banner {
+            display: none !important;
+        }
+        .hamburger-menu {
+            display: none !important;
+        }
+        .mobile-sidebar-overlay {
+            display: none !important;
+        }
+    }
+
+    /* --- VERY SMALL SCREENS (max-width: 360px) --- */
+    @media screen and (max-width: 360px) {
+        .hero-value {
+            font-size: 20px !important;
+        }
+
+        h1, .page-header {
+            font-size: 1.1rem !important;
+        }
+
+        div.stButton > button {
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+        }
+
+        .main .block-container {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+    }
+
 </style>
 <script>
     // 4TH ATTEMPT: Use FontFace API to ensure Exo 2 is loaded before applying
@@ -734,15 +1122,14 @@ st.markdown("""
             debounceTimer = setTimeout(applyExo2Fonts, 50);
         });
 
-        // Start observing when DOM is ready
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        } else {
-            document.addEventListener('DOMContentLoaded', function() {
-                observer.observe(document.body, { childList: true, subtree: true });
-            });
-        }
-    })();
+    // Use MutationObserver to catch any new elements
+    const observer = new MutationObserver(function(mutations) {
+        applyExo2Fonts();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Mobile hamburger menu is injected via HTML below (for authenticated users only)
+    // This ensures the button exists in DOM before any JS tries to attach listeners
 </script>
 """, unsafe_allow_html=True)
 
@@ -824,6 +1211,65 @@ else:
 
 current_page_val = st.session_state.navigate_to_page
 
+# --- MOBILE HAMBURGER MENU (HTML) ---
+# Inject hamburger button for authenticated users (mobile only, hidden via CSS on desktop)
+if st.session_state.is_authenticated:
+    st.markdown("""
+    <button class="hamburger-menu" id="mobileMenuBtn" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="mobile-sidebar-overlay" id="mobileOverlay"></div>
+    <script>
+        // Wait for DOM to be ready, then attach event listeners
+        (function() {
+            function setupMobileMenu() {
+                var btn = document.getElementById('mobileMenuBtn');
+                var overlay = document.getElementById('mobileOverlay');
+
+                if (btn && !btn.hasAttribute('data-initialized')) {
+                    btn.setAttribute('data-initialized', 'true');
+
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        document.body.classList.toggle('mobile-sidebar-open');
+                        console.log('Hamburger clicked, sidebar open:', document.body.classList.contains('mobile-sidebar-open'));
+                    });
+
+                    btn.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        document.body.classList.toggle('mobile-sidebar-open');
+                    });
+                }
+
+                if (overlay && !overlay.hasAttribute('data-initialized')) {
+                    overlay.setAttribute('data-initialized', 'true');
+
+                    overlay.addEventListener('click', function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    });
+                }
+            }
+
+            // Run immediately
+            setupMobileMenu();
+
+            // Also run after short delays to ensure elements are in DOM
+            setTimeout(setupMobileMenu, 100);
+            setTimeout(setupMobileMenu, 500);
+
+            // Close sidebar when menu item clicked
+            document.addEventListener('click', function(e) {
+                if (e.target.closest && e.target.closest('[data-testid="stSidebar"] label')) {
+                    setTimeout(function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    }, 150);
+                }
+            });
+        })();
+    </script>
+    """, unsafe_allow_html=True)
+
 # --- SIDEBAR LOGIC ---
 # Hide sidebar ONLY on login page (not authenticated) - show on landing and all other pages
 if not st.session_state.is_authenticated:
@@ -862,12 +1308,16 @@ else:
 
         st.write("")
 
-        # Initialize radio button state if not exists
+        # Sync radio button with navigate_to_page BEFORE rendering widget
+        # This ensures programmatic navigation (from landing page links) updates the radio
+        target_radio_key = current_key  # current_key is derived from navigate_to_page
         if "main_nav_radio" not in st.session_state:
-            st.session_state["main_nav_radio"] = current_key
+            st.session_state["main_nav_radio"] = target_radio_key
+        elif st.session_state.get("main_nav_radio") != target_radio_key:
+            # navigate_to_page was changed programmatically, sync the radio
+            st.session_state["main_nav_radio"] = target_radio_key
 
         # Navigation with current page indicator
-        # NOTE: Programmatic navigation must set BOTH navigate_to_page AND main_nav_radio directly
         selected_key = st.radio(
             "Navigation",
             menu_items,
@@ -883,15 +1333,6 @@ else:
 
         # Spacer to push content to bottom
         st.markdown("<div style='flex-grow: 1; min-height: 100px;'></div>", unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        # AI Assistant Widget (on all pages) - ABOVE Analysis Manager
-        try:
-            from modules.ai_analyst import render_ai_sidebar_widget
-            render_ai_sidebar_widget(current_page=current_page_val)
-        except Exception as e:
-            st.caption(f"AI: {e}")
 
         st.markdown("---")
 
@@ -941,7 +1382,7 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
-                st.session_state["main_nav_radio"] = "Start & Data"
+                # Note: main_nav_radio will be synced in app.py before widget renders on next rerun
                 st.rerun()
         # Don't use st.stop() - allow sidebar navigation to work
 

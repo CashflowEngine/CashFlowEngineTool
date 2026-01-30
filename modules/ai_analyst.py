@@ -7,7 +7,7 @@ import streamlit as st
 import ui_components as ui
 from typing import List, Dict
 from modules.ai_context import AIContextBuilder, CASHFLOW_ENGINE_KNOWLEDGE
-from modules.ai_client import get_gemini_client, GeminiClient
+from modules.ai_client import get_gemini_client, GeminiClient, get_usage_display, check_usage_limit
 
 
 def page_ai_analyst(full_df):
@@ -17,7 +17,7 @@ def page_ai_analyst(full_df):
     ui.inject_fonts()
     ui.render_page_header(
         "AI PORTFOLIO ANALYST",
-        "Frage die KI zu deinem Portfolio - auf Deutsch oder Englisch"
+        "Ask the AI about your portfolio - in English or German"
     )
 
     # Initialize chat history in session state
@@ -27,43 +27,56 @@ def page_ai_analyst(full_df):
     if 'ai_context_built' not in st.session_state:
         st.session_state.ai_context_built = False
 
+    # Initialize pending quick action
+    if 'pending_quick_action' not in st.session_state:
+        st.session_state.pending_quick_action = None
+
     # Get Gemini client
     client = get_gemini_client()
     client_status = client.get_status()
 
     # --- STATUS BAR ---
     with st.container(border=True):
-        col_status, col_model, col_data = st.columns([2, 2, 2])
+        col_status, col_model, col_data, col_usage = st.columns([2, 2, 2, 2])
 
         with col_status:
             if client_status['available']:
-                st.success(f"**AI Status**: Bereit")
+                st.success("**AI Status**: Ready")
             else:
-                st.error(f"**AI Status**: Nicht verfügbar")
+                st.error("**AI Status**: Not available")
                 if client_status['error']:
-                    st.caption(f"Fehler: {client_status['error']}")
+                    st.caption(f"Error: {client_status['error']}")
 
         with col_model:
             if client_status['model']:
-                st.info(f"**Modell**: {client_status['model']}")
+                st.info(f"**Model**: {client_status['model']}")
             else:
-                st.warning("**Modell**: Nicht konfiguriert")
+                st.warning("**Model**: Not configured")
 
         with col_data:
             stats = AIContextBuilder.get_quick_stats()
             if stats['status'] == 'ready':
-                st.success(f"**Daten**: {stats['strategies']} Strategien, {stats['trades']:,} Trades")
+                st.success(f"**Data**: {stats['strategies']} strategies, {stats['trades']:,} trades")
             else:
-                st.warning("**Daten**: Keine Daten geladen")
+                st.warning("**Data**: No data loaded")
+
+        with col_usage:
+            usage = get_usage_display()
+            if usage['percent_used'] >= 90:
+                st.error(f"**Budget**: ${usage['remaining']:.2f} left")
+            elif usage['percent_used'] >= 70:
+                st.warning(f"**Budget**: ${usage['remaining']:.2f} left")
+            else:
+                st.info(f"**Budget**: ${usage['remaining']:.2f} / ${usage['limit']:.2f}")
 
     # --- API KEY INPUT (if not configured) ---
     if not client_status['has_api_key']:
         with st.container(border=True):
-            st.warning("Kein API-Key gefunden. Bitte gib deinen Gemini API-Key ein:")
+            st.warning("No API key found. Please enter your Gemini API key:")
             api_key_input = st.text_input(
                 "Gemini API Key",
                 type="password",
-                help="Du findest deinen API-Key unter https://aistudio.google.com/app/apikey"
+                help="You can find your API key at https://aistudio.google.com/app/apikey"
             )
             if api_key_input:
                 st.session_state['temp_gemini_key'] = api_key_input
@@ -75,43 +88,92 @@ def page_ai_analyst(full_df):
     # Check if data is available
     if full_df is None or full_df.empty:
         with st.container(border=True):
-            st.warning("Bitte lade zuerst Daten hoch, damit die KI dein Portfolio analysieren kann.")
-            st.page_link("pages/landing.py", label="Zu Start & Data", icon="📊")
+            st.warning("Please upload data first so the AI can analyze your portfolio.")
+            st.page_link("pages/landing.py", label="Go to Start & Data", icon="📊")
         return
 
     # --- DATA AVAILABILITY INFO ---
-    with st.expander("Verfügbare Daten für die Analyse", expanded=False):
+    with st.expander("Available Data for Analysis", expanded=False):
         st.markdown(AIContextBuilder.get_availability_summary())
 
-    # --- QUICK ACTIONS ---
+    # --- QUICK ACTIONS as text links ---
+    st.markdown("""
+    <style>
+    .quick-action-link {
+        color: #302BFF !important;
+        text-decoration: none;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 0;
+        display: inline-block;
+    }
+    .quick-action-link:hover {
+        text-decoration: underline;
+    }
+    .quick-action-category {
+        font-weight: 600;
+        font-size: 13px;
+        color: #6B7280;
+        margin-top: 12px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     with st.container(border=True):
-        ui.section_header("QUICK ACTIONS", "Klicke für vorgefertigte Analysen")
+        ui.section_header("QUICK ACTIONS", "Click a link for instant analysis")
 
-        qa_col1, qa_col2, qa_col3, qa_col4 = st.columns(4)
+        # Define quick actions with categories
+        quick_actions = {
+            "Portfolio Overview": [
+                ("Portfolio Summary", "Give me a comprehensive overview of my portfolio. What are the key metrics, total P&L, and overall health?"),
+                ("Top Performers by P&L", "Which strategies have the highest total P&L? List the top 5 and explain their characteristics."),
+                ("Top Performers by MAR", "Which strategies have the best MAR ratio? Rank them and explain why they're efficient."),
+                ("Underperforming Strategies", "Identify the worst performing strategies. What's dragging down performance?"),
+            ],
+            "Risk Analysis": [
+                ("Find Portfolio Weaknesses", "Analyze my portfolio for weaknesses and biggest risks."),
+                ("Correlation & Cluster Risks", "Analyze correlations between strategies. Are there cluster risks?"),
+                ("Drawdown Analysis", "What are my max drawdowns? Which strategies have worst drawdown characteristics?"),
+                ("Risk-Adjusted Returns", "Compare Sharpe, Sortino, and MAR across all strategies."),
+            ],
+            "Optimization": [
+                ("Improvement Suggestions", "What concrete improvements would you recommend?"),
+                ("Position Sizing Review", "Am I over- or under-allocated to any strategies?"),
+                ("Kelly Criterion Sizing", "What would optimal Kelly Criterion sizing suggest?"),
+                ("Diversification Check", "How well diversified is my portfolio?"),
+            ],
+            "Monte Carlo": [
+                ("MC Results Summary", "Summarize Monte Carlo results and probability distributions."),
+                ("Worst Case Scenarios", "What worst-case scenarios should I prepare for?"),
+                ("Target Probability", "What's the probability of reaching my target returns?"),
+            ],
+        }
 
-        with qa_col1:
-            if st.button("Portfolio-Überblick", use_container_width=True, type="secondary"):
-                _add_user_message("Gib mir einen Überblick über mein Portfolio. Was sind die wichtigsten Kennzahlen?")
-                st.rerun()
+        # Render quick actions as text links in a compact format
+        for category, actions in quick_actions.items():
+            st.markdown(f'<div class="quick-action-category">{category}</div>', unsafe_allow_html=True)
 
-        with qa_col2:
-            if st.button("Schwachstellen finden", use_container_width=True, type="secondary"):
-                _add_user_message("Analysiere mein Portfolio auf Schwachstellen. Welche Strategien performen schlecht und wo sind die größten Risiken?")
-                st.rerun()
+            # Create columns for text link buttons
+            link_cols = st.columns(len(actions))
+            for idx, (label, prompt) in enumerate(actions):
+                with link_cols[idx]:
+                    # Use a minimal button styled as text
+                    if st.button(f"→ {label}", key=f"qa_{category}_{idx}", type="tertiary"):
+                        st.session_state.pending_quick_action = prompt
+                        st.rerun()
 
-        with qa_col3:
-            if st.button("Korrelations-Risiken", use_container_width=True, type="secondary"):
-                _add_user_message("Analysiere die Korrelationen zwischen meinen Strategien. Gibt es Klumpenrisiken?")
-                st.rerun()
-
-        with qa_col4:
-            if st.button("Verbesserungsvorschläge", use_container_width=True, type="secondary"):
-                _add_user_message("Welche konkreten Verbesserungen würdest du für mein Portfolio empfehlen?")
-                st.rerun()
+    # --- PROCESS PENDING QUICK ACTION ---
+    if st.session_state.pending_quick_action and client_status['available']:
+        pending_prompt = st.session_state.pending_quick_action
+        st.session_state.pending_quick_action = None
+        _process_user_input(pending_prompt, client, full_df)
 
     # --- CHAT INTERFACE ---
     with st.container(border=True):
-        ui.section_header("CHAT", "Stelle Fragen zu deinem Portfolio")
+        ui.section_header("CHAT", "Ask questions about your portfolio")
 
         # Display chat history
         chat_container = st.container(height=450)
@@ -122,8 +184,8 @@ def page_ai_analyst(full_df):
                 <div style="text-align: center; padding: 40px; color: #6B7280;">
                     <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
                     <div style="font-size: 16px;">
-                        Stelle eine Frage zu deinem Portfolio.<br>
-                        Die KI hat Zugriff auf alle deine Daten und Analysen.
+                        Ask a question about your portfolio.<br>
+                        The AI has access to all your data and analyses.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -133,14 +195,14 @@ def page_ai_analyst(full_df):
                     content = message.get("content", "")
 
                     if role == "user":
-                        with st.chat_message("user"):
+                        with st.chat_message("user", avatar="👤"):
                             st.markdown(content)
                     else:
                         with st.chat_message("assistant", avatar="🤖"):
                             st.markdown(content)
 
         # Chat input
-        user_input = st.chat_input("Frage zum Portfolio eingeben...")
+        user_input = st.chat_input("Enter your question...")
 
         if user_input:
             _process_user_input(user_input, client, full_df)
@@ -148,7 +210,7 @@ def page_ai_analyst(full_df):
     # --- CLEAR CHAT ---
     col_clear, col_space = st.columns([1, 4])
     with col_clear:
-        if st.button("Chat leeren", type="secondary"):
+        if st.button("Clear Chat", type="secondary"):
             st.session_state.ai_chat_history = []
             st.rerun()
 
@@ -180,12 +242,15 @@ def _process_user_input(user_input: str, client: GeminiClient, full_df):
 
 ---
 
-WICHTIG:
-- Antworte in der Sprache des Users (Deutsch wenn deutsche Frage, Englisch wenn englische Frage)
-- Beziehe dich auf die konkreten Daten und Zahlen aus dem Kontext
-- Gib konkrete, actionable Empfehlungen
-- Wenn Daten fehlen, erkläre welche Analyse der User durchführen sollte
-- Formatiere deine Antwort übersichtlich mit Markdown
+RESPONSE FORMAT RULES:
+- Respond in the user's language (German if German, English if English)
+- Use simple formatting only: headers with ##, lists with -, bold with **text**
+- NO complex markdown, NO tables, NO code blocks unless showing code
+- Write numbers clearly: $100,000 not $100.000
+- Keep responses concise and scannable
+- Use bullet points for lists
+- Reference specific data from the context above
+- If data is missing, explain which analysis to run
 """
 
     # Convert chat history for API
@@ -195,7 +260,7 @@ WICHTIG:
     ]
 
     # Generate response
-    with st.spinner("Analysiere..."):
+    with st.spinner("Analyzing..."):
         try:
             response = client.generate(
                 prompt=user_input,
@@ -214,82 +279,7 @@ WICHTIG:
         except Exception as e:
             st.session_state.ai_chat_history.append({
                 "role": "assistant",
-                "content": f"Entschuldigung, es gab einen Fehler bei der Verarbeitung: {str(e)}"
+                "content": f"Sorry, there was an error processing your request: {str(e)}"
             })
 
     st.rerun()
-
-
-# --- SIDEBAR WIDGET ---
-def render_ai_sidebar_widget(current_page: str = None):
-    """
-    Render a compact AI widget in the sidebar.
-    Called from app.py (already inside st.sidebar context).
-    """
-    # Initialize sidebar chat history
-    if 'sidebar_ai_response' not in st.session_state:
-        st.session_state.sidebar_ai_response = None
-
-    # Header
-    st.markdown("""
-        <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
-                    font-size: 18px; color: #302BFF; text-transform: uppercase;
-                    letter-spacing: 1px; margin-bottom: 8px; padding: 0 12px;">
-            🤖 AI Assistant
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Check data availability
-    stats = AIContextBuilder.get_quick_stats()
-    if stats['status'] != 'ready':
-        st.caption("Lade Daten um AI zu nutzen")
-        return
-
-    # Get client status
-    client = get_gemini_client()
-    client_status = client.get_status()
-
-    if not client_status['has_api_key']:
-        st.caption("⚠️ API-Key fehlt")
-        st.caption("Gehe zu AI Analyst Seite")
-        return
-
-    if not client_status['available']:
-        st.caption(f"⚠️ {client_status.get('error', 'Nicht verfügbar')}")
-        return
-
-    # Quick stats
-    st.caption(f"📊 {stats['strategies']} Strategien | {stats['trades']:,} Trades")
-
-    # Question input
-    quick_question = st.text_input(
-        "Frage:",
-        placeholder="z.B. 'Was ist mein MAR?'",
-        key="sidebar_ai_input",
-        label_visibility="collapsed"
-    )
-
-    # Ask button
-    if st.button("Fragen", key="sidebar_ai_ask", use_container_width=True, type="primary"):
-        if quick_question:
-            with st.spinner("Analysiere..."):
-                try:
-                    context = AIContextBuilder.build_full_context(current_page=current_page)
-                    system_instruction = f"{CASHFLOW_ENGINE_KNOWLEDGE}\n\n{context}\n\nAntworte kurz und prägnant (max 3 Sätze). Sprache: Deutsch wenn deutsche Frage."
-
-                    response = client.generate(
-                        prompt=quick_question,
-                        system_instruction=system_instruction,
-                        temperature=0.5,
-                        max_tokens=500
-                    )
-                    st.session_state.sidebar_ai_response = response
-                except Exception as e:
-                    st.session_state.sidebar_ai_response = f"Fehler: {str(e)}"
-
-    # Show response
-    if st.session_state.sidebar_ai_response:
-        st.markdown("---")
-        st.markdown(st.session_state.sidebar_ai_response)
-
-    st.caption("Für mehr → AI Analyst Seite")

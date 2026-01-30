@@ -394,6 +394,10 @@ def _save_with_feedback(name, bt_df, live_df, description):
     # Perform save
     success = db.save_analysis_to_db_enhanced(name, bt_df, live_df, description)
 
+    # Also sync strategy DNA to global database
+    if success and 'dna_cache' in st.session_state and st.session_state.dna_cache:
+        db.sync_session_dna_to_global()
+
     # Hide overlay
     hide_loading_overlay()
 
@@ -410,7 +414,11 @@ def _load_with_feedback(analysis_id, name):
     show_loading_overlay("LOADING FROM CLOUD", "Fetching your analysis data...")
 
     user_id = db.get_current_user_id()
-    bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+    bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+
+    # Merge global DNA if not already loaded from calculations
+    if not has_calculations:
+        db.merge_global_dna_to_session()
 
     hide_loading_overlay()
 
@@ -418,10 +426,16 @@ def _load_with_feedback(analysis_id, name):
         st.session_state['full_df'] = bt_df
         if live_df is not None:
             st.session_state['live_df'] = live_df
-        st.success(f"✓ Loaded successfully!")
+
+        # Show success message with calculation info
+        if has_calculations:
+            st.success(f"✓ Loaded successfully! (incl. Monte Carlo, Portfolio Builder settings)")
+        else:
+            st.success(f"✓ Loaded successfully!")
+
         time.sleep(0.5)
         st.session_state.navigate_to_page = "Portfolio Analytics"
-        st.session_state["main_nav_radio"] = "Portfolio Analytics"
+        # Note: main_nav_radio will be synced in app.py before widget renders
         st.rerun()
     else:
         st.error("Failed to load. Please try again.")

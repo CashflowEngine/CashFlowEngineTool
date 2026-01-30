@@ -408,8 +408,7 @@ def show_login_page():
                         st.session_state['otp_sent'] = False
                         st.session_state['otp_email'] = None
                         st.session_state.navigate_to_page = "Start & Data"
-                        # Note: Don't set main_nav_radio here - it will be synced in app.py
-                        # before the radio widget is created
+                        st.session_state._pending_nav_sync = "Start & Data"
                         st.rerun()
                     else:
                         st.session_state['auth_error'] = result['message']

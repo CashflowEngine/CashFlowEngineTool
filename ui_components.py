@@ -54,21 +54,29 @@ def render_page_header(title, subtitle=None):
     """Render a consistent page header with Exo 2 font - uses h1 tag like original."""
     inject_fonts()
 
-    # Use h1 tag with explicit font-family using !important to override Streamlit defaults
-    # Also add a class for JavaScript targeting and font-size for consistency
+    # Use h1 tag with inline style using cssText pattern for maximum override
+    # Include Arial Black as fallback for when Exo 2 hasn't loaded yet
     header_html = f"""
-    <h1 class="page-main-header exo2-heading" style='color: #4B5563 !important;
-        font-family: "Exo 2", sans-serif !important; font-weight: 800 !important;
-        text-transform: uppercase !important; margin-bottom: 0 !important;
-        letter-spacing: 2px !important; font-size: 2rem !important;'>{title}</h1>
+    <style>
+        .page-main-header {{
+            font-family: 'Exo 2', 'Arial Black', sans-serif !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 2px !important;
+            font-size: 2rem !important;
+            color: #4B5563 !important;
+            margin-bottom: 0 !important;
+            font-synthesis: none !important;
+        }}
+    </style>
+    <h1 class="page-main-header exo2-heading">{title}</h1>
     <script>
-        // Immediately apply font to ensure it renders correctly
+        // Immediately apply font with highest priority
         (function() {{
-            var h1 = document.querySelector('.page-main-header');
-            if (h1) {{
-                h1.style.setProperty('font-family', '"Exo 2", sans-serif', 'important');
-                h1.style.setProperty('font-weight', '800', 'important');
-            }}
+            var headers = document.querySelectorAll('.page-main-header');
+            headers.forEach(function(h1) {{
+                h1.style.cssText = 'font-family: "Exo 2", "Arial Black", sans-serif !important; font-weight: 800 !important; text-transform: uppercase !important; letter-spacing: 2px !important; font-size: 2rem !important; color: #4B5563 !important; margin-bottom: 0 !important;';
+            }});
         }})();
     </script>
     """

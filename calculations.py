@@ -126,7 +126,12 @@ def load_file_with_caching(uploaded_file):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_spx_benchmark(start_date, end_date):
-    try:
+    """Fetch SPX benchmark data with timeout protection."""
+    import concurrent.futures
+    import threading
+
+    def _fetch_data():
+        """Inner function to fetch data - runs in thread."""
         s_date = start_date - pd.Timedelta(days=5)
         s_str = s_date.strftime('%Y-%m-%d')
         e_str = end_date.strftime('%Y-%m-%d')
@@ -143,6 +148,18 @@ def fetch_spx_benchmark(start_date, end_date):
         else:
             if 'Close' in data.columns: return data['Close']
             return data.iloc[:, 0]
+
+    try:
+        # Use ThreadPoolExecutor with timeout to prevent hanging
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch_data)
+            try:
+                # 10 second timeout for the API call
+                result = future.result(timeout=10)
+                return result
+            except concurrent.futures.TimeoutError:
+                logger.warning("SPX benchmark fetch timed out after 10 seconds")
+                return None
     except Exception as e:
         logger.error(f"Failed to fetch SPX data: {e}")
         return None

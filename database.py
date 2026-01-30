@@ -69,6 +69,160 @@ def clean_df_for_json(df):
     df_clean = df_clean.replace({np.nan: None})
     return df_clean.to_dict(orient='records')
 
+
+def clean_value_for_json(value):
+    """Convert a value to JSON-serializable format."""
+    if value is None:
+        return None
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.int64, np.int32)):
+        return int(value)
+    if isinstance(value, (np.float64, np.float32)):
+        if np.isnan(value) or np.isinf(value):
+            return None
+        return float(value)
+    if isinstance(value, pd.Series):
+        return clean_df_for_json(value.to_frame())
+    if isinstance(value, pd.DataFrame):
+        return clean_df_for_json(value)
+    if isinstance(value, dict):
+        return {k: clean_value_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [clean_value_for_json(v) for v in value]
+    if isinstance(value, (pd.Timestamp, np.datetime64)):
+        return str(value)
+    return value
+
+
+def gather_calculation_results():
+    """
+    Gather all calculation results from session_state for saving.
+    Returns a dict with all computed results.
+    """
+    results = {}
+
+    # --- Monte Carlo Results ---
+    if 'mc_results' in st.session_state and st.session_state.mc_results:
+        mc = st.session_state.mc_results
+        # Don't save the full paths array (too large), just the summary stats
+        results['monte_carlo'] = {
+            'profit': clean_value_for_json(mc.get('profit')),
+            'cagr': clean_value_for_json(mc.get('cagr')),
+            'dd_mean': clean_value_for_json(mc.get('dd_mean')),
+            'mar': clean_value_for_json(mc.get('mar')),
+            'mart': clean_value_for_json(mc.get('mart')),
+            'p95': clean_value_for_json(mc.get('p95')),
+            'p50': clean_value_for_json(mc.get('p50')),
+            'p05': clean_value_for_json(mc.get('p05')),
+            'cagr_p95': clean_value_for_json(mc.get('cagr_p95')),
+            'cagr_p50': clean_value_for_json(mc.get('cagr_p50')),
+            'cagr_p05': clean_value_for_json(mc.get('cagr_p05')),
+            'd95': clean_value_for_json(mc.get('d95')),
+            'd50': clean_value_for_json(mc.get('d50')),
+            'd05': clean_value_for_json(mc.get('d05')),
+            'start_cap': clean_value_for_json(mc.get('start_cap')),
+            'sim_months': clean_value_for_json(mc.get('sim_months')),
+            'n_sims': clean_value_for_json(mc.get('n_sims')),
+            'n_steps': clean_value_for_json(mc.get('n_steps')),
+            'prob_profit': clean_value_for_json(mc.get('prob_profit')),
+            'injected_count': clean_value_for_json(mc.get('injected_count')),
+            'n_stress_per_sim': clean_value_for_json(mc.get('n_stress_per_sim')),
+            'injection_mode': mc.get('injection_mode'),
+        }
+        # Save end values distribution (smaller than full paths)
+        if 'end_vals' in mc and mc['end_vals'] is not None:
+            results['monte_carlo']['end_vals_percentiles'] = {
+                'p1': float(np.percentile(mc['end_vals'], 1)),
+                'p5': float(np.percentile(mc['end_vals'], 5)),
+                'p10': float(np.percentile(mc['end_vals'], 10)),
+                'p25': float(np.percentile(mc['end_vals'], 25)),
+                'p50': float(np.percentile(mc['end_vals'], 50)),
+                'p75': float(np.percentile(mc['end_vals'], 75)),
+                'p90': float(np.percentile(mc['end_vals'], 90)),
+                'p95': float(np.percentile(mc['end_vals'], 95)),
+                'p99': float(np.percentile(mc['end_vals'], 99)),
+            }
+
+    # Monte Carlo stress test strategies
+    if 'stress_test_selected_strategies' in st.session_state:
+        if 'monte_carlo' not in results:
+            results['monte_carlo'] = {}
+        results['monte_carlo']['stress_test_strategies'] = st.session_state.stress_test_selected_strategies
+
+    # --- Portfolio Builder Results ---
+    if 'portfolio_allocation' in st.session_state and st.session_state.portfolio_allocation:
+        results['portfolio_builder'] = {
+            'allocation': clean_value_for_json(st.session_state.portfolio_allocation),
+            'category_overrides': clean_value_for_json(st.session_state.get('category_overrides', {})),
+            'kelly_pct': clean_value_for_json(st.session_state.get('kelly_pct')),
+            'builder_account': clean_value_for_json(st.session_state.get('builder_account')),
+            'builder_dates': clean_value_for_json(st.session_state.get('builder_dates')),
+        }
+
+    # --- MEIC Analysis Settings ---
+    meic_keys = ['meic_entry_time_filter', 'meic_equity_strategies', 'meic_source',
+                 'meic_dates', 'meic_account', 'meic_strats', 'meic_chart_metric',
+                 'meic_monthly_mode', 'meic_heatmap_metric']
+    meic_data = {}
+    for key in meic_keys:
+        if key in st.session_state and st.session_state[key] is not None:
+            meic_data[key] = clean_value_for_json(st.session_state[key])
+    if meic_data:
+        results['meic_analysis'] = meic_data
+
+    # --- Strategy DNA Cache ---
+    if 'dna_cache' in st.session_state and st.session_state.dna_cache:
+        results['dna_cache'] = clean_value_for_json(st.session_state.dna_cache)
+
+    logger.info(f"Gathered calculation results: {list(results.keys())}")
+    return results
+
+
+def restore_calculation_results(calculations):
+    """
+    Restore calculation results to session_state after loading.
+    """
+    if not calculations:
+        return
+
+    # --- Restore Monte Carlo Results ---
+    if 'monte_carlo' in calculations:
+        mc = calculations['monte_carlo']
+        st.session_state.mc_results = mc
+        if 'stress_test_strategies' in mc:
+            st.session_state.stress_test_selected_strategies = mc['stress_test_strategies']
+        logger.info("Restored Monte Carlo results")
+
+    # --- Restore Portfolio Builder ---
+    if 'portfolio_builder' in calculations:
+        pb = calculations['portfolio_builder']
+        if 'allocation' in pb:
+            st.session_state.portfolio_allocation = pb['allocation']
+        if 'category_overrides' in pb:
+            st.session_state.category_overrides = pb['category_overrides']
+        if 'kelly_pct' in pb:
+            st.session_state.kelly_pct = pb['kelly_pct']
+        if 'builder_account' in pb:
+            st.session_state.builder_account = pb['builder_account']
+        if 'builder_dates' in pb:
+            st.session_state.builder_dates = tuple(pb['builder_dates']) if pb['builder_dates'] else None
+        logger.info("Restored Portfolio Builder settings")
+
+    # --- Restore MEIC Analysis ---
+    if 'meic_analysis' in calculations:
+        for key, value in calculations['meic_analysis'].items():
+            if key == 'meic_dates' and value:
+                st.session_state[key] = tuple(value)
+            else:
+                st.session_state[key] = value
+        logger.info("Restored MEIC Analysis settings")
+
+    # --- Restore DNA Cache ---
+    if 'dna_cache' in calculations:
+        st.session_state.dna_cache = calculations['dna_cache']
+        logger.info("Restored DNA cache")
+
 def repair_df_dates(df):
     """Repair and validate date columns with logging."""
     if df is None or df.empty:
@@ -133,12 +287,20 @@ def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags
             "has_live": live_df is not None and not live_df.empty
         }
 
+        # Gather all calculation results from session_state
+        calculations = gather_calculation_results()
+        has_calculations = bool(calculations)
+        metadata["has_calculations"] = has_calculations
+
         payload = {
-            "version": 3,
+            "version": 4,  # Bumped version for calculations support
             "backtest": bt_json,
             "live": live_json,
-            "metadata": metadata
+            "metadata": metadata,
+            "calculations": calculations  # NEW: All calculation results
         }
+
+        logger.info(f"Saving with calculations: {list(calculations.keys()) if calculations else 'none'}")
 
         # Build insert data with optional user_id
         insert_data = {
@@ -303,14 +465,17 @@ def rename_analysis_in_db(analysis_id, new_name):
 
 
 @st.cache_data(show_spinner=False)
-def load_analysis_from_db(analysis_id, _user_id=None):
+def load_analysis_from_db(analysis_id, _user_id=None, restore_calculations=True):
     """
     Load analysis from database.
     CACHED: Expensive JSON parsing and dataframe creation is cached indefinitely for specific ID.
     Note: _user_id prefixed with underscore to exclude from cache key but enables per-user caching.
+
+    Returns: (bt_df, live_df, has_calculations)
+    If restore_calculations=True, also restores calculation results to session_state.
     """
     if not DB_AVAILABLE:
-        return None, None
+        return None, None, False
 
     # Security check - must have user_id
     if not _user_id:
@@ -318,7 +483,7 @@ def load_analysis_from_db(analysis_id, _user_id=None):
         _user_id = get_current_user_id()
         if not _user_id:
             logger.error("Cannot load analysis - no user logged in")
-            return None, None
+            return None, None, False
 
     try:
         # Use authenticated client for RLS
@@ -330,17 +495,43 @@ def load_analysis_from_db(analysis_id, _user_id=None):
 
         if response.data:
             json_data = response.data[0]['data_json']
+            has_calculations = False
+
             if isinstance(json_data, list):
+                # Legacy format (version 1)
                 bt_df = pd.DataFrame(json_data)
-                return repair_df_dates(bt_df), None
+                return repair_df_dates(bt_df), None, False
+
             elif isinstance(json_data, dict):
                 bt_data = json_data.get('backtest', [])
                 live_data = json_data.get('live', [])
                 bt_df = pd.DataFrame(bt_data) if bt_data else pd.DataFrame()
                 live_df = pd.DataFrame(live_data) if live_data else None
-                return repair_df_dates(bt_df), repair_df_dates(live_df) if live_df is not None else None
-        return None, None
+
+                # Version 4+: Restore calculations if present
+                calculations = json_data.get('calculations', {})
+                if calculations and restore_calculations:
+                    restore_calculation_results(calculations)
+                    has_calculations = True
+                    logger.info(f"Restored calculations: {list(calculations.keys())}")
+
+                return (
+                    repair_df_dates(bt_df),
+                    repair_df_dates(live_df) if live_df is not None else None,
+                    has_calculations
+                )
+
+        return None, None, False
     except Exception as e:
         logger.error(f"Load Error: {e}")
         st.error(f"Load Error: {e}")
-        return None, None
+        return None, None, False
+
+
+def load_analysis_legacy(analysis_id, _user_id=None):
+    """
+    Legacy wrapper for backward compatibility.
+    Returns only (bt_df, live_df) for code that expects 2 return values.
+    """
+    bt_df, live_df, _ = load_analysis_from_db(analysis_id, _user_id)
+    return bt_df, live_df

@@ -148,7 +148,7 @@ def show_landing_page():
 
                             analysis_id = options[selected_option]
                             user_id = db.get_current_user_id()
-                            bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+                            bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
                             if bt_df is not None:
                                 st.session_state['full_df'] = bt_df
@@ -156,6 +156,10 @@ def show_landing_page():
                                     st.session_state['live_df'] = live_df
 
                                 ui.hide_loading_overlay()
+
+                                if has_calculations:
+                                    st.toast("Loaded with Monte Carlo & Portfolio Builder settings!")
+
                                 st.rerun()
                 else:
                     st.info("No saved analyses found.")

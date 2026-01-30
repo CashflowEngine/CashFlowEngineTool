@@ -400,7 +400,7 @@ def _load_with_feedback(analysis_id, name):
     show_loading_overlay("LOADING FROM CLOUD", "Fetching your analysis data...")
 
     user_id = db.get_current_user_id()
-    bt_df, live_df = db.load_analysis_from_db(analysis_id, _user_id=user_id)
+    bt_df, live_df, has_calculations = db.load_analysis_from_db(analysis_id, _user_id=user_id)
 
     hide_loading_overlay()
 
@@ -408,7 +408,13 @@ def _load_with_feedback(analysis_id, name):
         st.session_state['full_df'] = bt_df
         if live_df is not None:
             st.session_state['live_df'] = live_df
-        st.success(f"✓ Loaded successfully!")
+
+        # Show success message with calculation info
+        if has_calculations:
+            st.success(f"✓ Loaded successfully! (incl. Monte Carlo, Portfolio Builder settings)")
+        else:
+            st.success(f"✓ Loaded successfully!")
+
         time.sleep(0.5)
         st.session_state.navigate_to_page = "Portfolio Analytics"
         st.rerun()

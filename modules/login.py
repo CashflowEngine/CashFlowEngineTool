@@ -408,6 +408,7 @@ def show_login_page():
                         st.session_state['otp_sent'] = False
                         st.session_state['otp_email'] = None
                         st.session_state.navigate_to_page = "Start & Data"
+                        st.session_state["main_nav_radio"] = "Start & Data"
                         st.rerun()
                     else:
                         st.session_state['auth_error'] = result['message']

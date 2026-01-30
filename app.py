@@ -777,6 +777,7 @@ if _auth_code and not _access_token:
                 st.session_state['refresh_token'] = response.session.refresh_token
                 st.query_params.clear()
                 st.session_state.navigate_to_page = "Start & Data"
+                st.session_state["main_nav_radio"] = "Start & Data"
                 st.rerun()
         except Exception as e:
             import logging
@@ -789,6 +790,7 @@ if _access_token and _refresh_token:
     if handle_auth_callback(_access_token, _refresh_token):
         st.query_params.clear()
         st.session_state.navigate_to_page = "Start & Data"
+        st.session_state["main_nav_radio"] = "Start & Data"
         st.rerun()
 
 # Verify session on page load (refresh tokens if needed)
@@ -864,16 +866,10 @@ else:
         if "main_nav_radio" not in st.session_state:
             st.session_state["main_nav_radio"] = current_key
 
-        # Sync programmatic navigation to radio button state BEFORE rendering
-        # This ensures that navigate_to_page changes are reflected in the radio button
-        if st.session_state.navigate_to_page in page_map.values():
-            target_display_key = list(page_map.keys())[list(page_map.values()).index(st.session_state.navigate_to_page)]
-            # Only update if different from current radio state
-            if st.session_state["main_nav_radio"] != target_display_key:
-                st.session_state["main_nav_radio"] = target_display_key
-
         # Navigation with current page indicator
-        # IMPORTANT: Do NOT use index parameter - it conflicts with key-based state management
+        # NOTE: Do NOT sync main_nav_radio from navigate_to_page here!
+        # That would overwrite user clicks before they can be processed.
+        # Programmatic navigation should set main_nav_radio directly.
         selected_key = st.radio(
             "Navigation",
             menu_items,
@@ -881,7 +877,7 @@ else:
             key="main_nav_radio"
         )
 
-        # Handle user selection from radio button
+        # Handle user selection from radio button - update navigate_to_page to match
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:
             st.session_state.navigate_to_page = target_val
@@ -947,6 +943,7 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
+                st.session_state["main_nav_radio"] = "Start & Data"
                 st.rerun()
         st.stop()  # Stop execution here - don't render page content
 

@@ -1369,12 +1369,16 @@ else:
 
         st.write("")
 
-        # Initialize radio button state if not exists
+        # Sync radio button with navigate_to_page BEFORE rendering widget
+        # This ensures programmatic navigation (from landing page links) updates the radio
+        target_radio_key = current_key  # current_key is derived from navigate_to_page
         if "main_nav_radio" not in st.session_state:
-            st.session_state["main_nav_radio"] = current_key
+            st.session_state["main_nav_radio"] = target_radio_key
+        elif st.session_state.get("main_nav_radio") != target_radio_key:
+            # navigate_to_page was changed programmatically, sync the radio
+            st.session_state["main_nav_radio"] = target_radio_key
 
         # Navigation with current page indicator
-        # NOTE: Programmatic navigation must set BOTH navigate_to_page AND main_nav_radio directly
         selected_key = st.radio(
             "Navigation",
             menu_items,

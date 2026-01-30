@@ -245,13 +245,13 @@ def show_login_page():
             </script>
         """, unsafe_allow_html=True)
 
-        # --- LOGO (310px) ---
+        # --- LOGO (248px - reduced 20% from 310px) ---
         logo_b64 = _get_image_base64("CashflowEnginelogo.png")
         if logo_b64:
             st.markdown(f"""
                 <div style="text-align: center; margin-bottom: 15px;">
                     <img src="data:image/png;base64,{logo_b64}"
-                         style="width: 310px; height: auto; max-width: 100%;"
+                         style="width: 248px; height: auto; max-width: 100%;"
                          alt="Cashflow Engine Logo" />
                 </div>
             """, unsafe_allow_html=True)
@@ -408,7 +408,8 @@ def show_login_page():
                         st.session_state['otp_sent'] = False
                         st.session_state['otp_email'] = None
                         st.session_state.navigate_to_page = "Start & Data"
-                        st.session_state["main_nav_radio"] = "Start & Data"
+                        # Note: Don't set main_nav_radio here - it will be synced in app.py
+                        # before the radio widget is created
                         st.rerun()
                     else:
                         st.session_state['auth_error'] = result['message']
@@ -433,14 +434,30 @@ def show_login_page():
 
     # --- RIGHT PANEL: FULL-HEIGHT MARKETING IMAGE ---
     with col_right:
-        marketing_image_b64 = _get_image_base64("login_marketing_panel.png")
+        # Cache the base64 image in session state to avoid re-encoding on each rerun
+        if 'marketing_image_b64' not in st.session_state:
+            st.session_state.marketing_image_b64 = _get_image_base64("login_marketing_panel.png")
+
+        marketing_image_b64 = st.session_state.marketing_image_b64
 
         if marketing_image_b64:
-            # Full-height image panel (like PowerX Optimizer)
+            # Full-height image panel with lazy loading and fade-in animation
             st.markdown(f"""
+                <style>
+                    .marketing-panel img {{
+                        opacity: 0;
+                        animation: fadeIn 0.5s ease-in forwards;
+                    }}
+                    @keyframes fadeIn {{
+                        from {{ opacity: 0; }}
+                        to {{ opacity: 1; }}
+                    }}
+                </style>
                 <div class="marketing-panel">
                     <img src="data:image/png;base64,{marketing_image_b64}"
-                         alt="Cashflow Engine Features" />
+                         alt="Cashflow Engine Features"
+                         loading="lazy"
+                         decoding="async" />
                 </div>
             """, unsafe_allow_html=True)
         else:

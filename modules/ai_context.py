@@ -23,11 +23,18 @@ When asked about MAR Ratio, Sharpe, or any metric, use ONLY the definitions in t
 ## CORE METRICS - USE THESE DEFINITIONS
 
 ### MAR Ratio (Managed Account Ratio)
-- **Definition**: MAR = CAGR / Maximum Drawdown
-- **Example**: If CAGR is 30% and Max Drawdown is 15%, then MAR = 0.30 / 0.15 = 2.0
-- **Interpretation**: How much return per unit of risk. Higher = better risk-adjusted performance
+- **Definition**: MAR = CAGR / Maximum Drawdown %
+- **Drawdown-Basis**: Relativ zum aktuellen Peak der Equity-Kurve
+- **Example**: Account wächst auf $150k, fällt auf $120k → DD = 20% (von $150k Peak)
 - **Targets**: > 2.0 (excellent), 1.5-2.0 (good), 1.0-1.5 (acceptable), < 1.0 (needs improvement)
-- **Why it matters**: Best single metric for comparing options strategies
+
+### MART Ratio (MAR based on Initial Account)
+- **Definition**: MART = CAGR / (Max Drawdown $ / Initial Account Size)
+- **Drawdown-Basis**: Relativ zur INITIALEN Kontogröße (feste Basis)
+- **Example**: Account startet bei $100k, Max DD = $30k → DD = 30% (von $100k Start)
+- **Unterschied zu MAR**: MART ist konservativer, da es immer das Startkapital als Basis verwendet
+- **Wann MART nutzen**: Für Portfolios die stark gewachsen sind, für faire Zeitraum-Vergleiche
+- **In CashFlow Engine**: MART wird im Portfolio Builder für die Optimierung verwendet
 
 ### CAGR (Compound Annual Growth Rate)
 - **Definition**: CAGR = ((End Value / Start Value) ^ (365 / Days)) - 1

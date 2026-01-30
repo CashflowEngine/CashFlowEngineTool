@@ -126,7 +126,12 @@ def load_file_with_caching(uploaded_file):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_spx_benchmark(start_date, end_date):
-    try:
+    """Fetch SPX benchmark data with timeout protection."""
+    import concurrent.futures
+    import threading
+
+    def _fetch_data():
+        """Inner function to fetch data - runs in thread."""
         s_date = start_date - pd.Timedelta(days=5)
         s_str = s_date.strftime('%Y-%m-%d')
         e_str = end_date.strftime('%Y-%m-%d')
@@ -143,6 +148,18 @@ def fetch_spx_benchmark(start_date, end_date):
         else:
             if 'Close' in data.columns: return data['Close']
             return data.iloc[:, 0]
+
+    try:
+        # Use ThreadPoolExecutor with timeout to prevent hanging
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch_data)
+            try:
+                # 10 second timeout for the API call
+                result = future.result(timeout=10)
+                return result
+            except concurrent.futures.TimeoutError:
+                logger.warning("SPX benchmark fetch timed out after 10 seconds")
+                return None
     except Exception as e:
         logger.error(f"Failed to fetch SPX data: {e}")
         return None
@@ -444,3 +461,249 @@ def analyze_meic_group(df, account_size):
     cagr = (1 + daily_pnl.sum() / account_size) ** (365 / days) - 1
     mar = cagr / abs(max_dd) if max_dd != 0 else 0
     return {'MAR': mar, 'CAGR': cagr, 'MaxDD': max_dd}
+
+
+# --- PORTFOLIO OPTIMIZATION FUNCTIONS ---
+
+def kelly_optimize_allocation(strategy_stats, target_margin, kelly_pct,
+                              workhorse_target=None, airbag_target=None, opportunist_target=None,
+                              category_overrides=None, max_multiplier=3.0):
+    """
+    Kelly Criterion optimization - distributes margin based on each strategy's Kelly %.
+
+    NO CATEGORIES - all strategies compete equally for the margin budget.
+
+    Logic:
+    1. Available capital = target_margin × kelly_pct
+    2. Each strategy gets: (its_kelly / sum_of_all_kelly) × available_capital
+    3. Convert allocated margin to multiplier
+
+    Args:
+        strategy_stats: Dict with strategy data (kelly, margin_per_contract, contracts_per_day)
+        target_margin: Total margin budget in dollars
+        kelly_pct: Fraction of target_margin to allocate (0.0 to 1.0)
+        max_multiplier: Cap on multiplier value (default 3.0)
+
+    Returns:
+        Dict of {strategy_name: multiplier}
+    """
+    # Available capital = target_margin * kelly_pct
+    available_capital = target_margin * kelly_pct
+
+    # Build list of strategies with their data
+    strategy_list = []
+    total_kelly = 0.0
+
+    for strat_name, stats in strategy_stats.items():
+        kelly = stats.get('kelly', 0)
+        if kelly <= 0:
+            kelly = 0.01  # Give tiny allocation to strategies with 0 or negative Kelly
+
+        # margin_per_contract is actually max daily margin for this strategy
+        margin_at_1x = stats.get('margin_per_contract', 0)
+
+        if margin_at_1x <= 0:
+            continue
+
+        strategy_list.append({
+            'name': strat_name,
+            'kelly': kelly,
+            'margin_at_1x': margin_at_1x
+        })
+        total_kelly += kelly
+
+    # Calculate allocation for each strategy
+    allocation = {}
+
+    for s in strategy_list:
+        if total_kelly > 0:
+            # Weight = this strategy's Kelly / total Kelly
+            weight = s['kelly'] / total_kelly
+
+            # Allocated margin for this strategy
+            allocated_margin = available_capital * weight
+
+            # Multiplier = allocated_margin / margin_at_1x
+            multiplier = allocated_margin / s['margin_at_1x']
+
+            # Round to 1 decimal place
+            multiplier = round(multiplier, 1)
+
+            # Cap at max_multiplier, floor at 0
+            multiplier = max(0, min(multiplier, max_multiplier))
+        else:
+            multiplier = 0
+
+        allocation[s['name']] = multiplier
+
+    return allocation
+
+
+def mart_optimize_allocation(strategy_stats, target_margin, account_size,
+                             category_overrides=None, full_date_range=None,
+                             filtered_df=None, min_pnl=0, max_iterations=50):
+    """
+    MART Ratio optimization - maximizes MART = CAGR / (MaxDD$ / Account).
+
+    Uses greedy algorithm:
+    1. Start with all multipliers at 0
+    2. Each iteration: try adding 0.1 to each strategy's multiplier
+    3. Pick the change that improves MART the most
+    4. Stop when margin limit reached or no improvement
+
+    Args:
+        strategy_stats: Dict with strategy data
+        target_margin: Margin constraint in dollars
+        account_size: Account value for MART calculation
+        full_date_range: Date range for portfolio calculations
+        min_pnl: Optional minimum P&L target
+        max_iterations: Maximum optimization steps
+
+    Returns:
+        Dict of {strategy_name: multiplier}
+    """
+    # Build strategy list
+    strategy_list = []
+
+    for strat_name, stats in strategy_stats.items():
+        margin_at_1x = stats.get('margin_per_contract', 0)
+        pnl_at_1x = stats.get('total_pnl', 0)
+        daily_pnl = stats.get('daily_pnl_series', None)
+
+        if margin_at_1x <= 0 or daily_pnl is None:
+            continue
+
+        strategy_list.append({
+            'name': strat_name,
+            'margin_at_1x': margin_at_1x,
+            'pnl_at_1x': pnl_at_1x,
+            'daily_pnl': daily_pnl
+        })
+
+    if not strategy_list or full_date_range is None:
+        # Return 1.0 for all if we can't optimize
+        return {strat_name: 1.0 for strat_name in strategy_stats.keys()}
+
+    # Initialize all multipliers at 0
+    allocation = {s['name']: 0.0 for s in strategy_list}
+
+    def calc_portfolio_metrics(alloc):
+        """Calculate MART, total margin, and total P&L for given allocation."""
+        port_pnl = pd.Series(0.0, index=full_date_range)
+        total_margin = 0.0
+        total_pnl = 0.0
+
+        for s in strategy_list:
+            mult = alloc.get(s['name'], 0)
+            if mult > 0:
+                port_pnl = port_pnl.add(s['daily_pnl'] * mult, fill_value=0)
+                total_margin += s['margin_at_1x'] * mult
+                total_pnl += s['pnl_at_1x'] * mult
+
+        if total_margin == 0:
+            return 0.0, 0.0, 0.0
+
+        # Calculate equity curve
+        port_equity = account_size + port_pnl.cumsum()
+
+        # Calculate CAGR
+        days = len(port_pnl)
+        if days < 2:
+            return 0.0, total_margin, total_pnl
+
+        total_ret = port_pnl.sum() / account_size
+        if total_ret <= -1:
+            cagr = -1.0
+        else:
+            cagr = (1 + total_ret) ** (365 / days) - 1
+
+        # Calculate max drawdown in dollars
+        peak = port_equity.cummax()
+        drawdown = port_equity - peak
+        max_dd_dollars = abs(drawdown.min())
+
+        # MART = CAGR / (MaxDD$ / Account)
+        dd_ratio = max_dd_dollars / account_size if account_size > 0 else 1.0
+        mart = cagr / dd_ratio if dd_ratio > 0.001 else 0.0
+
+        return mart, total_margin, total_pnl
+
+    # Greedy optimization
+    step_size = 0.1
+    best_mart = 0.0
+
+    for _ in range(max_iterations):
+        best_improvement = 0.0
+        best_change = None
+
+        # Try incrementing each strategy
+        for s in strategy_list:
+            current_mult = allocation[s['name']]
+            new_mult = round(current_mult + step_size, 1)
+
+            # Cap at 3.0
+            if new_mult > 3.0:
+                continue
+
+            # Test this change
+            test_alloc = allocation.copy()
+            test_alloc[s['name']] = new_mult
+
+            mart, margin, pnl = calc_portfolio_metrics(test_alloc)
+
+            # Check margin constraint (allow 5% overshoot)
+            if margin > target_margin * 1.05:
+                continue
+
+            # Is this better?
+            improvement = mart - best_mart
+            if improvement > best_improvement:
+                best_improvement = improvement
+                best_change = (s['name'], new_mult, mart)
+
+        # Apply best change if found
+        if best_change and best_improvement > 0.001:
+            allocation[best_change[0]] = best_change[1]
+            best_mart = best_change[2]
+        else:
+            # No improvement found, stop
+            break
+
+    # Phase 2: If min_pnl target not met, add more positions
+    if min_pnl > 0:
+        _, _, current_pnl = calc_portfolio_metrics(allocation)
+
+        if current_pnl < min_pnl:
+            # Sort by P&L efficiency (P&L per margin dollar)
+            sorted_strats = sorted(strategy_list,
+                key=lambda s: s['pnl_at_1x'] / max(1, s['margin_at_1x']),
+                reverse=True)
+
+            for _ in range(max_iterations):
+                _, current_margin, current_pnl = calc_portfolio_metrics(allocation)
+
+                if current_pnl >= min_pnl or current_margin >= target_margin:
+                    break
+
+                # Try adding to best P&L strategy that fits
+                added = False
+                for s in sorted_strats:
+                    current_mult = allocation[s['name']]
+                    new_mult = round(current_mult + step_size, 1)
+
+                    if new_mult > 3.0:
+                        continue
+
+                    test_alloc = allocation.copy()
+                    test_alloc[s['name']] = new_mult
+                    _, test_margin, _ = calc_portfolio_metrics(test_alloc)
+
+                    if test_margin <= target_margin * 1.05:
+                        allocation[s['name']] = new_mult
+                        added = True
+                        break
+
+                if not added:
+                    break
+
+    return allocation

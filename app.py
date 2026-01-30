@@ -27,7 +27,7 @@ import modules.privacy as privacy
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Cashflow Engine",
+    page_title="CashFlow Engine | Options Backtesting & Portfolio Analytics for 0DTE Trading",
     page_icon="CashflowEngine_favicon.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -38,6 +38,24 @@ st.set_page_config(
 # Google OAuth uses PKCE code exchange which is handled later in the file.
 
 # --- 2. CORPORATE IDENTITY CSS ---
+# Viewport Meta Tag for responsive design (CRITICAL for mobile)
+st.markdown("""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+""", unsafe_allow_html=True)
+
+# SEO Meta Tags
+st.markdown("""
+<meta name="description" content="Professional options trading analytics platform. Backtest 0DTE strategies, run Monte Carlo simulations, analyze Iron Condors & Credit Spreads. Free options backtesting software for SPX, SPY, QQQ traders.">
+<meta name="keywords" content="0DTE options, options backtesting, iron condor strategy, credit spread, Monte Carlo simulation, options trading software, portfolio analytics, SPX options, SPY options, options trading journal, trading performance tracker">
+<meta name="author" content="CashFlow Engine">
+<meta property="og:title" content="CashFlow Engine | Options Backtesting & Portfolio Analytics">
+<meta property="og:description" content="Professional options trading analytics. Backtest 0DTE strategies, Monte Carlo simulations, Iron Condor & Credit Spread optimization.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CashFlow Engine - Options Trading Analytics">
+<meta name="twitter:description" content="Backtest your 0DTE, Iron Condor & Credit Spread strategies with professional analytics tools.">
+""", unsafe_allow_html=True)
+
 # Preload fonts for faster loading
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -66,6 +84,19 @@ st.markdown("""
     .stDeployButton {display: none !important;}
     [data-testid="stDecoration"] {display: none !important;}
 
+    /* --- HIDE MULTIPAGE NAVIGATION (prevents flash during transitions) --- */
+    [data-testid="stSidebarNav"],
+    [data-testid="stSidebarNavItems"],
+    nav[data-testid="stSidebarNav"],
+    ul[data-testid="stSidebarNavItems"],
+    .st-emotion-cache-16idsys,
+    [data-testid="stSidebarNavLink"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
     /* --- SIDEBAR FLASH PREVENTION (loaded first) --- */
     /* This prevents the sidebar flash during page transitions by hiding toggle buttons */
     button[kind="header"],
@@ -79,45 +110,79 @@ st.markdown("""
 
     /* --- TYPOGRAPHY --- */
 
+    /* CSS Custom Properties for fonts */
+    :root {
+        --font-heading: 'Exo 2', 'Arial Black', sans-serif;
+        --font-body: 'Poppins', 'Segoe UI', sans-serif;
+    }
+
     /* Force Poppins for All Body Text */
     * {
-        font-family: 'Poppins', sans-serif;
+        font-family: var(--font-body);
     }
 
     html, body, [class*="css"], .stMarkdown, .stText, p, div, span, label, input, .stDataFrame, .stTable, .stSelectbox, .stNumberInput, button {
-        font-family: 'Poppins', sans-serif !important;
+        font-family: var(--font-body) !important;
         color: #4B5563;
     }
 
-    /* Force Exo 2 for ALL Headings - More specific selectors */
-    /* Force Exo 2 for ALL Headings and custom classes */
-    h1, h2, h3, h4, h5, h6,
-    .exo2-heading,
-    .card-title,
-    .stHeading,
-    .stMetricValue,
-    .page-header,
-    .section-title,
-    .hero-value,
-    .feature-title,
-    .data-required-title,
-    .loading-text {
-        font-family: 'Exo 2', sans-serif !important;
+    /* AGGRESSIVE Exo 2 Override for ALL Headings */
+    /* Use maximum specificity with html body prefix */
+    html body h1,
+    html body h2,
+    html body h3,
+    html body h4,
+    html body h5,
+    html body h6,
+    html body .stMarkdown h1,
+    html body .stMarkdown h2,
+    html body .stMarkdown h3,
+    html body [data-testid="stMarkdownContainer"] h1,
+    html body [data-testid="stMarkdownContainer"] h2,
+    html body [data-testid="stMarkdownContainer"] h3,
+    html body .exo2-heading,
+    html body .card-title,
+    html body .stHeading,
+    html body .stMetricValue,
+    html body .page-header,
+    html body .page-main-header,
+    html body .section-title,
+    html body .hero-value,
+    html body .feature-title,
+    html body .data-required-title,
+    html body .loading-text {
+        font-family: var(--font-heading) !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         color: #4B5563 !important;
         font-weight: 800 !important;
+        font-synthesis: none !important;
+    }
+
+    /* Additional Streamlit heading overrides with maximum specificity */
+    html body .main h1,
+    html body .main h2,
+    html body .main h3,
+    html body .element-container h1,
+    html body .element-container h2,
+    html body [data-testid="stAppViewBlockContainer"] h1,
+    html body [data-testid="stAppViewBlockContainer"] h2 {
+        font-family: var(--font-heading) !important;
+        font-weight: 800 !important;
+        font-synthesis: none !important;
     }
 
     /* Tagline styling - ensure Exo 2 */
-    .tagline, .tagline h2, .tagline span {
-        font-family: 'Exo 2', sans-serif !important;
+    html body .tagline,
+    html body .tagline h2,
+    html body .tagline span {
+        font-family: var(--font-heading) !important;
         font-weight: 800 !important;
         text-transform: uppercase !important;
     }
 
     /* Specific overrides for Streamlit elements to ensure font sticks */
-    .stMetricLabel { font-family: 'Poppins', sans-serif !important; font-weight: 600 !important; }
+    .stMetricLabel { font-family: var(--font-body) !important; font-weight: 600 !important; }
 
     /* --- SIDEBAR TOGGLE - COMPLETELY HIDDEN --- */
     /* Hide the entire collapse/expand button */
@@ -609,37 +674,462 @@ st.markdown("""
         visibility: hidden !important;
     }
 
+    /* =================================================================
+       RESPONSIVE DESIGN - MOBILE & TABLET VIEWS
+       These styles only apply on smaller screens and do not affect desktop
+       ================================================================= */
+
+    /* Default: Hide mobile-only elements on all screens */
+    .hamburger-menu,
+    .mobile-sidebar-overlay {
+        display: none !important;
+    }
+
+    /* --- TABLET BREAKPOINT (max-width: 768px) --- */
+    @media screen and (max-width: 768px) {
+        /* Sidebar - narrower on tablet */
+        section[data-testid="stSidebar"] {
+            width: 220px !important;
+            min-width: 220px !important;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            width: 220px !important;
+        }
+
+        /* Footer adjustment for narrower sidebar */
+        .footer {
+            left: 220px !important;
+            width: calc(100% - 220px) !important;
+        }
+
+        /* Hero cards - slightly smaller */
+        .hero-card {
+            height: 120px !important;
+            padding: 12px 10px !important;
+        }
+
+        .hero-value {
+            font-size: 22px !important;
+        }
+
+        .hero-label {
+            font-size: 10px !important;
+        }
+
+        /* Page headers smaller */
+        h1, .page-header, [data-testid="stMarkdownContainer"] h1 {
+            font-size: 1.5rem !important;
+        }
+
+        h2, [data-testid="stMarkdownContainer"] h2 {
+            font-size: 1.25rem !important;
+        }
+
+        /* Feature tiles - smaller */
+        .feature-tile {
+            height: 160px !important;
+            padding: 4px !important;
+        }
+
+        .feature-title {
+            font-size: 14px !important;
+            height: 32px !important;
+        }
+
+        .feature-desc {
+            font-size: 12px !important;
+        }
+
+        /* Streamlit columns - force 2 columns max on tablet */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 45% !important;
+            flex: 1 1 45% !important;
+        }
+
+        /* Container padding reduced */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 16px !important;
+            margin-bottom: 16px !important;
+        }
+
+        /* Buttons - touch friendly */
+        div.stButton > button {
+            min-height: 44px !important;
+            padding: 10px 16px !important;
+        }
+    }
+
+    /* --- MOBILE BREAKPOINT (max-width: 480px) --- */
+    @media screen and (max-width: 480px) {
+        /* Sidebar - Hidden by default, shown when .mobile-sidebar-open is added to body */
+        section[data-testid="stSidebar"],
+        [data-testid="stSidebar"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+            height: 100vh !important;
+            z-index: 10000 !important;
+            background-color: #F9FAFB !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease !important;
+            box-shadow: none !important;
+            overflow-y: auto !important;
+        }
+
+        /* Show sidebar when toggle is active */
+        body.mobile-sidebar-open section[data-testid="stSidebar"],
+        body.mobile-sidebar-open [data-testid="stSidebar"] {
+            transform: translateX(0) !important;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
+        }
+
+        /* Mobile overlay when sidebar is open */
+        .mobile-sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.mobile-sidebar-open .mobile-sidebar-overlay {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Hamburger Menu Button */
+        .hamburger-menu {
+            display: flex !important;
+            position: fixed !important;
+            top: 12px !important;
+            left: 12px !important;
+            z-index: 10001 !important;
+            width: 44px !important;
+            height: 44px !important;
+            background-color: #302BFF !important;
+            border: none !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 5px !important;
+            box-shadow: 0 2px 8px rgba(48, 43, 255, 0.3) !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .hamburger-menu:hover {
+            background-color: #2521c9 !important;
+        }
+
+        .hamburger-menu span {
+            display: block !important;
+            width: 20px !important;
+            height: 2px !important;
+            background-color: #FFFFFF !important;
+            border-radius: 2px !important;
+            transition: all 0.3s ease !important;
+        }
+
+        /* Hamburger animation when open */
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px) !important;
+        }
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(2) {
+            opacity: 0 !important;
+        }
+        body.mobile-sidebar-open .hamburger-menu span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px) !important;
+        }
+
+        /* Hide Streamlit's own sidebar toggle */
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"],
+        button[kind="header"],
+        [data-testid="baseButton-header"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Main content - full width on mobile, no sidebar margin */
+        .main,
+        .stMain,
+        [data-testid="stMain"] {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+            width: 100% !important;
+        }
+
+        .main .block-container,
+        .stMainBlockContainer,
+        [data-testid="stAppViewBlockContainer"] {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            padding-top: 60px !important; /* Space for hamburger menu */
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            padding-bottom: 80px !important; /* Space for footer */
+        }
+
+        /* Footer - static position on mobile, not overlaying content */
+        .footer {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            padding: 8px 16px !important;
+            background-color: #F9FAFB !important;
+            border-top: 1px solid #E5E7EB !important;
+            z-index: 999 !important;
+            font-size: 9px !important;
+        }
+
+        /* Hero cards - stacked full width */
+        .hero-card {
+            height: auto !important;
+            min-height: 100px !important;
+            padding: 16px !important;
+            margin-bottom: 12px !important;
+        }
+
+        .hero-value {
+            font-size: 24px !important;
+        }
+
+        .hero-label {
+            font-size: 11px !important;
+            margin-bottom: 6px !important;
+        }
+
+        /* Page headers - mobile friendly */
+        h1, .page-header, [data-testid="stMarkdownContainer"] h1 {
+            font-size: 1.25rem !important;
+            line-height: 1.3 !important;
+        }
+
+        h2, [data-testid="stMarkdownContainer"] h2 {
+            font-size: 1.1rem !important;
+        }
+
+        /* Feature tiles - vertical stack */
+        .feature-tile {
+            height: auto !important;
+            min-height: 120px !important;
+            padding: 16px !important;
+        }
+
+        .feature-title {
+            font-size: 14px !important;
+            height: auto !important;
+            margin-bottom: 8px !important;
+        }
+
+        /* Force single column layout on mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+            width: 100% !important;
+        }
+
+        /* Container padding - mobile */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 12px !important;
+            margin-bottom: 12px !important;
+            border-radius: 8px !important;
+        }
+
+        /* Buttons - larger touch targets */
+        div.stButton > button {
+            min-height: 48px !important;
+            padding: 12px 20px !important;
+            font-size: 14px !important;
+            width: 100% !important;
+        }
+
+        /* Input fields - larger on mobile */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div {
+            min-height: 44px !important;
+            font-size: 16px !important; /* Prevents iOS zoom */
+        }
+
+        /* Tabs - scrollable on mobile */
+        .stTabs [data-baseweb="tab-list"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+        }
+
+        /* Expanders - full width */
+        .streamlit-expanderHeader {
+            padding: 12px !important;
+        }
+
+        /* Metrics - stacked */
+        [data-testid="stMetric"] {
+            padding: 8px !important;
+        }
+
+        [data-testid="stMetricValue"] {
+            font-size: 20px !important;
+        }
+
+        /* DataFrames - horizontal scroll */
+        .stDataFrame {
+            overflow-x: auto !important;
+        }
+
+        /* Charts - responsive */
+        [data-testid="stPlotlyChart"] {
+            width: 100% !important;
+        }
+
+        /* Mobile info banner */
+        .mobile-info-banner {
+            display: block !important;
+            background: linear-gradient(135deg, #302BFF 0%, #7B2BFF 100%) !important;
+            color: #FFFFFF !important;
+            padding: 12px 16px !important;
+            border-radius: 8px !important;
+            margin-bottom: 16px !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 13px !important;
+            text-align: center !important;
+        }
+    }
+
+    /* Desktop: Hide mobile-only elements */
+    @media screen and (min-width: 481px) {
+        .mobile-info-banner {
+            display: none !important;
+        }
+        .hamburger-menu {
+            display: none !important;
+        }
+        .mobile-sidebar-overlay {
+            display: none !important;
+        }
+    }
+
+    /* --- VERY SMALL SCREENS (max-width: 360px) --- */
+    @media screen and (max-width: 360px) {
+        .hero-value {
+            font-size: 20px !important;
+        }
+
+        h1, .page-header {
+            font-size: 1.1rem !important;
+        }
+
+        div.stButton > button {
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+        }
+
+        .main .block-container {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+    }
+
 </style>
 <script>
-    // Force Exo 2 font on all headings after page load
-    function applyExo2Fonts() {
-        const headings = document.querySelectorAll('.exo2-heading, .hero-value, .feature-title, .section-title, .data-required-title, .loading-text');
-        headings.forEach(function(el) {
-            el.style.setProperty('font-family', "'Exo 2', sans-serif", 'important');
-            el.style.setProperty('font-weight', '800', 'important');
-            el.style.setProperty('text-transform', 'uppercase', 'important');
+    // 4TH ATTEMPT: Use FontFace API to ensure Exo 2 is loaded before applying
+    (function() {
+        // Define the font we want to load
+        const exo2Font = new FontFace('Exo 2',
+            "url('https://fonts.gstatic.com/s/exo2/v21/7cH1v4okm5zmbvwkAx_sfcEuiD8j.woff2') format('woff2')",
+            { weight: '800', style: 'normal' }
+        );
+
+        // Add font to document
+        document.fonts.add(exo2Font);
+
+        // Load the font
+        exo2Font.load().then(function() {
+            console.log('Exo 2 font loaded successfully');
+            applyExo2Fonts();
+        }).catch(function(err) {
+            console.warn('Exo 2 font failed to load via FontFace API, using CSS fallback:', err);
+            applyExo2Fonts();
         });
-    }
 
-    // Run when fonts are ready
-    if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(applyExo2Fonts);
-    }
+        // Function to apply Exo 2 to all heading elements
+        function applyExo2Fonts() {
+            // Select ALL headings including custom classes
+            const selectors = [
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                '.exo2-heading', '.hero-value', '.feature-title',
+                '.section-title', '.data-required-title', '.loading-text',
+                '.page-main-header', '.page-header', '.card-title',
+                '[data-testid="stMarkdownContainer"] h1',
+                '[data-testid="stMarkdownContainer"] h2',
+                '[data-testid="stMarkdownContainer"] h3'
+            ];
 
-    // Run on DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', applyExo2Fonts);
+            const headings = document.querySelectorAll(selectors.join(', '));
+            headings.forEach(function(el) {
+                // Use cssText to override all existing styles
+                el.style.cssText += '; font-family: "Exo 2", "Arial Black", sans-serif !important; font-weight: 800 !important; text-transform: uppercase !important;';
+            });
+        }
 
-    // Run after delays to catch Streamlit's dynamic content
-    setTimeout(applyExo2Fonts, 100);
-    setTimeout(applyExo2Fonts, 500);
-    setTimeout(applyExo2Fonts, 1000);
-    setTimeout(applyExo2Fonts, 2000);
+        // Run when fonts are ready
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(applyExo2Fonts);
+        }
+
+        // Run on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', applyExo2Fonts);
+
+        // Run after delays to catch Streamlit's dynamic content (necessary for Streamlit re-renders)
+        setTimeout(applyExo2Fonts, 100);
+        setTimeout(applyExo2Fonts, 300);
+        setTimeout(applyExo2Fonts, 600);
+        setTimeout(applyExo2Fonts, 1000);
+        setTimeout(applyExo2Fonts, 2000);
+
+        // Use MutationObserver to catch new elements with debouncing
+        let debounceTimer = null;
+        const observer = new MutationObserver(function(mutations) {
+            // Debounce to avoid excessive calls
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(applyExo2Fonts, 50);
+        });
 
     // Use MutationObserver to catch any new elements
     const observer = new MutationObserver(function(mutations) {
         applyExo2Fonts();
     });
     observer.observe(document.body, { childList: true, subtree: true });
+
+    // Mobile hamburger menu is injected via HTML below (for authenticated users only)
+    // This ensures the button exists in DOM before any JS tries to attach listeners
 </script>
 """, unsafe_allow_html=True)
 
@@ -674,6 +1164,7 @@ if _auth_code and not _access_token:
                 st.session_state['refresh_token'] = response.session.refresh_token
                 st.query_params.clear()
                 st.session_state.navigate_to_page = "Start & Data"
+                st.session_state["main_nav_radio"] = "Start & Data"
                 st.rerun()
         except Exception as e:
             import logging
@@ -686,6 +1177,7 @@ if _access_token and _refresh_token:
     if handle_auth_callback(_access_token, _refresh_token):
         st.query_params.clear()
         st.session_state.navigate_to_page = "Start & Data"
+        st.session_state["main_nav_radio"] = "Start & Data"
         st.rerun()
 
 # Verify session on page load (refresh tokens if needed)
@@ -718,6 +1210,65 @@ else:
     st.session_state.navigate_to_page = "Start & Data"
 
 current_page_val = st.session_state.navigate_to_page
+
+# --- MOBILE HAMBURGER MENU (HTML) ---
+# Inject hamburger button for authenticated users (mobile only, hidden via CSS on desktop)
+if st.session_state.is_authenticated:
+    st.markdown("""
+    <button class="hamburger-menu" id="mobileMenuBtn" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="mobile-sidebar-overlay" id="mobileOverlay"></div>
+    <script>
+        // Wait for DOM to be ready, then attach event listeners
+        (function() {
+            function setupMobileMenu() {
+                var btn = document.getElementById('mobileMenuBtn');
+                var overlay = document.getElementById('mobileOverlay');
+
+                if (btn && !btn.hasAttribute('data-initialized')) {
+                    btn.setAttribute('data-initialized', 'true');
+
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        document.body.classList.toggle('mobile-sidebar-open');
+                        console.log('Hamburger clicked, sidebar open:', document.body.classList.contains('mobile-sidebar-open'));
+                    });
+
+                    btn.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        document.body.classList.toggle('mobile-sidebar-open');
+                    });
+                }
+
+                if (overlay && !overlay.hasAttribute('data-initialized')) {
+                    overlay.setAttribute('data-initialized', 'true');
+
+                    overlay.addEventListener('click', function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    });
+                }
+            }
+
+            // Run immediately
+            setupMobileMenu();
+
+            // Also run after short delays to ensure elements are in DOM
+            setTimeout(setupMobileMenu, 100);
+            setTimeout(setupMobileMenu, 500);
+
+            // Close sidebar when menu item clicked
+            document.addEventListener('click', function(e) {
+                if (e.target.closest && e.target.closest('[data-testid="stSidebar"] label')) {
+                    setTimeout(function() {
+                        document.body.classList.remove('mobile-sidebar-open');
+                    }, 150);
+                }
+            });
+        })();
+    </script>
+    """, unsafe_allow_html=True)
 
 # --- SIDEBAR LOGIC ---
 # Hide sidebar ONLY on login page (not authenticated) - show on landing and all other pages
@@ -757,15 +1308,24 @@ else:
 
         st.write("")
 
+        # Sync radio button with navigate_to_page BEFORE rendering widget
+        # This ensures programmatic navigation (from landing page links) updates the radio
+        target_radio_key = current_key  # current_key is derived from navigate_to_page
+        if "main_nav_radio" not in st.session_state:
+            st.session_state["main_nav_radio"] = target_radio_key
+        elif st.session_state.get("main_nav_radio") != target_radio_key:
+            # navigate_to_page was changed programmatically, sync the radio
+            st.session_state["main_nav_radio"] = target_radio_key
+
         # Navigation with current page indicator
         selected_key = st.radio(
             "Navigation",
             menu_items,
-            index=menu_items.index(current_key),
             label_visibility="collapsed",
             key="main_nav_radio"
         )
 
+        # Handle user selection from radio button - update navigate_to_page to match
         target_val = page_map[selected_key]
         if target_val != st.session_state.navigate_to_page:
             st.session_state.navigate_to_page = target_val
@@ -776,11 +1336,11 @@ else:
 
         st.markdown("---")
 
-        # Analysis Manager - simple section without expander (same size as menu items)
+        # Analysis Manager - larger text for visibility
         st.markdown("""
-            <div style="font-family: 'Poppins', sans-serif !important; font-weight: 600 !important;
-                        font-size: 13px; color: #4B5563; text-transform: none;
-                        letter-spacing: 0.3px; margin-bottom: 10px; padding: 10px 12px;">
+            <div style="font-family: 'Exo 2', sans-serif !important; font-weight: 700 !important;
+                        font-size: 18px; color: #302BFF; text-transform: uppercase;
+                        letter-spacing: 1px; margin-bottom: 12px; padding: 10px 12px;">
                 Analysis Manager
             </div>
         """, unsafe_allow_html=True)
@@ -822,8 +1382,9 @@ else:
         with col_btn:
             if st.button("GO TO DATA IMPORT", key="data_required_btn", use_container_width=True, type="primary"):
                 st.session_state.navigate_to_page = "Start & Data"
+                # Note: main_nav_radio will be synced in app.py before widget renders on next rerun
                 st.rerun()
-        st.stop()  # Stop execution here - don't render page content
+        # Don't use st.stop() - allow sidebar navigation to work
 
     else:
         if current_page_val == "Portfolio Analytics": portfolio_analytics.page_portfolio_analytics(df, live_df)

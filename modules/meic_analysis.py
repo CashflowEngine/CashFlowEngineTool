@@ -4,28 +4,40 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import ui_components as ui
+import calculations as calc
 
 def page_meic_analysis(bt_df, live_df=None):
     """MEIC Deep Dive page - Enhanced with Entry Time Filter, Monthly Performance, and Equity Curves."""
-    ui.render_page_header("🔬 MEIC DEEP DIVE")
-    st.caption("ENTRY TIME ANALYSIS & OPTIMIZATION")
-
-    # === DATA SOURCE TOGGLE ===
-    data_source = "Backtest Data"
-    if live_df is not None and not live_df.empty:
-        c_toggle, _ = st.columns([1, 4])
-        with c_toggle:
-            data_source = st.radio("Source:", ["Backtest Data", "Live Data"], label_visibility="collapsed", key="meic_source")
-
-    target_df = live_df if data_source == "Live Data" and live_df is not None else bt_df
-
-    if target_df is None or target_df.empty:
-        st.warning("No data available.")
-        return
+    ui.render_page_header("MEIC DEEP DIVE")
+    st.caption("Analyze and optimize your Multiple Entry Iron Condor strategies by entry time, performance, and market patterns.")
 
     # === SECTION 1: CONFIGURATION (Card) ===
     with st.container(border=True):
         ui.section_header("Configuration")
+
+        # MEIC Explanation Box
+        st.markdown("""
+        <div style='background-color: #F0F4FF; padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;'>
+            <strong>What is MEIC?</strong><br>
+            <strong>Multiple Entry Iron Condor</strong> - a strategy where Iron Condors are opened at different
+            times throughout the trading day to diversify timing risk. This analysis helps you identify which
+            entry times historically produce the best performance, allowing you to focus on profitable time
+            windows and filter out underperforming ones.
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Data Source Toggle - now inside Configuration
+        data_source = "Backtest Data"
+        if live_df is not None and not live_df.empty:
+            config_source_col, _ = st.columns([1, 2])
+            with config_source_col:
+                data_source = st.radio("Data Source:", ["Backtest Data", "Live Data"], horizontal=True, key="meic_source")
+
+        target_df = live_df if data_source == "Live Data" and live_df is not None else bt_df
+
+        if target_df is None or target_df.empty:
+            st.warning("No data available.")
+            return
 
         # Date range and Account Size in first row
         min_ts, max_ts = target_df['timestamp'].min(), target_df['timestamp'].max()
@@ -89,19 +101,22 @@ def page_meic_analysis(bt_df, live_df=None):
         # Get times with positive P/L as default suggestion
         positive_times = time_quick_stats[time_quick_stats['total_pnl'] > 0].index.tolist()
 
-        # Handle pending quick action (must be BEFORE widget creation)
+        # Handle pending quick action - directly modify session state BEFORE widget creation
         pending_action = st.session_state.pop('_meic_pending_filter_action', None)
         if pending_action == 'all':
-            default_times = all_entry_times
+            st.session_state['meic_entry_time_filter'] = all_entry_times
         elif pending_action == 'none':
-            default_times = []
+            st.session_state['meic_entry_time_filter'] = []
         elif pending_action == 'profitable':
-            default_times = positive_times
+            st.session_state['meic_entry_time_filter'] = positive_times
+
+        # Determine default for first load only
+        if 'meic_entry_time_filter' not in st.session_state:
+            default_times = all_entry_times
         else:
-            # Use stored value or default to all times
-            default_times = st.session_state.get('meic_entry_time_filter', all_entry_times)
-            # Filter to only valid options
-            default_times = [t for t in default_times if t in all_entry_times]
+            # Filter to only valid options (in case strategies changed)
+            current_val = st.session_state.get('meic_entry_time_filter', all_entry_times)
+            default_times = [t for t in current_val if t in all_entry_times]
 
         filter_col1, filter_col2 = st.columns([3, 1])
 
@@ -359,6 +374,9 @@ def page_meic_analysis(bt_df, live_df=None):
         )
         st.session_state.meic_equity_strategies = selected_eq_strategies
 
+        # Fetch SPX benchmark for the period
+        spx = calc.fetch_spx_benchmark(pd.to_datetime(sel_dates[0]), pd.to_datetime(sel_dates[1]))
+
         # Create equity curve figure
         fig_eq = go.Figure()
 
@@ -370,6 +388,18 @@ def page_meic_analysis(bt_df, live_df=None):
             name='Combined Portfolio',
             line=dict(color=ui.COLOR_BLUE, width=3)
         ))
+
+        # Add SPX benchmark if available
+        if spx is not None and len(spx) > 0:
+            # Normalize SPX to start at account_size
+            spx_normalized = (spx / spx.iloc[0]) * account_size
+            fig_eq.add_trace(go.Scatter(
+                x=spx_normalized.index,
+                y=spx_normalized,
+                mode='lines',
+                name='SPX Benchmark',
+                line=dict(color='gray', width=2, dash='dot')
+            ))
 
         # Add starting line
         fig_eq.add_hline(y=account_size, line_dash="dash", line_color="lightgray")
@@ -432,12 +462,19 @@ def page_meic_analysis(bt_df, live_df=None):
                     s_trades = len(strat_data)
                     s_win_rate = (strat_data['pnl'] > 0).mean()
                     s_avg_pnl = strat_data['pnl'].mean()
+                    # Calculate required margin from the margin column
+                    s_margin_series = calc.generate_daily_margin_series_optimized(strat_data)
+                    s_max_margin = s_margin_series.max() if not s_margin_series.empty else 0
+                    # Calculate margin efficiency (P&L / Margin ratio)
+                    s_margin_efficiency = s_pnl / s_max_margin if s_max_margin > 0 else 0
                     strat_perf.append({
                         'Strategy': strat,
                         'Total P/L': s_pnl,
                         'Trades': s_trades,
                         'Win Rate': s_win_rate,
-                        'Avg Trade': s_avg_pnl
+                        'Avg Trade': s_avg_pnl,
+                        'Required Margin': s_max_margin,
+                        'Margin Efficiency': s_margin_efficiency
                     })
 
             if strat_perf:
@@ -446,7 +483,9 @@ def page_meic_analysis(bt_df, live_df=None):
                     perf_df.style.format({
                         'Total P/L': '${:,.0f}',
                         'Win Rate': '{:.1%}',
-                        'Avg Trade': '${:,.0f}'
+                        'Avg Trade': '${:,.0f}',
+                        'Required Margin': '${:,.0f}',
+                        'Margin Efficiency': '{:.2f}'
                     }),
                     use_container_width=True,
                     hide_index=True

@@ -41,12 +41,50 @@ def show_login_page():
     # --- CUSTOM LOGIN PAGE STYLES (Full-height right panel layout) ---
     st.markdown("""
     <style>
-        /* Hide default Streamlit elements on login page */
-        [data-testid="stSidebar"] { display: none !important; }
-        section[data-testid="stSidebar"] { display: none !important; }
+        /* CRITICAL: Hide ALL Streamlit UI elements on login page */
+        /* Hide sidebar */
+        [data-testid="stSidebar"],
+        section[data-testid="stSidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Hide Streamlit header, toolbar, and menu - COMPLETELY */
+        header[data-testid="stHeader"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        .stDeployButton,
+        #MainMenu,
+        button[kind="header"],
+        [data-testid="baseButton-header"],
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"],
+        .viewerBadge_container__r5tak,
+        .stApp > header,
+        header {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Hide the running/loading indicator */
+        [data-testid="stStatusWidget"],
+        .stSpinner,
+        [data-testid="stSpinner"],
+        div[data-testid="stStatusWidget"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
 
         /* Remove ALL padding/margin from Streamlit containers for full-height layout */
-        .stApp > header { display: none !important; }
         .stApp {
             margin: 0 !important;
             padding: 0 !important;
@@ -200,6 +238,166 @@ def show_login_page():
         .privacy-notice a:hover {
             text-decoration: underline;
         }
+
+        /* =================================================================
+           RESPONSIVE LOGIN PAGE - MOBILE & TABLET
+           ================================================================= */
+
+        /* --- TABLET (max-width: 768px) --- */
+        @media screen and (max-width: 768px) {
+            /* Marketing panel - smaller on tablet */
+            .marketing-panel {
+                width: 50% !important;
+            }
+
+            /* Left column - more padding */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                padding: 40px 30px !important;
+            }
+
+            /* Welcome text smaller */
+            .welcome-text-exo2 {
+                font-size: 22px !important;
+            }
+
+            /* Logo smaller on tablet */
+            .login-logo-container img {
+                width: 250px !important;
+            }
+        }
+
+        /* --- MOBILE (max-width: 480px) --- */
+        @media screen and (max-width: 480px) {
+            /* CRITICAL: Hide marketing panel completely - override position:fixed */
+            .marketing-panel,
+            div.marketing-panel,
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child .marketing-panel {
+                display: none !important;
+                visibility: hidden !important;
+                position: absolute !important;
+                left: -9999px !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+                opacity: 0 !important;
+            }
+
+            /* Hide the right column container completely */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child,
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {
+                display: none !important;
+                visibility: hidden !important;
+                width: 0 !important;
+                max-width: 0 !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: hidden !important;
+            }
+
+            /* Force single column layout */
+            [data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
+                width: 100% !important;
+            }
+
+            /* Left column - full screen login, ensure it shows */
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                display: flex !important;
+                visibility: visible !important;
+                min-width: 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 1 1 100% !important;
+                padding: 30px 20px !important;
+                min-height: 100vh !important;
+                justify-content: flex-start !important;
+                padding-top: 40px !important;
+                background-color: #FFFFFF !important;
+            }
+
+            /* Welcome text - mobile friendly */
+            .welcome-text-exo2 {
+                font-size: 20px !important;
+                letter-spacing: 1px !important;
+                margin-bottom: 16px !important;
+            }
+
+            /* Logo - smaller on mobile */
+            .login-logo-container img,
+            [data-testid="stColumn"]:first-child img {
+                width: 220px !important;
+                max-width: 80% !important;
+            }
+
+            /* Google button - full width, touch friendly */
+            .google-btn {
+                padding: 16px 20px !important;
+                font-size: 14px !important;
+                min-height: 48px !important;
+            }
+
+            /* Divider - tighter */
+            .divider {
+                margin: 20px 0 !important;
+            }
+
+            /* Input fields - larger touch targets */
+            .stTextInput > div > div > input {
+                min-height: 48px !important;
+                font-size: 16px !important; /* Prevents iOS zoom */
+                padding: 12px 16px !important;
+            }
+
+            /* Buttons - full width, touch friendly */
+            div.stButton > button {
+                min-height: 48px !important;
+                font-size: 14px !important;
+                padding: 14px 20px !important;
+            }
+
+            /* Privacy notice - smaller */
+            .privacy-notice {
+                font-size: 11px !important;
+                margin-top: 16px !important;
+            }
+
+            /* Success/Error messages - tighter */
+            .success-message,
+            .error-message {
+                padding: 12px 16px !important;
+                margin-bottom: 16px !important;
+            }
+
+            .success-message p,
+            .error-message p {
+                font-size: 13px !important;
+            }
+
+            /* Checkbox - larger touch target */
+            .stCheckbox > label {
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+        }
+
+        /* --- VERY SMALL SCREENS (max-width: 360px) --- */
+        @media screen and (max-width: 360px) {
+            [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                padding: 20px 16px !important;
+                padding-top: 40px !important;
+            }
+
+            .welcome-text-exo2 {
+                font-size: 18px !important;
+            }
+
+            .google-btn {
+                padding: 14px 16px !important;
+                font-size: 13px !important;
+            }
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -245,13 +443,13 @@ def show_login_page():
             </script>
         """, unsafe_allow_html=True)
 
-        # --- LOGO (310px) ---
+        # --- LOGO (248px - reduced 20% from 310px) ---
         logo_b64 = _get_image_base64("CashflowEnginelogo.png")
         if logo_b64:
             st.markdown(f"""
                 <div style="text-align: center; margin-bottom: 15px;">
                     <img src="data:image/png;base64,{logo_b64}"
-                         style="width: 310px; height: auto; max-width: 100%;"
+                         style="width: 248px; height: auto; max-width: 100%;"
                          alt="Cashflow Engine Logo" />
                 </div>
             """, unsafe_allow_html=True)
@@ -339,7 +537,7 @@ def show_login_page():
 
             # Privacy checkbox
             privacy_accepted = st.checkbox(
-                "I accept the [Privacy Policy](?page=privacy)",
+                "I accept the [Privacy Policy](https://cashflowengine.io/privacy)",
                 key="privacy_checkbox",
                 value=st.session_state.get('privacy_accepted', False)
             )
@@ -369,7 +567,7 @@ def show_login_page():
             # Privacy notice
             st.markdown("""
                 <div class="privacy-notice">
-                    By signing in, you agree to our <a href="?page=privacy">Privacy Policy</a>.
+                    By signing in, you agree to our <a href="https://cashflowengine.io/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
                     We use your email only for authentication and will never share it with third parties.
                 </div>
             """, unsafe_allow_html=True)
@@ -408,6 +606,7 @@ def show_login_page():
                         st.session_state['otp_sent'] = False
                         st.session_state['otp_email'] = None
                         st.session_state.navigate_to_page = "Start & Data"
+                        # Note: main_nav_radio will be synced in app.py before widget renders
                         st.rerun()
                     else:
                         st.session_state['auth_error'] = result['message']
@@ -432,14 +631,30 @@ def show_login_page():
 
     # --- RIGHT PANEL: FULL-HEIGHT MARKETING IMAGE ---
     with col_right:
-        marketing_image_b64 = _get_image_base64("login_marketing_panel.png")
+        # Cache the base64 image in session state to avoid re-encoding on each rerun
+        if 'marketing_image_b64' not in st.session_state:
+            st.session_state.marketing_image_b64 = _get_image_base64("login_marketing_panel.png")
+
+        marketing_image_b64 = st.session_state.marketing_image_b64
 
         if marketing_image_b64:
-            # Full-height image panel (like PowerX Optimizer)
+            # Full-height image panel with lazy loading and fade-in animation
             st.markdown(f"""
+                <style>
+                    .marketing-panel img {{
+                        opacity: 0;
+                        animation: fadeIn 0.5s ease-in forwards;
+                    }}
+                    @keyframes fadeIn {{
+                        from {{ opacity: 0; }}
+                        to {{ opacity: 1; }}
+                    }}
+                </style>
                 <div class="marketing-panel">
                     <img src="data:image/png;base64,{marketing_image_b64}"
-                         alt="Cashflow Engine Features" />
+                         alt="Cashflow Engine Features"
+                         loading="lazy"
+                         decoding="async" />
                 </div>
             """, unsafe_allow_html=True)
         else:

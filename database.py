@@ -246,7 +246,7 @@ def save_analysis_to_db(name, bt_df, live_df=None):
     return save_analysis_to_db_enhanced(name, bt_df, live_df)
 
 def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags=None):
-    """Enhanced save with metadata and user association."""
+    """Enhanced save with metadata, user association, and all analysis results."""
     if not DB_AVAILABLE:
         st.error("Database not connected.")
         return False
@@ -326,6 +326,92 @@ def save_analysis_to_db_enhanced(name, bt_df, live_df=None, description="", tags
         logger.error(f"Enhanced save error: {e}")
         st.error(f"Save Error: {e}")
         return False
+
+
+def _collect_analysis_results():
+    """Collect all analysis results from session state for saving."""
+    results = {}
+
+    # Monte Carlo results
+    mc_results = st.session_state.get('mc_results')
+    if mc_results:
+        results['mc_results'] = mc_results
+
+    # Portfolio Builder results
+    portfolio_allocation = st.session_state.get('portfolio_allocation')
+    if portfolio_allocation:
+        results['portfolio_allocation'] = portfolio_allocation
+
+    selected_strategies = st.session_state.get('selected_strategies')
+    if selected_strategies:
+        results['selected_strategies'] = list(selected_strategies) if not isinstance(selected_strategies, list) else selected_strategies
+
+    # Correlation matrix (convert to dict for JSON serialization)
+    correlation_matrix = st.session_state.get('correlation_matrix')
+    if correlation_matrix is not None and hasattr(correlation_matrix, 'to_dict'):
+        results['correlation_matrix'] = correlation_matrix.to_dict()
+
+    # MEIC/DNA analysis results
+    dna_cache = st.session_state.get('dna_cache')
+    if dna_cache:
+        results['dna_cache'] = dna_cache
+
+    # Strategy base stats
+    strategy_base_stats = st.session_state.get('strategy_base_stats')
+    if strategy_base_stats:
+        results['strategy_base_stats'] = strategy_base_stats
+
+    # Daily P&L series (convert to dict for JSON)
+    daily_pnl_series = st.session_state.get('daily_pnl_series')
+    if daily_pnl_series is not None and hasattr(daily_pnl_series, 'to_dict'):
+        results['daily_pnl_series'] = daily_pnl_series.to_dict()
+
+    # Precomputed data from precompute module
+    precompute_cache = st.session_state.get('precompute_cache')
+    if precompute_cache:
+        results['precompute_cache'] = precompute_cache
+
+    logger.info(f"Collected analysis results: {list(results.keys())}")
+    return results
+
+
+def _restore_analysis_results(analysis_results):
+    """Restore analysis results to session state after loading."""
+    if not analysis_results:
+        return
+
+    # Monte Carlo results
+    if 'mc_results' in analysis_results:
+        st.session_state['mc_results'] = analysis_results['mc_results']
+
+    # Portfolio Builder results
+    if 'portfolio_allocation' in analysis_results:
+        st.session_state['portfolio_allocation'] = analysis_results['portfolio_allocation']
+
+    if 'selected_strategies' in analysis_results:
+        st.session_state['selected_strategies'] = analysis_results['selected_strategies']
+
+    # Correlation matrix (convert from dict back to DataFrame)
+    if 'correlation_matrix' in analysis_results:
+        st.session_state['correlation_matrix'] = pd.DataFrame(analysis_results['correlation_matrix'])
+
+    # MEIC/DNA analysis results
+    if 'dna_cache' in analysis_results:
+        st.session_state['dna_cache'] = analysis_results['dna_cache']
+
+    # Strategy base stats
+    if 'strategy_base_stats' in analysis_results:
+        st.session_state['strategy_base_stats'] = analysis_results['strategy_base_stats']
+
+    # Daily P&L series (convert from dict back to Series)
+    if 'daily_pnl_series' in analysis_results:
+        st.session_state['daily_pnl_series'] = pd.Series(analysis_results['daily_pnl_series'])
+
+    # Precomputed data
+    if 'precompute_cache' in analysis_results:
+        st.session_state['precompute_cache'] = analysis_results['precompute_cache']
+
+    logger.info(f"Restored analysis results: {list(analysis_results.keys())}")
 
 def get_analysis_list():
     """Retrieve list of saved analyses for the current user."""
@@ -486,12 +572,31 @@ def load_analysis_from_db(analysis_id, _user_id=None, restore_calculations=True)
             return None, None, False
 
     try:
-        # Use authenticated client for RLS
-        client = get_authenticated_client() or supabase
+        # Get cached raw data
+        json_data = _load_analysis_data_cached(analysis_id, _user_id)
 
-        # Filter by both analysis_id AND user_id for security
-        logger.info(f"Loading analysis {analysis_id} for user {_user_id}")
-        response = client.table('analyses').select("data_json, user_id").eq('id', analysis_id).eq('user_id', _user_id).execute()
+        if json_data is None:
+            return None, None
+
+        # Handle legacy list format
+        if isinstance(json_data, list):
+            bt_df = pd.DataFrame(json_data)
+            return repair_df_dates(bt_df), None
+
+        # Handle dict format (version 3+)
+        elif isinstance(json_data, dict):
+            bt_data = json_data.get('backtest', [])
+            live_data = json_data.get('live', [])
+            bt_df = pd.DataFrame(bt_data) if bt_data else pd.DataFrame()
+            live_df = pd.DataFrame(live_data) if live_data else None
+
+            # Restore analysis results (version 4+)
+            analysis_results = json_data.get('analysis_results', {})
+            if analysis_results:
+                _restore_analysis_results(analysis_results)
+                logger.info(f"Restored {len(analysis_results)} analysis result categories")
+
+            return repair_df_dates(bt_df), repair_df_dates(live_df) if live_df is not None else None
 
         if response.data:
             json_data = response.data[0]['data_json']

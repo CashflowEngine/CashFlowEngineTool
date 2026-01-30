@@ -355,10 +355,18 @@ def show_sales_landing():
         <!-- Hero Section -->
         <div class="hero-section">
             {logo_html}
-            <h1 class="hero-title">Datengetriebene Portfolio-Analyse<br>für Options-Trader</h1>
+            <h1 class="hero-title">Options Trading Analytics &<br>Backtesting Platform</h1>
             <p class="hero-subtitle">
-                Analysiere deine Strategien mit professionellen Metriken, simuliere Marktszenarien
-                und optimiere deine Kapitalallokation - basierend auf echten Daten, nicht auf Bauchgefühl.
+                Backteste deine 0DTE Strategien, simuliere Portfolio-Risiken mit Monte Carlo Simulationen
+                und optimiere deine Iron Condor & Credit Spread Performance - basierend auf echten Daten, nicht auf Bauchgefühl.
+            </p>
+
+            <!-- SEO Keywords (hidden but crawlable) -->
+            <p style="position: absolute; left: -9999px; opacity: 0;">
+                Options Backtesting Software | 0DTE Options Trading | Iron Condor Strategy |
+                Monte Carlo Simulation Trading | Portfolio Analytics | Credit Spread Analysis |
+                Automated Options Trading | Trading Journal | Options Performance Tracker |
+                SPX SPY QQQ Options | Wheel Strategy | Options Risk Management
             </p>
 
             <div class="metrics-highlight">
@@ -378,9 +386,10 @@ def show_sales_landing():
         </div>
 
         <!-- Features Section -->
-        <h2 class="section-title">Die Analyse-Module</h2>
+        <h2 class="section-title">Professionelle Options Trading Tools</h2>
         <p class="section-subtitle">
-            Jedes Modul wurde entwickelt, um einen spezifischen Aspekt deines Tradings zu beleuchten.
+            Backtesting, Monte Carlo Simulation, Portfolio Analytics und mehr -
+            entwickelt für 0DTE Trader, Iron Condor Strategien und Credit Spread Optimierung.
         </p>
 
         <div class="features-grid">
@@ -388,34 +397,34 @@ def show_sales_landing():
             <!-- Portfolio Analytics -->
             <div class="feature-card">
                 <div class="feature-icon">📊</div>
-                <div class="feature-title">Portfolio Analytics</div>
+                <div class="feature-title">Portfolio Analytics & Performance Tracking</div>
                 <div class="feature-desc">
-                    Tiefgehende Analyse deiner Backtest- und Live-Daten. Verstehe die tatsächliche Performance
-                    deines Portfolios anhand professioneller Kennzahlen.
+                    Professionelle Trading Performance Analyse für Options-Trader. Tracke deine Backtest-
+                    und Live-Ergebnisse mit institutionellen Metriken.
                 </div>
                 <ul class="feature-list">
                     <li>CAGR, Volatilität, Sharpe & Sortino Ratio</li>
-                    <li>Maximum Drawdown (% und absolut)</li>
-                    <li>MAR & MART Ratio für Risikobewertung</li>
+                    <li>Maximum Drawdown Analyse (% und absolut)</li>
+                    <li>MAR & MART Ratio für Risk-Adjusted Returns</li>
                     <li>Monatliche Return-Matrix</li>
                     <li>Equity-Kurve mit SPX-Benchmark</li>
-                    <li>Strategie-Filter und Zeitraumanalyse</li>
+                    <li>0DTE & Multi-Strategie Filter</li>
                 </ul>
             </div>
 
             <!-- Portfolio Builder -->
             <div class="feature-card">
                 <div class="feature-icon">🏗️</div>
-                <div class="feature-title">Portfolio Builder</div>
+                <div class="feature-title">Portfolio Builder & Optimierung</div>
                 <div class="feature-desc">
-                    Konstruiere ein ausgewogenes Multi-Strategie-Portfolio. Simuliere verschiedene
-                    Kontraktallokationen und verstehe die Auswirkungen auf Margin und Risiko.
+                    Konstruiere und optimiere dein Multi-Strategie Options Portfolio. Ideal für
+                    Iron Condor, Credit Spread und Wheel Strategy Kombinationen.
                 </div>
                 <ul class="feature-list">
                     <li>Interaktive Kontrakt-Allokation</li>
-                    <li>Kelly Criterion Berechnung</li>
+                    <li>Kelly Criterion Position Sizing</li>
                     <li>Margin-Simulation</li>
-                    <li>Strategie-Kategorisierung (Workhorse, Airbag, Opportunist)</li>
+                    <li>Iron Condor & Credit Spread Portfolio Mix</li>
                     <li>Kapitaleffizienz-Analyse</li>
                 </ul>
             </div>
@@ -423,16 +432,16 @@ def show_sales_landing():
             <!-- Monte Carlo -->
             <div class="feature-card">
                 <div class="feature-icon">🎲</div>
-                <div class="feature-title">Monte Carlo Simulation</div>
+                <div class="feature-title">Monte Carlo Simulation & Stresstest</div>
                 <div class="feature-desc">
-                    Stressteste dein Portfolio gegen tausende zufällige Marktszenarien.
-                    Simuliere Black-Swan-Events und analysiere Drawdown-Wahrscheinlichkeiten.
+                    Portfolio Stresstest mit Monte Carlo Simulation. Analysiere Drawdown-
+                    Wahrscheinlichkeiten und CVaR für deine 0DTE und Options-Strategien.
                 </div>
                 <ul class="feature-list">
-                    <li>Tausende randomisierte Szenarien</li>
+                    <li>Tausende randomisierte Trading-Szenarien</li>
                     <li>Black-Swan-Event-Simulation</li>
-                    <li>Drawdown-Wahrscheinlichkeiten</li>
-                    <li>Historische Worst-Case-Injektion</li>
+                    <li>Maximum Drawdown Wahrscheinlichkeiten</li>
+                    <li>CVaR & Risk-at-Value Analyse</li>
                     <li>Konfidenzintervalle für Returns</li>
                     <li>1-120 Monate Simulationszeitraum</li>
                 </ul>
@@ -441,34 +450,34 @@ def show_sales_landing():
             <!-- Reality Check -->
             <div class="feature-card">
                 <div class="feature-icon">🔍</div>
-                <div class="feature-title">Reality Check</div>
+                <div class="feature-title">Live vs Backtest Vergleich</div>
                 <div class="feature-desc">
-                    Vergleiche deine Live-Trades mit den Backtest-Ergebnissen.
-                    Identifiziere Slippage, Abweichungen und Performance-Gaps.
+                    Trading Journal für Options-Trader. Vergleiche Live-Execution mit Backtest-
+                    Ergebnissen und identifiziere Slippage bei 0DTE und Credit Spreads.
                 </div>
                 <ul class="feature-list">
-                    <li>Live vs. Backtest Vergleich</li>
-                    <li>Strategie-Matching</li>
-                    <li>Slippage-Identifikation</li>
-                    <li>Abweichungs-Analyse</li>
-                    <li>Execution-Quality-Bewertung</li>
+                    <li>Live Trading vs. Backtest Analyse</li>
+                    <li>Automatisches Strategie-Matching</li>
+                    <li>Slippage & Fill-Rate Tracking</li>
+                    <li>Abweichungs-Heatmaps</li>
+                    <li>Execution-Quality Score</li>
                 </ul>
             </div>
 
             <!-- MEIC Deep Dive -->
             <div class="feature-card">
                 <div class="feature-icon">🔬</div>
-                <div class="feature-title">MEIC Deep Dive</div>
+                <div class="feature-title">Iron Condor Analyse (MEIC)</div>
                 <div class="feature-desc">
-                    Spezialisierte Analyse für Multiple Entry Iron Condors.
-                    Verstehe, welche Einstiegszeiten und Parameter am besten performen.
+                    Spezialisierte Backtesting-Analyse für Iron Condor Strategien.
+                    Optimiere Entry-Zeiten, Delta-Settings und 0DTE Parameter.
                 </div>
                 <ul class="feature-list">
-                    <li>Entry-Time Performance-Analyse</li>
-                    <li>Heatmap-Visualisierung</li>
-                    <li>Parameter-Optimierung</li>
-                    <li>Marktbedingungs-Korrelation</li>
-                    <li>Trade-Clustering</li>
+                    <li>Iron Condor Entry-Time Analyse</li>
+                    <li>Performance Heatmaps nach Parameter</li>
+                    <li>Delta & Strike Optimierung</li>
+                    <li>VIX & Marktbedingungs-Korrelation</li>
+                    <li>0DTE vs Multi-Day Vergleich</li>
                 </ul>
             </div>
 
@@ -525,15 +534,15 @@ def show_sales_landing():
 
         <!-- Philosophy Section -->
         <div class="philosophy-section">
-            <h2 class="section-title" style="margin-top: 0;">Unsere Philosophie</h2>
+            <h2 class="section-title" style="margin-top: 0;">Von Options-Tradern für Options-Trader</h2>
             <p class="philosophy-text">
-                Die Cashflow Engine wurde von Options-Tradern für Options-Trader entwickelt.
+                Die Cashflow Engine wurde von aktiven 0DTE und Iron Condor Tradern entwickelt.
                 Wir glauben an datengetriebene Entscheidungen statt Bauchgefühl.
-                Jede Metrik, jede Simulation und jede Analyse dient einem Zweck:
-                Dir zu helfen, dein Trading objektiv zu bewerten und fundierte Entscheidungen zu treffen.
+                Jedes Backtesting-Tool, jede Monte Carlo Simulation und jede Performance-Analyse dient einem Zweck:
+                Dir zu helfen, deine Options-Strategien objektiv zu bewerten und fundierte Entscheidungen zu treffen.
                 <br><br>
-                Keine übertriebenen Versprechen, keine Marketing-Floskeln - nur solide Werkzeuge
-                für ernsthafte Trader, die ihre Performance verstehen und verbessern wollen.
+                Keine übertriebenen Versprechen - nur professionelle Analytics-Tools
+                für SPX, SPY und QQQ Options-Trader, die ihre Credit Spread und Iron Condor Performance verbessern wollen.
             </p>
         </div>
 
@@ -573,9 +582,10 @@ def show_sales_landing():
 
         <!-- CTA Section -->
         <div class="cta-section">
-            <h2 class="section-title">Bereit für datengetriebenes Trading?</h2>
+            <h2 class="section-title">Starte jetzt mit Options Backtesting & Analytics</h2>
             <p style="font-family: 'Poppins', sans-serif; font-size: 1rem; color: #6B7280; margin-bottom: 30px;">
-                Registriere dich jetzt und starte mit der Analyse deines Portfolios.
+                Registriere dich kostenlos und analysiere deine 0DTE, Iron Condor und Credit Spread Strategien
+                mit professionellen Tools.
             </p>
         </div>
 

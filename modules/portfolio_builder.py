@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
+import precompute
 import time
 
 def page_portfolio_builder(full_df):
@@ -34,7 +35,7 @@ def page_portfolio_builder(full_df):
         with config_r1_c1:
             account_size = st.number_input("Account Size ($)", value=100000, step=5000, min_value=1000, key="builder_account")
         with config_r1_c2:
-            target_margin_pct = st.slider("Target Margin (%)", min_value=10, max_value=100, value=80, step=5)
+            target_margin_pct = st.slider("Target Margin (%)", min_value=10, max_value=100, value=50, step=5)
         with config_r1_c3:
             target_margin = account_size * (target_margin_pct / 100)
             st.metric("Margin Budget", f"${target_margin:,.0f}")
@@ -71,54 +72,78 @@ def page_portfolio_builder(full_df):
     strategies = sorted(filtered_df['strategy'].unique().tolist())
     full_date_range = pd.date_range(start=selected_dates[0], end=selected_dates[1], freq='D')
 
-    # Pre-calculate stats
-    strategy_base_stats = {}
+    # Check if we can use pre-computed stats (when using full date range)
+    cached_stats = precompute.get_cached('strategy_base_stats')
 
-    for strat in strategies:
-        strat_data = filtered_df[filtered_df['strategy'] == strat].copy()
-        if strat_data.empty: continue
+    # Validate cache has all required fields
+    cache_valid = False
+    if cached_stats is not None and len(cached_stats) > 0:
+        # Check first strategy for required fields
+        first_strat = next(iter(cached_stats.values()))
+        required_fields = ['kelly', 'margin_series', 'daily_pnl_series', 'total_pnl', 'margin_per_contract']
+        cache_valid = all(field in first_strat and first_strat[field] is not None for field in required_fields)
 
-        dna = calc.get_cached_dna(strat, strat_data)
-        category = calc.categorize_strategy(strat)
-        total_lots, contracts_per_day = calc.calculate_lots_from_trades(strat_data)
+    use_cache = (
+        cache_valid and
+        selected_dates[0] == min_d and
+        selected_dates[1] == max_d and
+        precompute.is_cache_valid(full_df)
+    )
 
-        contracts_per_day = max(0.5, round(contracts_per_day * 2) / 2)
+    if use_cache:
+        # Use pre-computed stats (instant!)
+        strategy_base_stats = cached_stats
+    else:
+        # Compute stats for custom date range
+        strategy_base_stats = {}
 
-        margin_per_contract = strat_data['margin'].mean() if 'margin' in strat_data.columns else 0
-        total_pnl = strat_data['pnl'].sum()
+        for strat in strategies:
+            strat_data = filtered_df[filtered_df['strategy'] == strat].copy()
+            if strat_data.empty: continue
 
-        wins = strat_data[strat_data['pnl'] > 0]['pnl']
-        losses = strat_data[strat_data['pnl'] <= 0]['pnl']
-        win_rate = len(wins) / len(strat_data) if len(strat_data) > 0 else 0
-        avg_win = wins.mean() if len(wins) > 0 else 0
-        avg_loss = abs(losses.mean()) if len(losses) > 0 else 0
-        kelly = 0
-        if avg_loss > 0 and avg_win > 0:
-            b = avg_win / avg_loss
-            kelly = (win_rate * b - (1 - win_rate)) / b
-            kelly = max(0, min(kelly, 1))
+            dna = calc.get_cached_dna(strat, strat_data)
+            category = calc.categorize_strategy(strat)
+            total_lots, contracts_per_day = calc.calculate_lots_from_trades(strat_data)
 
-        daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
-        daily_pnl_aligned = daily_pnl.reindex(full_date_range, fill_value=0)
+            contracts_per_day = max(0.5, round(contracts_per_day * 2) / 2)
 
-        cumsum = daily_pnl_aligned.cumsum()
-        peak = cumsum.cummax()
-        dd = (cumsum - peak).min()
+            # Calculate max daily margin (sum of all open positions on any given day)
+            margin_series = calc.generate_daily_margin_series_optimized(strat_data)
+            margin_per_contract = margin_series.max() if len(margin_series) > 0 else 0
+            total_pnl = strat_data['pnl'].sum()
 
-        margin_series = calc.generate_daily_margin_series_optimized(strat_data).reindex(full_date_range, fill_value=0)
+            wins = strat_data[strat_data['pnl'] > 0]['pnl']
+            losses = strat_data[strat_data['pnl'] <= 0]['pnl']
+            win_rate = len(wins) / len(strat_data) if len(strat_data) > 0 else 0
+            avg_win = wins.mean() if len(wins) > 0 else 0
+            avg_loss = abs(losses.mean()) if len(losses) > 0 else 0
+            kelly = 0
+            if avg_loss > 0 and avg_win > 0:
+                b = avg_win / avg_loss
+                kelly = (win_rate * b - (1 - win_rate)) / b
+                kelly = max(0, min(kelly, 1))
 
-        strategy_base_stats[strat] = {
-            'category': category,
-            'dna': dna,
-            'contracts_per_day': contracts_per_day,
-            'margin_per_contract': margin_per_contract,
-            'total_pnl': total_pnl,
-            'win_rate': win_rate,
-            'kelly': kelly,
-            'max_dd': abs(dd) if dd < 0 else 0,
-            'daily_pnl_series': daily_pnl_aligned,
-            'margin_series': margin_series
-        }
+            daily_pnl = strat_data.set_index('timestamp').resample('D')['pnl'].sum()
+            daily_pnl_aligned = daily_pnl.reindex(full_date_range, fill_value=0)
+
+            cumsum = daily_pnl_aligned.cumsum()
+            peak = cumsum.cummax()
+            dd = (cumsum - peak).min()
+
+            margin_series = calc.generate_daily_margin_series_optimized(strat_data).reindex(full_date_range, fill_value=0)
+
+            strategy_base_stats[strat] = {
+                'category': category,
+                'dna': dna,
+                'contracts_per_day': contracts_per_day,
+                'margin_per_contract': margin_per_contract,
+                'total_pnl': total_pnl,
+                'win_rate': win_rate,
+                'kelly': kelly,
+                'max_dd': abs(dd) if dd < 0 else 0,
+                'daily_pnl_series': daily_pnl_aligned,
+                'margin_series': margin_series
+            }
 
     # Allocation Table (Card)
     with st.container(border=True):
@@ -139,83 +164,301 @@ def page_portfolio_builder(full_df):
         </div>
         """, unsafe_allow_html=True)
 
-        if 'portfolio_allocation' not in st.session_state: st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
-        if 'category_overrides' not in st.session_state: st.session_state.category_overrides = {}
+        # Basic initialization - detailed initialization happens after function definitions below
+        if 'portfolio_allocation' not in st.session_state:
+            st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
+        if 'category_overrides' not in st.session_state:
+            st.session_state.category_overrides = {}
+        if 'option_strategy_overrides' not in st.session_state:
+            st.session_state.option_strategy_overrides = {}
         if 'kelly_pct' not in st.session_state: st.session_state.kelly_pct = 20
         if 'mart_min_pnl' not in st.session_state: st.session_state.mart_min_pnl = 0
+
+        # Option strategy types for dropdown
+        OPTION_STRATEGIES = ["Iron Condor", "Reverse Iron Condor", "Double Calendar", "Bull Put Spread", "Bear Call Spread",
+                            "Bull Call Spread", "Bear Put Spread", "Long Put", "Long Call",
+                            "Butterfly", "Straddle", "Strangle", "Covered Call", "Cash Secured Put", "Other"]
+
+        def detect_option_strategy_from_legs(strat_name, strat_df):
+            """Detect option strategy by analyzing the legs of trades.
+
+            Priority 1: Analyze legs to determine strategy type.
+            Priority 2: Fall back to strategy name pattern matching.
+            """
+            # First try to detect from legs
+            if strat_df is not None and not strat_df.empty and 'legs' in strat_df.columns:
+                sample = strat_df.head(50)  # Sample trades for analysis
+
+                # Count leg patterns
+                has_short_put = 0
+                has_short_call = 0
+                has_long_put = 0
+                has_long_call = 0
+
+                for _, row in sample.iterrows():
+                    legs_str = str(row.get('legs', '')).upper()
+
+                    # Detect short/long puts and calls
+                    if ' P STO' in legs_str or ' PUT STO' in legs_str or 'SELL.*PUT' in legs_str:
+                        has_short_put += 1
+                    if ' C STO' in legs_str or ' CALL STO' in legs_str or 'SELL.*CALL' in legs_str:
+                        has_short_call += 1
+                    if ' P BTO' in legs_str or ' PUT BTO' in legs_str or 'BUY.*PUT' in legs_str:
+                        has_long_put += 1
+                    if ' C BTO' in legs_str or ' CALL BTO' in legs_str or 'BUY.*CALL' in legs_str:
+                        has_long_call += 1
+
+                # Determine strategy from leg composition
+                total = len(sample)
+                if total > 0:
+                    # Iron Condor: Both short put and short call
+                    if has_short_put > total * 0.4 and has_short_call > total * 0.4:
+                        return "Iron Condor"
+                    # Bull Put Spread: Short put + long put (at lower strike)
+                    elif has_short_put > total * 0.4 and has_long_put > total * 0.4 and has_short_call < total * 0.1:
+                        return "Bull Put Spread"
+                    # Bear Call Spread: Short call + long call (at higher strike)
+                    elif has_short_call > total * 0.4 and has_long_call > total * 0.4 and has_short_put < total * 0.1:
+                        return "Bear Call Spread"
+                    # Long Put only
+                    elif has_long_put > total * 0.4 and has_short_put < total * 0.1 and has_short_call < total * 0.1 and has_long_call < total * 0.1:
+                        return "Long Put"
+                    # Long Call only
+                    elif has_long_call > total * 0.4 and has_short_call < total * 0.1 and has_short_put < total * 0.1 and has_long_put < total * 0.1:
+                        return "Long Call"
+
+            # Fall back to strategy name pattern matching
+            return detect_option_strategy_from_name(strat_name)
+
+        def detect_option_strategy_from_name(strat_name):
+            """Detect option strategy from strategy name patterns."""
+            name_upper = strat_name.upper()
+
+            # Reverse Iron Condor (check before Iron Condor)
+            # Use word boundary check for RIC to avoid false positives
+            import re
+            if 'REVERSE IRON' in name_upper or re.search(r'\bRIC\b', name_upper):
+                return "Reverse Iron Condor"
+
+            # Long positions (check first as they're specific)
+            if 'LONG PUT' in name_upper:
+                return "Long Put"
+            if 'LONG CALL' in name_upper:
+                return "Long Call"
+
+            # Spread patterns
+            if 'BPS' in name_upper or 'BULL PUT' in name_upper:
+                return "Bull Put Spread"
+            if 'BCS' in name_upper or 'BULL CALL' in name_upper:
+                return "Bull Call Spread"
+            if 'BEAR CALL' in name_upper:
+                return "Bear Call Spread"
+            if 'BEAR PUT' in name_upper:
+                return "Bear Put Spread"
+
+            # METF patterns
+            if 'METF' in name_upper:
+                if 'CALL' in name_upper:
+                    return "Bear Call Spread"  # METF-Call is typically a call spread (credit)
+                if 'PUT' in name_upper:
+                    return "Bull Put Spread"   # METF-Put is typically a put spread (credit)
+
+            # Iron Condor
+            if 'IRON CONDOR' in name_upper or 'IC' in name_upper or 'MEIC' in name_upper:
+                return "Iron Condor"
+
+            # Calendar spreads
+            if 'DOUBLE CALENDAR' in name_upper or 'DC' in name_upper or 'CALENDAR' in name_upper:
+                return "Double Calendar"
+
+            # Credit spreads (generic)
+            if 'PUT CREDIT' in name_upper or 'PCS' in name_upper:
+                return "Bull Put Spread"
+            if 'CALL CREDIT' in name_upper or 'CCS' in name_upper:
+                return "Bear Call Spread"
+
+            # Other patterns
+            if 'BUTTERFLY' in name_upper or 'FLY' in name_upper or 'BWB' in name_upper:
+                return "Butterfly"
+            if 'STRADDLE' in name_upper:
+                return "Straddle"
+            if 'STRANGLE' in name_upper:
+                return "Strangle"
+            if 'COVERED CALL' in name_upper:
+                return "Covered Call"
+            if 'CSP' in name_upper or 'CASH SECURED' in name_upper:
+                return "Cash Secured Put"
+
+            return "Other"
+
+        def get_default_category_for_strategy(strat_name, opt_strat):
+            """Determine the default Type (Category) based on strategy characteristics.
+
+            Rules:
+            - Delta-neutral strategies: Workhorse
+            - Delta-Long strategies: Opportunist
+            - Delta-Short strategies: Airbag
+            - Double Calendars and RICs: Airbag (ALWAYS)
+            - METF strategies: Workhorse
+            """
+            import re
+            name_upper = strat_name.upper()
+
+            # FORCE Airbag for Double Calendar and RIC strategies
+            # Check both option strategy type AND strategy name patterns
+            if opt_strat in ["Double Calendar", "Reverse Iron Condor"]:
+                return "Airbag"
+
+            # Also check strategy name directly for DC/RIC patterns
+            if 'DOUBLE CALENDAR' in name_upper or 'DC' in name_upper or 'CALENDAR' in name_upper:
+                return "Airbag"
+            if 'REVERSE IRON' in name_upper or re.search(r'\bRIC\b', name_upper):
+                return "Airbag"
+
+            # METF strategies are Workhorse
+            if 'METF' in name_upper:
+                return "Workhorse"
+
+            # Delta-Long strategies are Opportunist
+            if opt_strat in ["Long Call", "Bull Call Spread", "Bull Put Spread"]:
+                return "Opportunist"
+
+            # Delta-Short strategies are Airbag
+            if opt_strat in ["Long Put", "Bear Call Spread", "Bear Put Spread"]:
+                return "Airbag"
+
+            # Delta-neutral strategies (Iron Condor, Butterfly, etc.) are Workhorse
+            if opt_strat in ["Iron Condor", "Butterfly", "Straddle", "Strangle", "Covered Call", "Cash Secured Put"]:
+                return "Workhorse"
+
+            # Default to Workhorse
+            return "Workhorse"
+
+        # Pre-populate overrides for all strategies BEFORE building the DataFrame
+        # This prevents value jumping when editing the data_editor
+        for strat in strategies:
+            if strat not in strategy_base_stats:
+                continue
+
+            # Ensure portfolio allocation exists
+            if strat not in st.session_state.portfolio_allocation:
+                st.session_state.portfolio_allocation[strat] = 1.0
+
+            # Detect and set option strategy if not already set
+            if strat not in st.session_state.option_strategy_overrides:
+                strat_data_for_init = filtered_df[filtered_df['strategy'] == strat] if strat in filtered_df['strategy'].values else None
+                detected_opt_strat = detect_option_strategy_from_legs(strat, strat_data_for_init)
+                st.session_state.option_strategy_overrides[strat] = detected_opt_strat
+
+            # Set category based on option strategy if not already set
+            if strat not in st.session_state.category_overrides:
+                opt_strat = st.session_state.option_strategy_overrides[strat]
+                st.session_state.category_overrides[strat] = get_default_category_for_strategy(strat, opt_strat)
 
         allocation_data = []
         for strat in strategies:
             if strat not in strategy_base_stats: continue
             stats = strategy_base_stats[strat]
-            cat = st.session_state.category_overrides.get(strat, stats['category'])
+
+            # Get values from session_state (which were initialized above)
+            # This ensures consistency and prevents value jumping
+            opt_strat = st.session_state.option_strategy_overrides.get(strat, "Other")
+            cat = st.session_state.category_overrides.get(strat, "Workhorse")
             mult = st.session_state.portfolio_allocation.get(strat, 1.0)
 
-            # Truncate strategy name for display
-            strat_display = strat[:20] + ".." if len(strat) > 20 else strat
-
             allocation_data.append({
-                'Category': cat,
-                'Strategy': strat_display,
+                'Strategy': strat,  # Full strategy name
                 'StrategyFull': strat,
-                'Hist': stats['contracts_per_day'],
+                'MaxDailyMargin': stats['margin_per_contract'],  # This is the max total daily margin, not per contract
                 'P&L': stats['total_pnl'],
                 'P&L*M': stats['total_pnl'] * mult,
                 'DD': stats['max_dd'],
                 'DD*M': stats['max_dd'] * mult,
-                'Margin/Lot': stats['margin_per_contract'],
-                'Margin*M': stats['margin_per_contract'] * stats['contracts_per_day'] * mult,
-                'Multiplier': mult
+                'Margin*M': stats['margin_per_contract'] * mult,
+                'Multiplier': mult,
+                'Category': cat,
+                'OptStrategy': opt_strat
             })
 
         alloc_df = pd.DataFrame(allocation_data)
 
         # Calculate totals for display
-        total_row = pd.DataFrame([{
-            'Category': '',
-            'Strategy': 'TOTAL',
-            'StrategyFull': '',
-            'Hist': alloc_df['Hist'].sum(),
-            'P&L': alloc_df['P&L'].sum(),
-            'P&L*M': alloc_df['P&L*M'].sum(),
-            'DD': alloc_df['DD'].max(),
-            'DD*M': alloc_df['DD*M'].max(),
-            'Margin/Lot': 0,
-            'Margin*M': alloc_df['Margin*M'].sum(),
-            'Multiplier': 0
-        }])
+        total_margin_daily = alloc_df['MaxDailyMargin'].sum()
 
-        # Data editor (excluding total row - that's shown separately below)
+        # Data editor with improved columns - Strategy Name first, Type and OptStrategy at end
         edited_alloc = st.data_editor(
-            alloc_df[['Category', 'Strategy', 'Hist', 'P&L', 'P&L*M', 'DD*M', 'Margin*M', 'Multiplier']],
+            alloc_df[['Strategy', 'MaxDailyMargin', 'P&L', 'P&L*M', 'DD*M', 'Margin*M', 'Multiplier', 'Category', 'OptStrategy']],
             column_config={
-                "Category": st.column_config.SelectboxColumn("Type", options=["Workhorse", "Airbag", "Opportunist"], width="small"),
-                "Strategy": st.column_config.TextColumn(width="medium"),
-                "Hist": st.column_config.NumberColumn("Hist C/D", format="%.1f", width="small"),
-                "P&L": st.column_config.NumberColumn("P&L (1x)", format="$%.0f", width="small"),
-                "P&L*M": st.column_config.NumberColumn("P&L*M", format="$%.0f", width="small"),
-                "DD*M": st.column_config.NumberColumn("DD*M", format="$%.0f", width="small"),
-                "Margin*M": st.column_config.NumberColumn("Margin*M", format="$%.0f", width="small"),
+                "Strategy": st.column_config.TextColumn(
+                    "Strategy Name",
+                    width="large",
+                    help="Full strategy name from your CSV file"
+                ),
+                "MaxDailyMargin": st.column_config.NumberColumn(
+                    "Max Margin",
+                    format="$%.0f",
+                    width="small",
+                    help="Maximum total daily margin for this strategy (includes all open positions on any day)"
+                ),
+                "P&L": st.column_config.NumberColumn(
+                    "P&L (1x)",
+                    format="$%.0f",
+                    width="small",
+                    help="Total P&L at 1x multiplier"
+                ),
+                "P&L*M": st.column_config.NumberColumn(
+                    "P&L*M",
+                    format="$%.0f",
+                    width="small",
+                    help="P&L scaled by your multiplier"
+                ),
+                "DD*M": st.column_config.NumberColumn(
+                    "DD*M",
+                    format="$%.0f",
+                    width="small",
+                    help="Max drawdown scaled by multiplier"
+                ),
+                "Margin*M": st.column_config.NumberColumn(
+                    "Margin*M",
+                    format="$%.0f",
+                    width="small",
+                    help="Daily margin usage scaled by multiplier"
+                ),
                 "Multiplier": st.column_config.NumberColumn(
                     "MULT ✏️",
                     min_value=0.0,
                     max_value=10.0,
                     step=0.1,
-                    help="Edit this column to adjust allocation"
+                    help="Adjust position size: 1.0 = historical, 2.0 = double, 0.5 = half"
+                ),
+                "Category": st.column_config.SelectboxColumn(
+                    "Type ✏️",
+                    options=["Workhorse", "Airbag", "Opportunist"],
+                    width="small",
+                    help="Strategy type: Workhorse (core), Airbag (hedge), Opportunist (tactical)"
+                ),
+                "OptStrategy": st.column_config.SelectboxColumn(
+                    "Option Strategy ✏️",
+                    options=OPTION_STRATEGIES,
+                    width="medium",
+                    help="Option strategy type (auto-detected, editable)"
                 )
             },
             use_container_width=True,
-            key="allocation_editor_v20",
+            key="allocation_editor_v22",
             hide_index=True
         )
 
         # Show totals row
         st.markdown(f"""
-            <div style="background-color: #F3F4F6; padding: 10px 15px; border-radius: 6px; margin-top: -10px;
-                        display: flex; justify-content: space-between; font-family: Poppins, sans-serif; font-size: 13px;">
-                <span><strong>TOTAL</strong></span>
+            <div style="background-color: #F3F4F6; padding: 12px 20px; border-radius: 8px; margin-top: 10px;
+                        display: flex; justify-content: space-between; font-family: Poppins, sans-serif; font-size: 13px;
+                        flex-wrap: wrap; gap: 15px;">
+                <span><strong>TOTAL ({len(alloc_df)} strategies)</strong></span>
+                <span>Max Margin: <strong>${alloc_df['MaxDailyMargin'].sum():,.0f}</strong></span>
+                <span>P&L (1x): <strong>${alloc_df['P&L'].sum():,.0f}</strong></span>
                 <span>P&L*M: <strong>${alloc_df['P&L*M'].sum():,.0f}</strong></span>
-                <span>Max DD*M: <strong>${alloc_df['DD*M'].max():,.0f}</strong></span>
+                <span>Max DD*M: <strong>${-abs(alloc_df['DD*M'].max()):,.0f}</strong></span>
                 <span>Margin*M: <strong>${alloc_df['Margin*M'].sum():,.0f}</strong></span>
             </div>
         """, unsafe_allow_html=True)
@@ -225,30 +468,71 @@ def page_portfolio_builder(full_df):
             full_strat = alloc_df.iloc[idx]['StrategyFull']
             st.session_state.portfolio_allocation[full_strat] = float(row['Multiplier'])
             st.session_state.category_overrides[full_strat] = row['Category']
+            st.session_state.option_strategy_overrides[full_strat] = row['OptStrategy']
 
-        # Action buttons row - Calculate button
-        calc_col, spacer = st.columns([1, 4])
+        # === BUTTON LAYOUT: Section headers, then Reset/Kelly%/MinPL, then action buttons ===
+        st.markdown("")
+
+        # Row 1: Section headers for all three columns
+        calc_col, kelly_col, mart_col = st.columns([1, 1, 1])
+
         with calc_col:
+            st.markdown("""
+                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px; text-align: center;">
+                    PORTFOLIO METRICS
+                </div>
+            """, unsafe_allow_html=True)
+
+        with kelly_col:
+            st.markdown("""
+                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px; text-align: center;">
+                    KELLY OPTIMIZER
+                </div>
+            """, unsafe_allow_html=True)
+
+        with mart_col:
+            st.markdown("""
+                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px; text-align: center;">
+                    MART OPTIMIZER
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Row 2: Reset/Set to 0 links under PORTFOLIO METRICS, Kelly% and Min P/L inputs
+        input_col1, input_col2, input_col3 = st.columns([1, 1, 1])
+
+        with input_col1:
+            # Reset and Set to 0 links under PORTFOLIO METRICS
+            reset_sub1, reset_sub2 = st.columns(2)
+            with reset_sub1:
+                if st.button("Reset", key="reset_btn", type="tertiary", use_container_width=True):
+                    st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
+            with reset_sub2:
+                if st.button("Set to 0", key="zero_btn", type="tertiary", use_container_width=True):
+                    st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
+                    st.session_state.calculate_kpis = False
+                    st.rerun()
+
+        with input_col2:
+            kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input")
+            st.session_state.kelly_pct = kelly_input
+
+        with input_col3:
+            mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input")
+            st.session_state.mart_min_pnl = mart_min_pnl
+
+        # Row 3: Buttons row - all three on same level
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+
+        with btn_col1:
             if st.button("CALCULATE", use_container_width=True, type="primary"):
                 st.session_state.calculate_kpis = True
                 st.rerun()
 
-        # Optimizers - clear grouping with labels
-        st.markdown("")
-        opt_col1, opt_col2 = st.columns(2)
-
-        with opt_col1:
-            st.markdown("""
-                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px;">
-                    KELLY OPTIMIZER
-                </div>
-            """, unsafe_allow_html=True)
-            kelly_c1, kelly_c2 = st.columns([1, 1])
-            with kelly_c1:
-                kelly_input = st.number_input("Kelly %", 5, 100, st.session_state.kelly_pct, 5, key="kelly_input")
-                st.session_state.kelly_pct = kelly_input
-            with kelly_c2:
-                if st.button("Run Kelly", use_container_width=True, type="secondary"):
+        with btn_col2:
+            if st.button("RUN KELLY", use_container_width=True, type="primary", key="run_kelly_btn"):
+                try:
                     with placeholder:
                         ui.show_loading_overlay("Optimizing", "Running Kelly optimization...")
                     optimized = calc.kelly_optimize_allocation(
@@ -258,21 +542,13 @@ def page_portfolio_builder(full_df):
                     )
                     st.session_state.portfolio_allocation = optimized
                     st.session_state.calculate_kpis = True
+                finally:
                     placeholder.empty()
-                    st.rerun()
+                st.rerun()
 
-        with opt_col2:
-            st.markdown("""
-                <div style="font-size: 12px; color: #6B7280; font-weight: 600; margin-bottom: 5px;">
-                    MART OPTIMIZER
-                </div>
-            """, unsafe_allow_html=True)
-            mart_c1, mart_c2 = st.columns([1, 1])
-            with mart_c1:
-                mart_min_pnl = st.number_input("Min P/L ($)", value=st.session_state.mart_min_pnl, step=1000, key="mart_min_pnl_input")
-                st.session_state.mart_min_pnl = mart_min_pnl
-            with mart_c2:
-                if st.button("Run MART", use_container_width=True, type="secondary"):
+        with btn_col3:
+            if st.button("RUN MART", use_container_width=True, type="primary", key="run_mart_btn"):
+                try:
                     with placeholder:
                         ui.show_loading_overlay("Optimizing", "Running MART optimization...")
                     optimized = calc.mart_optimize_allocation(
@@ -282,34 +558,68 @@ def page_portfolio_builder(full_df):
                     )
                     st.session_state.portfolio_allocation = optimized
                     st.session_state.calculate_kpis = True
+                finally:
                     placeholder.empty()
-                    st.rerun()
+                st.rerun()
 
-        # Reset links centered below
-        st.markdown("<div style='text-align: center; margin-top: 8px;'>", unsafe_allow_html=True)
-        reset_col1, reset_col2, reset_col3 = st.columns([2, 1, 2])
-        with reset_col2:
-            col_a, col_b = st.columns(2)
-            with col_a:
-                if st.button("Reset", key="reset_btn", type="tertiary"):
-                    st.session_state.portfolio_allocation = {s: 1.0 for s in strategies}
-                    st.session_state.calculate_kpis = False
-                    st.rerun()
-            with col_b:
-                if st.button("Set to 0", key="zero_btn", type="tertiary"):
-                    st.session_state.portfolio_allocation = {s: 0.0 for s in strategies}
-                    st.session_state.calculate_kpis = False
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+    # === DEBUG SECTION ===
+    with st.expander("🔍 DEBUG: Daten vor der Kalkulation", expanded=False):
+        st.write("### 1. strategy_base_stats")
+        st.write(f"Anzahl Strategien: **{len(strategy_base_stats)}**")
+
+        if strategy_base_stats:
+            debug_stats = []
+            for strat_name, stats in strategy_base_stats.items():
+                daily_pnl = stats.get('daily_pnl_series', None)
+                margin_series = stats.get('margin_series', None)
+                debug_stats.append({
+                    'Strategy': strat_name[:30],
+                    'margin_per_contract': stats.get('margin_per_contract', 'FEHLT'),
+                    'total_pnl': stats.get('total_pnl', 'FEHLT'),
+                    'kelly': stats.get('kelly', 'FEHLT'),
+                    'daily_pnl_len': len(daily_pnl) if daily_pnl is not None else 'FEHLT',
+                    'daily_pnl_sum': daily_pnl.sum() if daily_pnl is not None else 'FEHLT',
+                    'margin_series_len': len(margin_series) if margin_series is not None else 'FEHLT',
+                })
+            st.dataframe(pd.DataFrame(debug_stats), use_container_width=True)
+        else:
+            st.error("strategy_base_stats ist LEER!")
+
+        st.write("### 2. portfolio_allocation (Multiplier)")
+        st.write(f"Anzahl: **{len(st.session_state.portfolio_allocation)}**")
+        alloc_debug = []
+        for strat, mult in st.session_state.portfolio_allocation.items():
+            in_stats = strat in strategy_base_stats
+            alloc_debug.append({
+                'Strategy': strat[:30],
+                'Multiplier': mult,
+                'In strategy_base_stats?': '✅' if in_stats else '❌'
+            })
+        st.dataframe(pd.DataFrame(alloc_debug), use_container_width=True)
+
+        st.write("### 3. Test-Kalkulation")
+        test_total_pnl = 0
+        test_active = 0
+        for strat, mult in st.session_state.portfolio_allocation.items():
+            if strat in strategy_base_stats and mult > 0:
+                test_active += 1
+                stats = strategy_base_stats[strat]
+                test_total_pnl += stats['total_pnl'] * mult
+        st.write(f"Aktive Strategien (mult > 0 UND in stats): **{test_active}**")
+        st.write(f"Test Total P/L: **${test_total_pnl:,.0f}**")
+
+        st.write("### 4. full_date_range")
+        st.write(f"Start: {full_date_range[0] if len(full_date_range) > 0 else 'LEER'}")
+        st.write(f"Ende: {full_date_range[-1] if len(full_date_range) > 0 else 'LEER'}")
+        st.write(f"Anzahl Tage: {len(full_date_range)}")
 
     if not st.session_state.get('calculate_kpis', False):
         st.info("Adjust allocations and click CALCULATE to see projected performance.")
         return
 
-    # Show loading while calculating
+    # Show loading while calculating (will be cleared after metrics are computed)
     with placeholder:
         ui.show_loading_overlay("Calculating", "Computing portfolio metrics...")
-    time.sleep(0.05)
 
     # === CALCULATE METRICS ===
     port_pnl = pd.Series(0.0, index=full_date_range)
@@ -335,7 +645,7 @@ def page_portfolio_builder(full_df):
 
             cat = st.session_state.category_overrides.get(strat, stats['category'])
             if cat in category_margin:
-                s_margin = stats['margin_per_contract'] * stats['contracts_per_day'] * mult
+                s_margin = stats['margin_per_contract'] * mult
                 category_margin[cat] += s_margin
                 category_pnl[cat] += s_pnl
 
@@ -425,6 +735,7 @@ def page_portfolio_builder(full_df):
         st.session_state.mc_from_builder = True
         st.session_state.mc_new_from_builder = True
         st.session_state.navigate_to_page = "Monte Carlo"
+        # Note: main_nav_radio will be synced in app.py before widget renders
         st.rerun()
 
     # === VISUALIZATION TABS ===
@@ -433,13 +744,13 @@ def page_portfolio_builder(full_df):
     ])
 
     with viz_tab1:
-        # Strategy selection for charts
+        # Strategy selection for charts - pre-select all strategies
         active_strats = [s for s, mult in st.session_state.portfolio_allocation.items() if mult > 0 and s in strategy_base_stats]
         chart_strats = st.multiselect(
             "Select strategies to display:",
-            options=["Total Portfolio"] + active_strats,
-            default=["Total Portfolio"],
-            key="eq_chart_strat_select"
+            options=["Total Portfolio", "SPX Benchmark"] + active_strats,
+            default=["Total Portfolio"] + active_strats,  # Pre-select all
+            key="eq_chart_strat_select_v2"
         )
 
         with st.container(border=True):
@@ -450,15 +761,22 @@ def page_portfolio_builder(full_df):
 
             # Add total portfolio line if selected
             if "Total Portfolio" in chart_strats:
-                fig_eq.add_trace(go.Scatter(x=port_equity.index, y=port_equity.values, name="Total Portfolio", line=dict(width=3)))
+                fig_eq.add_trace(go.Scatter(x=port_equity.index, y=port_equity.values, name="Total Portfolio", line=dict(width=3, color=ui.COLOR_BLUE)))
+
+            # Add SPX benchmark if selected
+            if "SPX Benchmark" in chart_strats and spx is not None:
+                # Normalize SPX to start at account_size
+                spx_normalized = (spx / spx.iloc[0]) * account_size if len(spx) > 0 else None
+                if spx_normalized is not None:
+                    fig_eq.add_trace(go.Scatter(x=spx_normalized.index, y=spx_normalized.values, name="SPX Benchmark", line=dict(width=2, dash='dash', color='gray')))
 
             # Add individual strategy lines if selected
             for strat in chart_strats:
-                if strat != "Total Portfolio" and strat in strategy_base_stats:
+                if strat not in ["Total Portfolio", "SPX Benchmark"] and strat in strategy_base_stats:
                     mult = st.session_state.portfolio_allocation.get(strat, 1.0)
                     strat_pnl = strategy_base_stats[strat]['daily_pnl_series'] * mult
                     strat_equity = account_size + strat_pnl.cumsum()
-                    fig_eq.add_trace(go.Scatter(x=strat_equity.index, y=strat_equity.values, name=strat[:20]))
+                    fig_eq.add_trace(go.Scatter(x=strat_equity.index, y=strat_equity.values, name=strat[:25]))
 
             fig_eq.update_layout(xaxis_title=None, yaxis_title="Equity ($)", template="plotly_white", height=400, legend=dict(orientation="h", y=-0.15))
             fig_eq.add_hline(y=account_size, line_dash="dash", line_color="gray", annotation_text="Starting Capital")
@@ -479,12 +797,12 @@ def page_portfolio_builder(full_df):
                     fig_dd.add_trace(go.Scatter(x=dd_series.index, y=dd_series.values, fill='tozeroy', name="Total Portfolio", line=dict(color=ui.COLOR_CORAL)))
 
                 for strat in chart_strats:
-                    if strat != "Total Portfolio" and strat in strategy_base_stats:
+                    if strat not in ["Total Portfolio", "SPX Benchmark"] and strat in strategy_base_stats:
                         mult = st.session_state.portfolio_allocation.get(strat, 1.0)
                         strat_pnl = strategy_base_stats[strat]['daily_pnl_series'] * mult
                         strat_equity = account_size + strat_pnl.cumsum()
                         strat_dd = strat_equity - strat_equity.cummax()
-                        fig_dd.add_trace(go.Scatter(x=strat_dd.index, y=strat_dd.values, name=strat[:20]))
+                        fig_dd.add_trace(go.Scatter(x=strat_dd.index, y=strat_dd.values, name=strat[:25]))
 
                 fig_dd.update_layout(xaxis_title=None, yaxis_title="Drawdown ($)", template="plotly_white", height=350, legend=dict(orientation="h", y=-0.2))
             else:
@@ -498,12 +816,12 @@ def page_portfolio_builder(full_df):
                     fig_dd.add_trace(go.Scatter(x=dd_series_pct.index, y=dd_series_pct.values, fill='tozeroy', name="Total Portfolio", line=dict(color=ui.COLOR_CORAL)))
 
                 for strat in chart_strats:
-                    if strat != "Total Portfolio" and strat in strategy_base_stats:
+                    if strat not in ["Total Portfolio", "SPX Benchmark"] and strat in strategy_base_stats:
                         mult = st.session_state.portfolio_allocation.get(strat, 1.0)
                         strat_pnl = strategy_base_stats[strat]['daily_pnl_series'] * mult
                         strat_equity = account_size + strat_pnl.cumsum()
                         strat_dd_pct = (strat_equity - strat_equity.cummax()) / strat_equity.cummax() * 100
-                        fig_dd.add_trace(go.Scatter(x=strat_dd_pct.index, y=strat_dd_pct.values, name=strat[:20]))
+                        fig_dd.add_trace(go.Scatter(x=strat_dd_pct.index, y=strat_dd_pct.values, name=strat[:25]))
 
                 fig_dd.update_layout(xaxis_title=None, yaxis_title="Drawdown (%)", template="plotly_white", height=350, legend=dict(orientation="h", y=-0.2))
 
@@ -514,23 +832,32 @@ def page_portfolio_builder(full_df):
             ui.section_header("Portfolio Allocation",
                 description="Margin distribution by category and strategy.")
 
-            # Category allocation on top
-            fig_cat = go.Figure(data=[go.Pie(
-                labels=['Workhorse', 'Airbag', 'Opportunist'],
-                values=[category_margin['Workhorse'], category_margin['Airbag'], category_margin['Opportunist']],
-                hole=0.4
-            )])
-            fig_cat.update_layout(title="Margin Allocation by Category", height=350)
-            st.plotly_chart(fig_cat, use_container_width=True)
+            # Two larger pie charts side by side
+            pie_col1, pie_col2 = st.columns(2)
 
-            # Strategy allocation below
-            alloc_data = [{'Strategy': s[:20], 'Margin': strategy_base_stats[s]['margin_per_contract'] * strategy_base_stats[s]['contracts_per_day'] * m_val}
-                          for s, m_val in st.session_state.portfolio_allocation.items() if m_val > 0 and s in strategy_base_stats]
-            if alloc_data:
-                df_pie = pd.DataFrame(alloc_data)
-                fig_strat = px.pie(df_pie, values='Margin', names='Strategy', title="Margin by Strategy")
-                fig_strat.update_layout(height=400)
-                st.plotly_chart(fig_strat, use_container_width=True)
+            with pie_col1:
+                # Category allocation
+                fig_cat = go.Figure(data=[go.Pie(
+                    labels=['Workhorse', 'Airbag', 'Opportunist'],
+                    values=[category_margin['Workhorse'], category_margin['Airbag'], category_margin['Opportunist']],
+                    hole=0.4,
+                    textinfo='label+percent',
+                    marker=dict(colors=[ui.COLOR_BLUE, ui.COLOR_TEAL, ui.COLOR_CORAL])
+                )])
+                fig_cat.update_layout(title="Margin by Category", height=450, showlegend=True, legend=dict(orientation="h", y=-0.1))
+                st.plotly_chart(fig_cat, use_container_width=True)
+
+            with pie_col2:
+                # Strategy allocation
+                alloc_data = [{'Strategy': s[:25], 'StrategyFull': s, 'Margin': strategy_base_stats[s]['margin_per_contract'] * strategy_base_stats[s]['contracts_per_day'] * m_val}
+                              for s, m_val in st.session_state.portfolio_allocation.items() if m_val > 0 and s in strategy_base_stats]
+                if alloc_data:
+                    df_pie = pd.DataFrame(alloc_data)
+                    fig_strat = px.pie(df_pie, values='Margin', names='Strategy', title="Margin by Strategy",
+                                       hover_data=['StrategyFull'])
+                    fig_strat.update_layout(height=450, showlegend=True, legend=dict(orientation="h", y=-0.1))
+                    fig_strat.update_traces(textposition='inside', textinfo='percent')
+                    st.plotly_chart(fig_strat, use_container_width=True)
 
     with viz_tab3:
         with st.container(border=True):
@@ -549,10 +876,28 @@ def page_portfolio_builder(full_df):
     with viz_tab4:
         with st.container(border=True):
             ui.section_header("Strategy Correlation",
-                description=f"Correlation matrix of daily P/L between strategies. Average correlation: {avg_correlation:.2f}")
+                description="Correlation matrix of daily P/L between strategies.")
+
+            # Highlight Average Correlation prominently
+            corr_color = "hero-teal" if avg_correlation < 0.3 else ("hero-neutral" if avg_correlation < 0.6 else "hero-coral")
+            corr_hint = "Low (diversified)" if avg_correlation < 0.3 else ("Moderate" if avg_correlation < 0.6 else "High (concentrated)")
+            st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #302BFF 0%, #00BFBF 100%); padding: 20px 30px;
+                            border-radius: 12px; margin-bottom: 20px; text-align: center;">
+                    <div style="font-size: 14px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">
+                        Average Portfolio Correlation
+                    </div>
+                    <div style="font-size: 48px; font-weight: 700; color: white; font-family: 'Exo 2', sans-serif;">
+                        {avg_correlation:.2f}
+                    </div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
+                        {corr_hint} • Lower is better for diversification
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
             if len(active_strategy_returns) > 1:
-                corr_df = pd.DataFrame({s['name'][:12]: s['returns'] for s in active_strategy_returns})
+                corr_df = pd.DataFrame({s['name'][:15]: s['returns'] for s in active_strategy_returns})
                 corr_matrix = corr_df.corr()
                 fig_corr = px.imshow(corr_matrix, text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1, aspect="auto")
                 fig_corr.update_layout(height=500, margin=dict(l=10, r=10, t=30, b=10))

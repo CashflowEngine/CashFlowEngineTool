@@ -376,7 +376,7 @@ def page_monte_carlo(full_df):
 
             if n_stress > 0:
                 if injection_mode == 'random':
-                    with st.expander(f"✅ Historical Worst Days Stress Test Active", expanded=True):
+                    with st.expander(f"✅ Historical Worst Days Stress Test Active (click to see details)", expanded=False):
                         st.markdown(f"""
                         <div style='background-color: #DBEAFE; padding: 12px; border-radius: 8px; font-size: 13px;'>
                         <b>Every simulation</b> ({r['n_sims']:,} total) includes historical worst-day events.<br>
@@ -394,7 +394,7 @@ def page_monte_carlo(full_df):
                             else:
                                 st.markdown(f"  • {msg}")
                 else:
-                    with st.expander(f"✅ Black Swan Stress Test: {n_stress} event(s) per simulation", expanded=True):
+                    with st.expander(f"✅ Black Swan Stress Test: {n_stress} event(s) per simulation (click to see details)", expanded=False):
                         st.markdown(f"""
                         <div style='background-color: #FEE2E2; padding: 12px; border-radius: 8px; font-size: 13px;'>
                         <b>Every simulation</b> ({r['n_sims']:,} total) includes exactly <b>{n_stress} black swan event(s)</b>.<br>
@@ -471,6 +471,18 @@ def page_monte_carlo(full_df):
         # --- PORTFOLIO GROWTH BOX ---
         with st.container(border=True):
             ui.section_header("PORTFOLIO GROWTH", "Visualization of simulation paths")
+
+            # Explain Best/Worst paths clearly
+            st.markdown("""
+            <div style='background-color: #F0F4FF; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;'>
+                <strong>Path Legend:</strong><br>
+                • <span style='color: #00D2BE;'>■</span> <strong>Best Path</strong>: The single simulation with the highest ending value (actual best, not a percentile)<br>
+                • <span style='color: #FF6B6B;'>■</span> <strong>Worst Path</strong>: The single simulation with the lowest ending value (actual worst, not a percentile)<br>
+                • <span style='color: #7B2BFF;'>■</span> <strong>Max DD Path</strong>: The simulation with the largest drawdown during the period<br>
+                • <span style='color: #302BFF;'>■</span> <strong>Median</strong>: The 50th percentile path - typical expected outcome
+            </div>
+            """, unsafe_allow_html=True)
+
             show_paths = st.checkbox("Show individual paths", value=True)
 
             mc_paths = r['mc_paths']

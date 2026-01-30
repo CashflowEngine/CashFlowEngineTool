@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import calculations as calc
 import ui_components as ui
+import precompute
 import time
 
 def page_portfolio_analytics(full_df, live_df=None):
@@ -61,17 +62,21 @@ def page_portfolio_analytics(full_df, live_df=None):
                 if not st.session_state.pa_selected_strats:
                     st.session_state.pa_selected_strats = all_strategies.copy()
 
-            # Filter header row: Label, Select All, Recalculate - all inline
-            filter_col1, filter_col2, filter_col3 = st.columns([2, 1, 1])
+            # Filter header row: Label with Select All inline, then Recalculate button
+            filter_col1, filter_col2 = st.columns([3, 1])
             with filter_col1:
-                st.markdown("**Filter Strategies**")
+                # Put Select All right next to Filter Strategies text
+                sub_col1, sub_col2 = st.columns([2, 1])
+                with sub_col1:
+                    st.markdown("**Filter Strategies**")
+                with sub_col2:
+                    if st.button("Select All", key="select_all_strats", type="tertiary"):
+                        st.session_state.pa_selected_strats = all_strategies.copy()
+                        st.session_state.pa_recalculate = True
+                        st.rerun()
             with filter_col2:
-                if st.button("Select All", key="select_all_strats", type="tertiary"):
-                    st.session_state.pa_selected_strats = all_strategies.copy()
-                    st.session_state.pa_recalculate = True
-                    st.rerun()
-            with filter_col3:
-                if st.button("Recalculate", type="tertiary", key="recalc_btn"):
+                # Blue primary button for Recalculate
+                if st.button("Recalculate", type="primary", key="recalc_btn"):
                     st.session_state.pa_recalculate = True
                     st.rerun()
 
@@ -118,10 +123,14 @@ def page_portfolio_analytics(full_df, live_df=None):
         equity = account_size + daily_pnl.cumsum()
         ret = equity.pct_change().fillna(0)
 
-        # Benchmarking
-        spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
-        spx_ret = None
+        # Benchmarking - use cached SPX if available
+        cached_spx = precompute.get_cached('spx_benchmark')
+        if cached_spx is not None and precompute.is_cache_valid(full_df):
+            spx = cached_spx
+        else:
+            spx = calc.fetch_spx_benchmark(pd.to_datetime(dates[0]), pd.to_datetime(dates[1]))
 
+        spx_ret = None
         if spx is not None:
             spx.index = pd.to_datetime(spx.index)
             spx_filtered = spx[(spx.index.date >= dates[0]) & (spx.index.date <= dates[1])]
@@ -131,9 +140,38 @@ def page_portfolio_analytics(full_df, live_df=None):
         m = calc.calculate_advanced_metrics(ret, filt, spx_ret, account_size)
 
         # Calculate Peak/Mean Margin for KPI display
+        # Only calculate average over trading days (days with actual margin usage), not calendar days
         margin_series = calc.generate_daily_margin_series_optimized(filt)
         peak_margin = margin_series.max() if not margin_series.empty else 0
-        avg_margin = margin_series.mean() if not margin_series.empty else 0
+        # Average margin only over days with actual margin > 0 (trading days)
+        margin_trading_days = margin_series[margin_series > 0] if not margin_series.empty else margin_series
+        avg_margin = margin_trading_days.mean() if not margin_trading_days.empty else 0
+
+        # Calculate Portfolio Correlation - use cached if using all strategies and full date range
+        cached_corr = precompute.get_cached('avg_correlation')
+        use_cached_corr = (
+            cached_corr is not None and
+            precompute.is_cache_valid(full_df) and
+            set(selected_strats) == set(all_strategies) and
+            dates[0] == min_ts.date() and
+            dates[1] == max_ts.date()
+        )
+
+        if use_cached_corr:
+            avg_correlation = cached_corr
+        else:
+            avg_correlation = 0
+            if len(selected_strats) > 1:
+                pnl_matrix_kpi = pd.DataFrame(index=full_idx)
+                for s in selected_strats:
+                    s_df = filt[filt['strategy'] == s]
+                    if not s_df.empty:
+                        pnl_matrix_kpi[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
+                if len(pnl_matrix_kpi.columns) > 1:
+                    corr_matrix = pnl_matrix_kpi.corr()
+                    # Get upper triangle (excluding diagonal)
+                    corr_values = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)).stack()
+                    avg_correlation = corr_values.mean() if not corr_values.empty else 0
 
         # === KPI HIGHLIGHTS (3x6 Grid) ===
         # Row 1: Primary metrics (Teal/Coral)
@@ -162,7 +200,9 @@ def page_portfolio_analytics(full_df, live_df=None):
         r3c1, r3c2, r3c3, r3c4, r3c5, r3c6 = st.columns(6)
         with r3c1: ui.render_hero_metric("Alpha (vs SPX)", f"{m['Alpha']:.1%}", "Excess return", "hero-neutral")
         with r3c2: ui.render_hero_metric("Beta (vs SPX)", f"{m['Beta']:.2f}", "Market sensitivity", "hero-neutral")
-        with r3c3: ui.render_hero_metric("Avg Ret/Marg", f"{m['AvgRetMargin']:.1%}", "", "hero-neutral")
+        # Portfolio Correlation KPI - colorless like neighboring KPIs
+        corr_hint = "Low (diversified)" if avg_correlation < 0.3 else ("Moderate" if avg_correlation < 0.6 else "High")
+        with r3c3: ui.render_hero_metric("Portfolio Corr", f"{avg_correlation:.2f}", corr_hint, "hero-neutral")
         with r3c4: ui.render_hero_metric("Kelly", f"{m['Kelly']:.1%}", "", "hero-neutral")
         with r3c5: ui.render_hero_metric("Peak Margin", f"${peak_margin:,.0f}", f"{peak_margin/account_size:.0%} of Account", "hero-neutral")
         with r3c6: ui.render_hero_metric("Avg Margin", f"${avg_margin:,.0f}", f"{avg_margin/account_size:.0%} of Account", "hero-neutral")
@@ -231,7 +271,9 @@ def page_portfolio_analytics(full_df, live_df=None):
                 # Calculate total margin and stats
                 total_margin = margin_data.sum(axis=1)
                 margin_max = total_margin.max()
-                margin_avg = total_margin.mean()
+                # Average only over trading days (days with actual margin > 0)
+                margin_trading_days = total_margin[total_margin > 0]
+                margin_avg = margin_trading_days.mean() if not margin_trading_days.empty else 0
 
                 fig_mar = px.area(margin_data, x=margin_data.index, y=margin_data.columns,
                                   color_discrete_sequence=px.colors.qualitative.Prism)
@@ -253,8 +295,12 @@ def page_portfolio_analytics(full_df, live_df=None):
                     pnl_matrix[s] = s_df.set_index('timestamp').resample('D')['pnl'].sum().reindex(full_idx, fill_value=0)
 
             if len(selected_strats) > 1 and not pnl_matrix.empty:
-                # Truncate column names for better display
+                # Store original full names for hover display
+                original_cols = list(pnl_matrix.columns)
+
+                # Truncate column names for display, but keep mapping to full names
                 new_cols = []
+                full_name_map = {}  # Maps truncated name to full name
                 seen = {}
                 for c in pnl_matrix.columns:
                     trunc = c[:12] + ".." if len(c) > 12 else c
@@ -264,11 +310,34 @@ def page_portfolio_analytics(full_df, live_df=None):
                     else:
                         seen[trunc] = 0
                     new_cols.append(trunc)
+                    full_name_map[trunc] = c
                 pnl_matrix.columns = new_cols
 
                 corr = pnl_matrix.corr()
                 # RdBu_r: Red=positive correlation (bad for diversification), Blue=negative correlation (good)
-                fig_corr = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1, aspect="auto")
+                # Create custom hover text with full strategy names
+                hover_text = []
+                for i, row_name in enumerate(corr.index):
+                    row_hover = []
+                    for j, col_name in enumerate(corr.columns):
+                        full_row = full_name_map.get(row_name, row_name)
+                        full_col = full_name_map.get(col_name, col_name)
+                        row_hover.append(f"<b>{full_row}</b><br>vs<br><b>{full_col}</b><br>Correlation: {corr.iloc[i, j]:.2f}")
+                    hover_text.append(row_hover)
+
+                fig_corr = go.Figure(data=go.Heatmap(
+                    z=corr.values,
+                    x=corr.columns,
+                    y=corr.index,
+                    colorscale="RdBu_r",
+                    zmin=-1,
+                    zmax=1,
+                    text=corr.values,
+                    texttemplate="%{text:.2f}",
+                    textfont={"size": 10},
+                    hovertext=hover_text,
+                    hovertemplate="%{hovertext}<extra></extra>"
+                ))
                 fig_corr.update_layout(height=500, margin=dict(l=10, r=10, t=30, b=10))
                 st.plotly_chart(fig_corr, use_container_width=True)
                 st.caption("Red = positive correlation (less diversification), Blue = negative correlation (better diversification)")
@@ -337,7 +406,6 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "CAGR": s_cagr,
                     "Max DD ($)": s_dd_usd,
                     "MAR": s_mar,
-                    "MART": s_mart,
                     "Peak Margin": s_peak_margin
                 })
 
@@ -351,8 +419,8 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "CAGR": m['CAGR'],
                     "Max DD ($)": m['MaxDD_USD'],
                     "MAR": m['MAR'],
-                    "MART": m['MART'],
-                    "Peak Margin": perf_df["Peak Margin"].max()
+                    # Total Margin should be the SUM of all strategies' peak margins, not the max
+                    "Peak Margin": perf_df["Peak Margin"].sum()
                 }
                 perf_df = pd.concat([perf_df, pd.DataFrame([total_row])], ignore_index=True)
                 perf_df['CAGR'] = perf_df['CAGR'] * 100
@@ -366,7 +434,6 @@ def page_portfolio_analytics(full_df, live_df=None):
                     "CAGR": st.column_config.NumberColumn(format="%.1f%%"),
                     "Max DD ($)": st.column_config.NumberColumn(format="$%.0f"),
                     "MAR": st.column_config.NumberColumn(format="%.2f"),
-                    "MART": st.column_config.NumberColumn(format="%.2f"),
                     "Peak Margin": st.column_config.NumberColumn(format="$%.0f")
                 },
                 use_container_width=True,

@@ -3,6 +3,7 @@ import pandas as pd
 import database as db
 import calculations as calc
 import ui_components as ui
+import precompute
 
 def show_landing_page():
     """
@@ -131,6 +132,14 @@ def show_landing_page():
                             st.session_state['live_df'] = pd.concat(dfs_live, ignore_index=True)
                             st.session_state['live_filenames'] = ", ".join([f.name for f in live_files])
 
+                    # Pre-compute statistics for faster page loads and AI assistant
+                    ui.show_loading_overlay("OPTIMIZING", "Pre-computing analytics for instant access...")
+                    precompute.precompute_all(
+                        st.session_state.get('full_df'),
+                        st.session_state.get('live_df'),
+                        account_size=100000
+                    )
+
                     ui.hide_loading_overlay()
                     st.rerun()
                 else:
@@ -187,6 +196,19 @@ def show_landing_page():
         </p>
     """, unsafe_allow_html=True)
 
+    # Mapping from internal page values to radio button display keys
+    # (needed for pages where the display name differs from internal value)
+    page_to_radio_key = {
+        "Start & Data": "Start & Data",
+        "Portfolio Analytics": "Portfolio Analytics",
+        "Portfolio Builder": "Portfolio Builder",
+        "Monte Carlo": "Monte Carlo",
+        "Live vs. Backtest": "Reality Check",
+        "MEIC Deep Dive": "MEIC Deep Dive",
+        "MEIC Optimizer": "MEIC Optimizer (Beta)",
+        "AI Analyst": "AI Analyst (Coming Soon)"
+    }
+
     def render_tile(col, title, desc, target_page, coming_soon=False):
         """Render a feature tile with a styled text link."""
         with col:
@@ -223,6 +245,7 @@ def show_landing_page():
                     if link_clicked:
                         if has_data:
                             st.session_state.navigate_to_page = target_page
+                            # Note: Don't set main_nav_radio directly - it will be synced on rerun
                             st.rerun()
                         else:
                             st.session_state.show_data_warning = True
@@ -259,10 +282,10 @@ def show_landing_page():
                 "MEIC Deep Dive")
     render_tile(r2c2, "MEIC Optimizer",
                 "Generate entry signals for Option Omega based on your optimization criteria. Analyze batch results and find the most robust parameter sets for your strategy.",
-                None, coming_soon=True)
+                "MEIC Optimizer")
     render_tile(r2c3, "AI Analyst",
                 "Interact with your portfolio data using advanced AI. Ask questions about your performance, get insights on risk factors, and receive data-driven suggestions for improvement.",
-                None, coming_soon=True)
+                "AI Analyst")
     render_tile(r2c4, "Documentation",
                 "Access comprehensive guides on how to interpret metrics, use the tools effectively, and understand the mathematical models behind the calculations.",
                 None, coming_soon=True)

@@ -68,7 +68,13 @@ class GeminiClient:
             pass  # No secrets file, continue to env vars
 
         # Try environment variables
-        return os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+        api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+
+        # Also try without underscore (common mistake)
+        if not api_key:
+            api_key = os.environ.get('GEMINI_APIKEY') or os.environ.get('GOOGLEAPIKEY')
+
+        return api_key
 
     def _initialize_client(self):
         """Initialize the appropriate client based on available SDK."""
@@ -302,8 +308,22 @@ _client_instance: Optional[GeminiClient] = None
 def get_gemini_client() -> GeminiClient:
     """Get or create the Gemini client singleton."""
     global _client_instance
+
+    # If client exists but has no API key, try to recreate it
+    # (API key might have been added to environment after first load)
+    if _client_instance is not None and not _client_instance.api_key:
+        # Check if API key is now available
+        test_key = (
+            os.environ.get('GEMINI_API_KEY') or
+            os.environ.get('GOOGLE_API_KEY') or
+            os.environ.get('GEMINI_APIKEY')
+        )
+        if test_key:
+            _client_instance = None  # Reset to recreate
+
     if _client_instance is None:
         _client_instance = GeminiClient()
+
     return _client_instance
 
 
